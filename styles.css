@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* Main body font and color */
+[data-testid="stAppViewContainer"] {
+    font-family: 'Poppins', sans-serif !important;
+    color: #db5049;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background: linear-gradient(to bottom, #db5049, #b52d26);
+    color: white;
+    width: 280px;
+    padding-top: 2rem;
+}
+[data-testid="stSidebar"] * {
+    color: white;
+}
+[data-testid="stSidebarNavLink"]:hover {
+    background-color: rgba(255,255,255,0.2) !important;
+}
+
+/* Top bar styling */
+header {
+    background-color: #b0afaa !important;
+}
+header * {
+    color: #ffffff !important;
+}
+header button:hover {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    border-radius: 5px;
+}
+
+/* App background */
+.stApp {
+    background-color: #eae8dc;
+}
