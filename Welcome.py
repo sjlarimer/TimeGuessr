@@ -35,5 +35,5 @@ with col1:
     st.image("Images/Results.png")  # optional secondary image
 
 st.markdown("""## Data""")
-data = pd.read_csv("./Data/Timeguessr_Stats_Final.csv")
+data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 st.dataframe(data)

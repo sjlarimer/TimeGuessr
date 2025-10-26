@@ -9,7 +9,7 @@ import datetime
 st.title("Total Scores")
 
 # --- Load data ---
-data = pd.read_csv("./Data/Timeguessr_Stats_Final.csv")
+data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 
 # Ensure Date column is datetime
 data["Date"] = pd.to_datetime(data["Date"])
@@ -65,16 +65,16 @@ start_date, end_date = st.slider(
     format="YYYY-MM-DD"
 )
 
-# --- Recalculate rolling & cumulative averages dynamically ---
-mask["Michael Rolling Avg"] = mask["Michael Total Score"].rolling(window=window_length, min_periods=1).mean()
-mask["Sarah Rolling Avg"] = mask["Sarah Total Score"].rolling(window=window_length, min_periods=1).mean()
+# --- Filter data based on slider selection FIRST ---
+mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
+df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
 
-mask["Michael Cumulative Avg"] = mask["Michael Total Score"].expanding().mean()
-mask["Sarah Cumulative Avg"] = mask["Sarah Total Score"].expanding().mean()
+# --- Recalculate rolling & cumulative averages on filtered data ---
+mask_filtered["Michael Rolling Avg"] = mask_filtered["Michael Total Score"].rolling(window=window_length, min_periods=1).mean()
+mask_filtered["Sarah Rolling Avg"] = mask_filtered["Sarah Total Score"].rolling(window=window_length, min_periods=1).mean()
 
-# --- Filter data based on slider selection ---
-mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)]
-df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)]
+mask_filtered["Michael Cumulative Avg"] = mask_filtered["Michael Total Score"].expanding().mean()
+mask_filtered["Sarah Cumulative Avg"] = mask_filtered["Sarah Total Score"].expanding().mean()
 
 # --- Create figure ---
 fig = go.Figure()
