@@ -7,8 +7,7 @@ import numpy as np
 
 st.set_page_config(layout='wide')
 
-with open("styles.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+st.sidebar.image("Images/logo.png", width=100)
 
 # --- Top centered title ---
 st.markdown("<h1 style='text-align: center;'>Michael and Sarah</h1>", unsafe_allow_html=True)
