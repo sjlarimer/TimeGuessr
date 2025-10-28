@@ -288,7 +288,19 @@ col1, col2 = st.columns(2)
 with col1:
     # Create HTML table
     stats_html = f"""
-    <table style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
+    <style>
+    .stats-table tbody tr {{
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }}
+    .stats-table tbody tr:hover {{
+        background-color: #e0e0d1;  /* hover color */
+    }}
+    .stats-table tbody tr.selected {{
+        background-color: #c0c0b0;  /* clicked color */
+    }}
+    </style>
+    <table class="stats-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
         <thead>
             <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
                 <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Statistic</th>
@@ -392,29 +404,35 @@ with col1:
 with col2:
     # Calculate streaks with dates
     def calculate_streak_with_dates(scores, dates, threshold, above=True):
-        """Calculate longest streak above or below threshold with date range"""
+        """Calculate longest streak above or below threshold with date range.
+        If multiple streaks have the same length, return the most recent one."""
         max_streak = 0
         current_streak = 0
         max_start_idx = 0
         max_end_idx = 0
         current_start_idx = 0
-        
+
         for i, score in enumerate(scores):
             if (above and score >= threshold) or (not above and score < threshold):
                 if current_streak == 0:
                     current_start_idx = i
                 current_streak += 1
-                if current_streak > max_streak:
+
+                # Update rule: prefer *later* streaks if same length
+                if (current_streak > max_streak) or (
+                    current_streak == max_streak and i > max_end_idx
+                ):
                     max_streak = current_streak
                     max_start_idx = current_start_idx
                     max_end_idx = i
             else:
                 current_streak = 0
-        
+
         if max_streak > 0:
             start_date = dates.iloc[max_start_idx].strftime(date_format)
             end_date = dates.iloc[max_end_idx].strftime(date_format)
             return max_streak, start_date, end_date
+
         return 0, "", ""
     
     def calculate_score_change_streak(scores, dates, threshold, mode="change"):
@@ -450,11 +468,14 @@ with col2:
             diff = abs(scores[i] - scores[i - 1])
 
             if (mode == "change" and diff >= threshold) or (mode == "stable" and diff <= threshold):
-                # continue streak
                 if current_streak == 0:
                     current_start_idx = i - 1
                 current_streak += 1
-                if current_streak > max_streak:
+
+                # Prefer more recent streaks if tied
+                if (current_streak > max_streak) or (
+                    current_streak == max_streak and i > max_end_idx
+                ):
                     max_streak = current_streak
                     max_start_idx = current_start_idx
                     max_end_idx = i
@@ -529,7 +550,19 @@ with col2:
     
     # Create streaks HTML table
     streaks_html = f"""
-    <table style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
+    <style>
+    .streaks-table tbody tr {{
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }}
+    .streaks-table tbody tr:hover {{
+        background-color: #e0e0d1;  /* hover color */
+    }}
+    .streaks-table tbody tr.selected {{
+        background-color: #c0c0b0;  /* clicked color */
+    }}
+    </style>
+    <table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
         <thead>
             <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
                 <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
@@ -543,82 +576,127 @@ with col2:
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Above 45k</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_45k > sarah_streak_45k else ''}">{michael_streak_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_45k_start if michael_streak_45k > 0 else '-'}<br/>to {michael_45k_end if michael_streak_45k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_45k == 0 
+                    else (michael_45k_start if michael_45k_start == michael_45k_end 
+                            else f"{michael_45k_start}<br/>to {michael_45k_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_45k > michael_streak_45k else ''}">{sarah_streak_45k}</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_45k_start if sarah_streak_45k > 0 else '-'}<br/>to {sarah_45k_end if sarah_streak_45k > 0 else ''}</td>
             </tr>
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Above 40k</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_40k > sarah_streak_40k else ''}">{michael_streak_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_40k_start if michael_streak_40k > 0 else '-'}<br/>to {michael_40k_end if michael_streak_40k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_40k == 0 else (michael_40k_start if michael_40k_start == michael_40k_end else f"{michael_40k_start}<br/>to {michael_40k_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_40k > michael_streak_40k else ''}">{sarah_streak_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_40k_start if sarah_streak_40k > 0 else '-'}<br/>to {sarah_40k_end if sarah_streak_40k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_40k == 0 else (sarah_40k_start if sarah_40k_start == sarah_40k_end else f"{sarah_40k_start}<br/>to {sarah_40k_end}"))}
+                </td>
             </tr>
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Above 35k</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_35k > sarah_streak_35k else ''}">{michael_streak_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_35k_start if michael_streak_35k > 0 else '-'}<br/>to {michael_35k_end if michael_streak_35k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_35k == 0 else (michael_35k_start if michael_35k_start == michael_35k_end else f"{michael_35k_start}<br/>to {michael_35k_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_35k > michael_streak_35k else ''}">{sarah_streak_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_35k_start if sarah_streak_35k > 0 else '-'}<br/>to {sarah_35k_end if sarah_streak_35k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_35k == 0 else (sarah_35k_start if sarah_35k_start == sarah_35k_end else f"{sarah_35k_start}<br/>to {sarah_35k_end}"))}
+                </td>
             </tr>
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Below 35k</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_under35k > sarah_streak_under35k else ''}">{michael_streak_under35k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_under35k_start if michael_streak_under35k > 0 else '-'}<br/>to {michael_under35k_end if michael_streak_under35k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_under35k == 0 else (michael_under35k_start if michael_under35k_start == michael_under35k_end else f"{michael_under35k_start}<br/>to {michael_under35k_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_under35k > michael_streak_under35k else ''}">{sarah_streak_under35k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_under35k_start if sarah_streak_under35k > 0 else '-'}<br/>to {sarah_under35k_end if sarah_streak_under35k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_under35k == 0 else (sarah_under35k_start if sarah_under35k_start == sarah_under35k_end else f"{sarah_under35k_start}<br/>to {sarah_under35k_end}"))}
+                </td>
             </tr>
             <tr>
                 <td style="padding: 8px; color: #696761;">Below 30k</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_under30k > sarah_streak_under30k else ''}">{michael_streak_under30k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_under30k_start if michael_streak_under30k > 0 else '-'}<br/>to {michael_under30k_end if michael_streak_under30k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_under30k == 0 else (michael_under30k_start if michael_under30k_start == michael_under30k_end else f"{michael_under30k_start}<br/>to {michael_under30k_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_under30k > michael_streak_under30k else ''}">{sarah_streak_under30k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_under30k_start if sarah_streak_under30k > 0 else '-'}<br/>to {sarah_under30k_end if sarah_streak_under30k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_under30k == 0 else (sarah_under30k_start if sarah_under30k_start == sarah_under30k_end else f"{sarah_under30k_start}<br/>to {sarah_under30k_end}"))}
+                </td>
             </tr>
             <tr>
                 <td style="padding: 8px; color: #696761;">Above Average</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg > sarah_streak_above_avg else ''}">{michael_streak_above_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_above_avg_start if michael_streak_above_avg > 0 else '-'}<br/>to {michael_above_avg_end if michael_streak_above_avg > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_above_avg == 0 else (michael_above_avg_start if michael_above_avg_start == michael_above_avg_end else f"{michael_above_avg_start}<br/>to {michael_above_avg_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg > michael_streak_above_avg else ''}">{sarah_streak_above_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_above_avg_start if sarah_streak_above_avg > 0 else '-'}<br/>to {sarah_above_avg_end if sarah_streak_under30k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_above_avg == 0 else (sarah_above_avg_start if sarah_above_avg_start == sarah_above_avg_end else f"{sarah_above_avg_start}<br/>to {sarah_above_avg_end}"))}
+                </td>
             </tr>
             <tr>
                 <td style="padding: 8px; color: #696761;">Below Average</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg > sarah_streak_below_avg else ''}">{michael_streak_below_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_below_avg_start if michael_streak_below_avg > 0 else '-'}<br/>to {michael_below_avg_end if michael_streak_below_avg > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_below_avg == 0 else (michael_below_avg_start if michael_below_avg_start == michael_below_avg_end else f"{michael_below_avg_start}<br/>to {michael_below_avg_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg > michael_streak_below_avg else ''}">{sarah_streak_below_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_below_avg_start if sarah_streak_below_avg > 0 else '-'}<br/>to {sarah_below_avg_end if sarah_streak_below_avg > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_below_avg == 0 else (sarah_below_avg_start if sarah_below_avg_start == sarah_below_avg_end else f"{sarah_below_avg_start}<br/>to {sarah_below_avg_end}"))}
+                </td>
             </tr>
             <tr>
                 <td style="padding: 8px; color: #696761;">Above Opponent's Average</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg_opponent > sarah_streak_above_avg_opponent else ''}">{michael_streak_above_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_above_avg_opponent_start if michael_streak_above_avg_opponent > 0 else '-'}<br/>to {michael_above_avg_opponent_end if michael_streak_above_avg_opponent > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_above_avg_opponent == 0 else (michael_above_avg_opponent_start if michael_above_avg_opponent_start == michael_above_avg_opponent_end else f"{michael_above_avg_opponent_start}<br/>to {michael_above_avg_opponent_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg_opponent > michael_streak_above_avg_opponent else ''}">{sarah_streak_above_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_above_avg_opponent_start if sarah_streak_above_avg_opponent > 0 else '-'}<br/>to {sarah_above_avg_opponent_end if sarah_streak_under30k > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_above_avg_opponent == 0 else (sarah_above_avg_opponent_start if sarah_above_avg_opponent_start == sarah_above_avg_opponent_end else f"{sarah_above_avg_opponent_start}<br/>to {sarah_above_avg_opponent_end}"))}
+                </td>
             </tr>
             <tr>
                 <td style="padding: 8px; color: #696761;">Below Opponent's Average</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg_opponent > sarah_streak_below_avg else ''}">{michael_streak_below_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_below_avg_opponent_start if michael_streak_below_avg_opponent > 0 else '-'}<br/>to {michael_below_avg_opponent_end if michael_streak_below_avg_opponent > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg_opponent > sarah_streak_below_avg_opponent else ''}">{michael_streak_below_avg_opponent}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_streak_below_avg_opponent == 0 else (michael_below_avg_opponent_start if michael_below_avg_opponent_start == michael_below_avg_opponent_end else f"{michael_below_avg_opponent_start}<br/>to {michael_below_avg_opponent_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg_opponent > michael_streak_below_avg_opponent else ''}">{sarah_streak_below_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_below_avg_opponent_start if sarah_streak_below_avg_opponent > 0 else '-'}<br/>to {sarah_below_avg_opponent_end if sarah_streak_below_avg_opponent > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_streak_below_avg_opponent == 0 else (sarah_below_avg_opponent_start if sarah_below_avg_opponent_start == sarah_below_avg_opponent_end else f"{sarah_below_avg_opponent_start}<br/>to {sarah_below_avg_opponent_end}"))}
+                </td>
             </tr>
             <tr>
-                <td style="padding: 8px; color: #696761;">Volatile (>5000 change per day)</td>
+                <td style="padding: 8px; color: #696761;">Volatile (&gt;5000 change per day)</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_change_streak > sarah_change_streak else ''}">{michael_change_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_change_start if michael_change_streak > 0 else '-'}<br/>to {michael_change_end if michael_change_streak > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_change_streak == 0 else (michael_change_start if michael_change_start == michael_change_end else f"{michael_change_start}<br/>to {michael_change_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_change_streak > michael_change_streak else ''}">{sarah_change_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_change_start if sarah_change_streak > 0 else '-'}<br/>to {sarah_change_end if sarah_change_streak > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_change_streak == 0 else (sarah_change_start if sarah_change_start == sarah_change_end else f"{sarah_change_start}<br/>to {sarah_change_end}"))}
+                </td>
             </tr>
             <tr>
-                <td style="padding: 8px; color: #696761;">Stable (<5000 change per day)</td>
+                <td style="padding: 8px; color: #696761;">Stable (&lt;5000 change per day)</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_stable_streak > sarah_stable_streak else ''}">{michael_stable_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_stable_start if michael_stable_streak > 0 else '-'}<br/>to {michael_stable_end if michael_stable_streak > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
+                    {('-' if michael_stable_streak == 0 else (michael_stable_start if michael_stable_start == michael_stable_end else f"{michael_stable_start}<br/>to {michael_stable_end}"))}
+                </td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_stable_streak > michael_stable_streak else ''}">{sarah_stable_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_stable_start if sarah_stable_streak > 0 else '-'}<br/>to {sarah_stable_end if sarah_stable_streak > 0 else ''}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
+                    {('-' if sarah_stable_streak == 0 else (sarah_stable_start if sarah_stable_start == sarah_stable_end else f"{sarah_stable_start}<br/>to {sarah_stable_end}"))}
+                </td>
             </tr>
         </tbody>
     </table>
     """
     
     st.markdown(streaks_html, unsafe_allow_html=True)
+    
