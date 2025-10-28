@@ -186,6 +186,16 @@ st.plotly_chart(fig, use_container_width=True, key="total_scores_chart")
 st.markdown("---")
 st.subheader("Statistics Summary")
 
+# Add slider for bin size selection
+bin_size = st.slider(
+    "Select Score Bucket Size",
+    min_value=1000,
+    max_value=15000,
+    value=5000,
+    step=500,
+    help="Adjust the size of score ranges in the statistics table"
+)
+
 # Calculate statistics for Michael and Sarah
 michael_scores = df_daily_filtered["Michael Total Score"].dropna()
 sarah_scores = df_daily_filtered["Sarah Total Score"].dropna()
@@ -218,10 +228,6 @@ michael_min = michael_scores.min()
 sarah_min = sarah_scores.min()
 michael_max = michael_scores.max()
 sarah_max = sarah_scores.max()
-michael_thousand_bins = michael_scores // 1000
-michael_modal_thousand = michael_thousand_bins.mode().iloc[0]
-sarah_thousand_bins = sarah_scores // 1000
-sarah_modal_thousand = sarah_thousand_bins.mode().iloc[0]
 
 
 # Find dates for median, min, max
@@ -232,60 +238,82 @@ sarah_min_date = sarah_dates.iloc[sarah_scores.argmin()].strftime(date_format)
 michael_max_date = michael_dates.iloc[michael_scores.argmax()].strftime(date_format)
 sarah_max_date = sarah_dates.iloc[sarah_scores.argmax()].strftime(date_format)
 
-# Calculate score counts and find most recent dates for each range
-michael_45k_mask = michael_scores >= 45000
-sarah_45k_mask = sarah_scores >= 45000
-michael_45k = michael_45k_mask.sum()
-sarah_45k = sarah_45k_mask.sum()
-michael_45k_date = michael_dates[michael_45k_mask].max().strftime(date_format) if michael_45k > 0 else '-'
-sarah_45k_date = sarah_dates[sarah_45k_mask].max().strftime(date_format) if sarah_45k > 0 else '-'
+# Generate dynamic buckets based on bin_size (starting from ceiling)
+ceiling = 50000
+buckets = []
+current_upper = ceiling
 
-michael_40_45k_mask = (michael_scores >= 40000) & (michael_scores < 45000)
-sarah_40_45k_mask = (sarah_scores >= 40000) & (sarah_scores < 45000)
-michael_40_45k = michael_40_45k_mask.sum()
-sarah_40_45k = sarah_40_45k_mask.sum()
-michael_40_45k_date = michael_dates[michael_40_45k_mask].max().strftime(date_format) if michael_40_45k > 0 else '-'
-sarah_40_45k_date = sarah_dates[sarah_40_45k_mask].max().strftime(date_format) if sarah_40_45k > 0 else '-'
+while current_upper > 0:
+    current_lower = max(current_upper - bin_size, 0)
+    
+    # Calculate counts for this bucket
+    if current_upper == ceiling:
+        # Top bucket includes ceiling
+        michael_mask = michael_scores >= current_lower
+        sarah_mask = sarah_scores >= current_lower
+    else:
+        michael_mask = (michael_scores >= current_lower) & (michael_scores < current_upper)
+        sarah_mask = (sarah_scores >= current_lower) & (sarah_scores < current_upper)
+    
+    michael_count = michael_mask.sum()
+    sarah_count = sarah_mask.sum()
+    
+    # Only include bucket if either player has scores in it
+    if michael_count > 0 or sarah_count > 0:
+        michael_date = michael_dates[michael_mask].max().strftime(date_format) if michael_count > 0 else '-'
+        sarah_date = sarah_dates[sarah_mask].max().strftime(date_format) if sarah_count > 0 else '-'
+        
+        # Format bucket label
+        if current_upper == ceiling:
+            # Top bucket
+            if current_lower % 1000 == 0:
+                label = f"Scores {current_lower//1000}k+"
+            else:
+                label = f"Scores {current_lower/1000:.1f}k+"
+        elif bin_size == 1000:
+            # For 1k bins, show single value
+            if current_lower % 1000 == 0:
+                label = f"Scores {current_lower//1000}k"
+            else:
+                label = f"Scores {current_lower/1000:.1f}k"
+        else:
+            # Range format
+            lower_str = f"{current_lower//1000}k" if current_lower % 1000 == 0 else f"{current_lower/1000:.1f}k"
+            upper_str = f"{current_upper//1000}k" if current_upper % 1000 == 0 else f"{current_upper/1000:.1f}k"
+            label = f"Scores {lower_str}-{upper_str}"
+        
+        buckets.append({
+            'label': label,
+            'michael_count': michael_count,
+            'michael_date': michael_date,
+            'sarah_count': sarah_count,
+            'sarah_date': sarah_date
+        })
+    
+    current_upper = current_lower
+    if current_lower == 0:
+        break
 
-michael_35_40k_mask = (michael_scores >= 35000) & (michael_scores < 40000)
-sarah_35_40k_mask = (sarah_scores >= 35000) & (sarah_scores < 40000)
-michael_35_40k = michael_35_40k_mask.sum()
-sarah_35_40k = sarah_35_40k_mask.sum()
-michael_35_40k_date = michael_dates[michael_35_40k_mask].max().strftime(date_format) if michael_35_40k > 0 else '-'
-sarah_35_40k_date = sarah_dates[sarah_35_40k_mask].max().strftime(date_format) if sarah_35_40k > 0 else '-'
-
-michael_30_35k_mask = (michael_scores >= 30000) & (michael_scores < 35000)
-sarah_30_35k_mask = (sarah_scores >= 30000) & (sarah_scores < 35000)
-michael_30_35k = michael_30_35k_mask.sum()
-sarah_30_35k = sarah_30_35k_mask.sum()
-michael_30_35k_date = michael_dates[michael_30_35k_mask].max().strftime(date_format) if michael_30_35k > 0 else '-'
-sarah_30_35k_date = sarah_dates[sarah_30_35k_mask].max().strftime(date_format) if sarah_30_35k > 0 else '-'
-
-michael_25_30k_mask = (michael_scores >= 25000) & (michael_scores < 30000)
-sarah_25_30k_mask = (sarah_scores >= 25000) & (sarah_scores < 30000)
-michael_25_30k = michael_25_30k_mask.sum()
-sarah_25_30k = sarah_25_30k_mask.sum()
-michael_25_30k_date = michael_dates[michael_25_30k_mask].max().strftime(date_format) if michael_25_30k > 0 else '-'
-sarah_25_30k_date = sarah_dates[sarah_25_30k_mask].max().strftime(date_format) if sarah_25_30k > 0 else '-'
-
-michael_under25k_mask = michael_scores < 25000
-sarah_under25k_mask = sarah_scores < 25000
-michael_under25k = michael_under25k_mask.sum()
-sarah_under25k = sarah_under25k_mask.sum()
-michael_under25k_date = michael_dates[michael_under25k_mask].max().strftime(date_format) if michael_under25k > 0 else '-'
-sarah_under25k_date = sarah_dates[sarah_under25k_mask].max().strftime(date_format) if sarah_under25k > 0 else '-'
-
-michael_modal_mask = (michael_scores // 1000) == michael_modal_thousand
-michael_modal_count = michael_modal_mask.sum()
-michael_modal_date = michael_dates[michael_modal_mask].max().strftime(date_format) if michael_modal_count > 0 else '-'
-sarah_modal_mask = (sarah_scores // 1000) == sarah_modal_thousand
-sarah_modal_count = sarah_modal_mask.sum()
-sarah_modal_date = sarah_dates[sarah_modal_mask].max().strftime(date_format) if sarah_modal_count > 0 else '-'
 
 # Create two columns - table on left, empty on right
 col1, col2 = st.columns(2)
 
 with col1:
+    # Build bucket rows HTML
+    bucket_rows = ""
+    for i, bucket in enumerate(buckets):
+        border_style = "" if i == len(buckets) - 1 else "border-bottom: 1px solid #d9d7cc;"
+        michael_bold = "font-weight: bold;" if bucket['michael_count'] > bucket['sarah_count'] else ""
+        sarah_bold = "font-weight: bold;" if bucket['sarah_count'] > bucket['michael_count'] else ""
+        
+        bucket_rows += f"""<tr style="{border_style}">
+    <td style="padding: 8px; color: #696761;">{bucket['label']}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {michael_bold}">{bucket['michael_count']}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{bucket['michael_date']}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {sarah_bold}">{bucket['sarah_count']}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{bucket['sarah_date']}</td>
+    </tr>"""
+    
     # Create HTML table
     stats_html = f"""
     <style>
@@ -346,55 +374,7 @@ with col1:
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_max > michael_max else ''}">{sarah_max:.0f}</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_max_date}</td>
             </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Modal Thousand</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_modal_thousand > sarah_modal_thousand else ''}">{michael_modal_thousand:.0f}K</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_modal_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_modal_thousand > michael_modal_thousand else ''}">{sarah_modal_thousand:.0f}K</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_modal_date}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Scores 45k+</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_45k > sarah_45k else ''}">{michael_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_45k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_45k > michael_45k else ''}">{sarah_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_45k_date}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Scores 40-45k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_40_45k > sarah_40_45k else ''}">{michael_40_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_40_45k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_40_45k > michael_40_45k else ''}">{sarah_40_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_40_45k_date}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Scores 35-40k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_35_40k > sarah_35_40k else ''}">{michael_35_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_35_40k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_35_40k > michael_35_40k else ''}">{sarah_35_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_35_40k_date}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Scores 30-35k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_30_35k > sarah_30_35k else ''}">{michael_30_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_30_35k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_30_35k > michael_30_35k else ''}">{sarah_30_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_30_35k_date}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Scores 25-30k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_25_30k > sarah_25_30k else ''}">{michael_25_30k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_25_30k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_25_30k > michael_25_30k else ''}">{sarah_25_30k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_25_30k_date}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Scores &lt;25k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_under25k > sarah_under25k else ''}">{michael_under25k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_under25k_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_under25k > michael_under25k else ''}">{sarah_under25k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_under25k_date}</td>
-            </tr>
+            {bucket_rows}
         </tbody>
     </table>
     """
@@ -414,6 +394,48 @@ with col2:
 
         for i, score in enumerate(scores):
             if (above and score >= threshold) or (not above and score < threshold):
+                if current_streak == 0:
+                    current_start_idx = i
+                current_streak += 1
+
+                # Update rule: prefer *later* streaks if same length
+                if (current_streak > max_streak) or (
+                    current_streak == max_streak and i > max_end_idx
+                ):
+                    max_streak = current_streak
+                    max_start_idx = current_start_idx
+                    max_end_idx = i
+            else:
+                current_streak = 0
+
+        if max_streak > 0:
+            start_date = dates.iloc[max_start_idx].strftime(date_format)
+            end_date = dates.iloc[max_end_idx].strftime(date_format)
+            return max_streak, start_date, end_date
+
+        return 0, "", ""
+    
+    def calculate_cumulative_avg_streak(scores, dates, above=True):
+        """Calculate longest streak above or below cumulative average with date range.
+        Cumulative average at index i = mean of scores[0:i+1]
+        If multiple streaks have the same length, return the most recent one."""
+        if len(scores) == 0:
+            return 0, "", ""
+        
+        # Convert to numpy array for easier indexing
+        scores_array = scores.values if hasattr(scores, 'values') else scores
+            
+        max_streak = 0
+        current_streak = 0
+        max_start_idx = 0
+        max_end_idx = 0
+        current_start_idx = 0
+
+        for i in range(len(scores_array)):
+            # Calculate cumulative average up to and including current point
+            cumulative_avg = scores_array[:i+1].mean()
+            
+            if (above and scores_array[i] >= cumulative_avg) or (not above and scores_array[i] < cumulative_avg):
                 if current_streak == 0:
                     current_start_idx = i
                 current_streak += 1
@@ -489,52 +511,94 @@ with col2:
 
         return 0, "", ""
     
-    michael_streak_45k, michael_45k_start, michael_45k_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, 45000, above=True)
-    sarah_streak_45k, sarah_45k_start, sarah_45k_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, 45000, above=True)
-    
-    michael_streak_40k, michael_40k_start, michael_40k_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, 40000, above=True)
-    sarah_streak_40k, sarah_40k_start, sarah_40k_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, 40000, above=True)
-    
-    michael_streak_35k, michael_35k_start, michael_35k_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, 35000, above=True)
-    sarah_streak_35k, sarah_35k_start, sarah_35k_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, 35000, above=True)
-    
-    michael_streak_under35k, michael_under35k_start, michael_under35k_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, 35000, above=False)
-    sarah_streak_under35k, sarah_under35k_start, sarah_under35k_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, 35000, above=False)
-    
-    michael_streak_under30k, michael_under30k_start, michael_under30k_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, 30000, above=False)
-    sarah_streak_under30k, sarah_under30k_start, sarah_under30k_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, 30000, above=False)
+    # Generate streak thresholds based on bin_size (starting from ceiling)
+    ceiling = 50000
+    streak_thresholds = []
+    current_upper = ceiling
+
+    while current_upper > 0:
+        current_lower = max(current_upper - bin_size, 0)
+        
+        # Check if there's any data in this range for either player
+        if current_upper == ceiling:
+            michael_has_data = (michael_scores >= current_lower).any()
+            sarah_has_data = (sarah_scores >= current_lower).any()
+        else:
+            michael_has_data = ((michael_scores >= current_lower) & (michael_scores < current_upper)).any()
+            sarah_has_data = ((sarah_scores >= current_lower) & (sarah_scores < current_upper)).any()
+        
+        if michael_has_data or sarah_has_data:
+            # Check if ALL scores are above or below this threshold
+            michael_all_above = (michael_scores >= current_lower).all()
+            michael_all_below = (michael_scores < current_lower).all()
+            sarah_all_above = (sarah_scores >= current_lower).all()
+            sarah_all_below = (sarah_scores < current_lower).all()
+            
+            # Only include if not all data is on one side for both players
+            if not ((michael_all_above and sarah_all_above) or (michael_all_below and sarah_all_below)):
+                streak_thresholds.append(current_lower)
+        
+        current_upper = current_lower
+        if current_lower == 0:
+            break
+
+    # Calculate streaks for each threshold
+    streak_data = []
+    for threshold in streak_thresholds:
+        michael_streak, michael_start, michael_end = calculate_streak_with_dates(
+            michael_scores.values, michael_dates, threshold, above=True)
+        sarah_streak, sarah_start, sarah_end = calculate_streak_with_dates(
+            sarah_scores.values, sarah_dates, threshold, above=True)
+        
+        # Format label
+        if threshold % 1000 == 0:
+            label = f"Above {threshold//1000}k"
+        else:
+            label = f"Above {threshold/1000:.1f}k"
+        
+        streak_data.append({
+            'label': label,
+            'michael_streak': michael_streak,
+            'michael_start': michael_start,
+            'michael_end': michael_end,
+            'sarah_streak': sarah_streak,
+            'sarah_start': sarah_start,
+            'sarah_end': sarah_end
+        })
+
+    # Add below streaks (reversed order)
+    for threshold in reversed(streak_thresholds):
+        michael_streak, michael_start, michael_end = calculate_streak_with_dates(
+            michael_scores.values, michael_dates, threshold, above=False)
+        sarah_streak, sarah_start, sarah_end = calculate_streak_with_dates(
+            sarah_scores.values, sarah_dates, threshold, above=False)
+        
+        # Format label
+        if threshold % 1000 == 0:
+            label = f"Below {threshold//1000}k"
+        else:
+            label = f"Below {threshold/1000:.1f}k"
+        
+        streak_data.append({
+            'label': label,
+            'michael_streak': michael_streak,
+            'michael_start': michael_start,
+            'michael_end': michael_end,
+            'sarah_streak': sarah_streak,
+            'sarah_start': sarah_start,
+            'sarah_end': sarah_end
+        })
     
     # Calculate streaks relative to each player's average
-    michael_streak_above_avg, michael_above_avg_start, michael_above_avg_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, michael_mean, above=True)
-    sarah_streak_above_avg, sarah_above_avg_start, sarah_above_avg_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, sarah_mean, above=True)
+    michael_streak_above_avg, michael_above_avg_start, michael_above_avg_end = calculate_cumulative_avg_streak(
+        michael_scores, michael_dates, above=True)
+    sarah_streak_above_avg, sarah_above_avg_start, sarah_above_avg_end = calculate_cumulative_avg_streak(
+        sarah_scores, sarah_dates, above=True)
     
     michael_streak_below_avg, michael_below_avg_start, michael_below_avg_end = calculate_streak_with_dates(
         michael_scores.values, michael_dates, michael_mean, above=False)
     sarah_streak_below_avg, sarah_below_avg_start, sarah_below_avg_end = calculate_streak_with_dates(
         sarah_scores.values, sarah_dates, sarah_mean, above=False)
-    
-    # Calculate streaks relative to opponent's average
-    michael_streak_above_avg_opponent, michael_above_avg_opponent_start, michael_above_avg_opponent_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, sarah_mean, above=True)
-    sarah_streak_above_avg_opponent, sarah_above_avg_opponent_start, sarah_above_avg_opponent_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, michael_mean, above=True)
-    
-    michael_streak_below_avg_opponent, michael_below_avg_opponent_start, michael_below_avg_opponent_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, sarah_mean, above=False)
-    sarah_streak_below_avg_opponent, sarah_below_avg_opponent_start, sarah_below_avg_opponent_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, michael_mean, above=False)
     
     # Longest streak where score changes by ≥ 10k each day
     michael_change_streak, michael_change_start, michael_change_end = calculate_score_change_streak(
@@ -548,153 +612,96 @@ with col2:
     sarah_stable_streak, sarah_stable_start, sarah_stable_end = calculate_score_change_streak(
         sarah_scores.values, sarah_dates, threshold=5000, mode="stable")
     
+    # Build streak rows HTML
+    streak_rows = ""
+    for i, streak in enumerate(streak_data):
+        michael_bold = "font-weight: bold;" if streak['michael_streak'] > streak['sarah_streak'] else ""
+        sarah_bold = "font-weight: bold;" if streak['sarah_streak'] > streak['michael_streak'] else ""
+        
+        michael_dates_str = '-' if streak['michael_streak'] == 0 else (streak['michael_start'] if streak['michael_start'] == streak['michael_end'] else f"{streak['michael_start']}<br/>to {streak['michael_end']}")
+        sarah_dates_str = '-' if streak['sarah_streak'] == 0 else (streak['sarah_start'] if streak['sarah_start'] == streak['sarah_end'] else f"{streak['sarah_start']}<br/>to {streak['sarah_end']}")
+        
+        streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
+    <td style="padding: 8px; color: #696761;">{streak['label']}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {michael_bold}">{streak['michael_streak']}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_dates_str}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {sarah_bold}">{streak['sarah_streak']}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_dates_str}</td>
+    </tr>"""
+
+    # Add cumulative average streaks
+    michael_above_dates = '-' if michael_streak_above_avg == 0 else (michael_above_avg_start if michael_above_avg_start == michael_above_avg_end else f"{michael_above_avg_start}<br/>to {michael_above_avg_end}")
+    sarah_above_dates = '-' if sarah_streak_above_avg == 0 else (sarah_above_avg_start if sarah_above_avg_start == sarah_above_avg_end else f"{sarah_above_avg_start}<br/>to {sarah_above_avg_end}")
+
+    streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
+    <td style="padding: 8px; color: #696761;">Above Cumulative Average</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg > sarah_streak_above_avg else ''}">{michael_streak_above_avg}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_above_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg > michael_streak_above_avg else ''}">{sarah_streak_above_avg}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_above_dates}</td>
+    </tr>"""
+
+    michael_below_dates = '-' if michael_streak_below_avg == 0 else (michael_below_avg_start if michael_below_avg_start == michael_below_avg_end else f"{michael_below_avg_start}<br/>to {michael_below_avg_end}")
+    sarah_below_dates = '-' if sarah_streak_below_avg == 0 else (sarah_below_avg_start if sarah_below_avg_start == sarah_below_avg_end else f"{sarah_below_avg_start}<br/>to {sarah_below_avg_end}")
+
+    streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
+    <td style="padding: 8px; color: #696761;">Below Cumulative Average</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg > sarah_streak_below_avg else ''}">{michael_streak_below_avg}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_below_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg > michael_streak_below_avg else ''}">{sarah_streak_below_avg}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_below_dates}</td>
+    </tr>"""
+
+    # Add volatile and stable streaks
+    michael_change_dates = '-' if michael_change_streak == 0 else (michael_change_start if michael_change_start == michael_change_end else f"{michael_change_start}<br/>to {michael_change_end}")
+    sarah_change_dates = '-' if sarah_change_streak == 0 else (sarah_change_start if sarah_change_start == sarah_change_end else f"{sarah_change_start}<br/>to {sarah_change_end}")
+
+    streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
+    <td style="padding: 8px; color: #696761;">Volatile (&gt;5000 change per day)</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_change_streak > sarah_change_streak else ''}">{michael_change_streak}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_change_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_change_streak > michael_change_streak else ''}">{sarah_change_streak}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_change_dates}</td>
+    </tr>"""
+
+    michael_stable_dates = '-' if michael_stable_streak == 0 else (michael_stable_start if michael_stable_start == michael_stable_end else f"{michael_stable_start}<br/>to {michael_stable_end}")
+    sarah_stable_dates = '-' if sarah_stable_streak == 0 else (sarah_stable_start if sarah_stable_start == sarah_stable_end else f"{sarah_stable_start}<br/>to {sarah_stable_end}")
+
+    streak_rows += f"""<tr>
+    <td style="padding: 8px; color: #696761;">Stable (&lt;5000 change per day)</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_stable_streak > sarah_stable_streak else ''}">{michael_stable_streak}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_stable_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_stable_streak > michael_stable_streak else ''}">{sarah_stable_streak}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_stable_dates}</td>
+    </tr>"""
+
     # Create streaks HTML table
     streaks_html = f"""
     <style>
     .streaks-table tbody tr {{
-        cursor: pointer;
-        transition: background-color 0.2s;
+    cursor: pointer;
+    transition: background-color 0.2s;
     }}
     .streaks-table tbody tr:hover {{
-        background-color: #e0e0d1;  /* hover color */
+    background-color: #e0e0d1;
     }}
     .streaks-table tbody tr.selected {{
-        background-color: #c0c0b0;  /* clicked color */
+    background-color: #c0c0b0;
     }}
     </style>
     <table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
-        <thead>
-            <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
-                <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
-                <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
-                <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Dates</th>
-                <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
-                <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Dates</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Above 45k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_45k > sarah_streak_45k else ''}">{michael_streak_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_45k == 0 
-                    else (michael_45k_start if michael_45k_start == michael_45k_end 
-                            else f"{michael_45k_start}<br/>to {michael_45k_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_45k > michael_streak_45k else ''}">{sarah_streak_45k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_45k_start if sarah_streak_45k > 0 else '-'}<br/>to {sarah_45k_end if sarah_streak_45k > 0 else ''}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Above 40k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_40k > sarah_streak_40k else ''}">{michael_streak_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_40k == 0 else (michael_40k_start if michael_40k_start == michael_40k_end else f"{michael_40k_start}<br/>to {michael_40k_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_40k > michael_streak_40k else ''}">{sarah_streak_40k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_40k == 0 else (sarah_40k_start if sarah_40k_start == sarah_40k_end else f"{sarah_40k_start}<br/>to {sarah_40k_end}"))}
-                </td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Above 35k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_35k > sarah_streak_35k else ''}">{michael_streak_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_35k == 0 else (michael_35k_start if michael_35k_start == michael_35k_end else f"{michael_35k_start}<br/>to {michael_35k_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_35k > michael_streak_35k else ''}">{sarah_streak_35k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_35k == 0 else (sarah_35k_start if sarah_35k_start == sarah_35k_end else f"{sarah_35k_start}<br/>to {sarah_35k_end}"))}
-                </td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Below 35k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_under35k > sarah_streak_under35k else ''}">{michael_streak_under35k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_under35k == 0 else (michael_under35k_start if michael_under35k_start == michael_under35k_end else f"{michael_under35k_start}<br/>to {michael_under35k_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_under35k > michael_streak_under35k else ''}">{sarah_streak_under35k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_under35k == 0 else (sarah_under35k_start if sarah_under35k_start == sarah_under35k_end else f"{sarah_under35k_start}<br/>to {sarah_under35k_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Below 30k</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_under30k > sarah_streak_under30k else ''}">{michael_streak_under30k}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_under30k == 0 else (michael_under30k_start if michael_under30k_start == michael_under30k_end else f"{michael_under30k_start}<br/>to {michael_under30k_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_under30k > michael_streak_under30k else ''}">{sarah_streak_under30k}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_under30k == 0 else (sarah_under30k_start if sarah_under30k_start == sarah_under30k_end else f"{sarah_under30k_start}<br/>to {sarah_under30k_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Above Average</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg > sarah_streak_above_avg else ''}">{michael_streak_above_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_above_avg == 0 else (michael_above_avg_start if michael_above_avg_start == michael_above_avg_end else f"{michael_above_avg_start}<br/>to {michael_above_avg_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg > michael_streak_above_avg else ''}">{sarah_streak_above_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_above_avg == 0 else (sarah_above_avg_start if sarah_above_avg_start == sarah_above_avg_end else f"{sarah_above_avg_start}<br/>to {sarah_above_avg_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Below Average</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg > sarah_streak_below_avg else ''}">{michael_streak_below_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_below_avg == 0 else (michael_below_avg_start if michael_below_avg_start == michael_below_avg_end else f"{michael_below_avg_start}<br/>to {michael_below_avg_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg > michael_streak_below_avg else ''}">{sarah_streak_below_avg}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_below_avg == 0 else (sarah_below_avg_start if sarah_below_avg_start == sarah_below_avg_end else f"{sarah_below_avg_start}<br/>to {sarah_below_avg_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Above Opponent's Average</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg_opponent > sarah_streak_above_avg_opponent else ''}">{michael_streak_above_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_above_avg_opponent == 0 else (michael_above_avg_opponent_start if michael_above_avg_opponent_start == michael_above_avg_opponent_end else f"{michael_above_avg_opponent_start}<br/>to {michael_above_avg_opponent_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg_opponent > michael_streak_above_avg_opponent else ''}">{sarah_streak_above_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_above_avg_opponent == 0 else (sarah_above_avg_opponent_start if sarah_above_avg_opponent_start == sarah_above_avg_opponent_end else f"{sarah_above_avg_opponent_start}<br/>to {sarah_above_avg_opponent_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Below Opponent's Average</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg_opponent > sarah_streak_below_avg_opponent else ''}">{michael_streak_below_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_streak_below_avg_opponent == 0 else (michael_below_avg_opponent_start if michael_below_avg_opponent_start == michael_below_avg_opponent_end else f"{michael_below_avg_opponent_start}<br/>to {michael_below_avg_opponent_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg_opponent > michael_streak_below_avg_opponent else ''}">{sarah_streak_below_avg_opponent}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_streak_below_avg_opponent == 0 else (sarah_below_avg_opponent_start if sarah_below_avg_opponent_start == sarah_below_avg_opponent_end else f"{sarah_below_avg_opponent_start}<br/>to {sarah_below_avg_opponent_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Volatile (&gt;5000 change per day)</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_change_streak > sarah_change_streak else ''}">{michael_change_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_change_streak == 0 else (michael_change_start if michael_change_start == michael_change_end else f"{michael_change_start}<br/>to {michael_change_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_change_streak > michael_change_streak else ''}">{sarah_change_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_change_streak == 0 else (sarah_change_start if sarah_change_start == sarah_change_end else f"{sarah_change_start}<br/>to {sarah_change_end}"))}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px; color: #696761;">Stable (&lt;5000 change per day)</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_stable_streak > sarah_stable_streak else ''}">{michael_stable_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">
-                    {('-' if michael_stable_streak == 0 else (michael_stable_start if michael_stable_start == michael_stable_end else f"{michael_stable_start}<br/>to {michael_stable_end}"))}
-                </td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_stable_streak > michael_stable_streak else ''}">{sarah_stable_streak}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">
-                    {('-' if sarah_stable_streak == 0 else (sarah_stable_start if sarah_stable_start == sarah_stable_end else f"{sarah_stable_start}<br/>to {sarah_stable_end}"))}
-                </td>
-            </tr>
-        </tbody>
+    <thead>
+    <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
+    <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
+    <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
+    <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Dates</th>
+    <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
+    <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Dates</th>
+    </tr>
+    </thead>
+    <tbody>
+    {streak_rows}
+    </tbody>
     </table>
     """
     
