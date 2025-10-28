@@ -34,7 +34,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 872,3,Havana,,Cuba,2006
 872,4,Ocean City,New Jersey,United States,2017
 872,5,Oslo,,Norway,1950
-873,1,Washington DC,,United States,1964
+873,1,Washington DC,Washington DC,United States,1964
 873,2,Zagreb,,Croatia,1947
 873,3,Moscow,,Russia,1991
 873,4,Monrovia,,Liberia,2014
@@ -59,7 +59,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 879,3,Berlin,,Germany,1941
 879,4,New York,New York,United States,1911
 879,5,Athens,,Greece,1991
-880,1,Washington DC,,United States,1945
+880,1,Washington DC,Washington DC,United States,1945
 880,2,Helsinki,,Finland,1950
 880,3,Abidja,,Ivory Coast,2025
 880,4,St. Petersburg,,Russia,1968

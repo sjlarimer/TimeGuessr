@@ -48,7 +48,7 @@ TimeGuessr #872
 5. Oslo, Norway, 1950
 
 TimeGuessr #873
-1. Washington DC, United States, 1964
+1. Washington DC (Washington DC), United States, 1964
 2. Zagreb, Croatia, 1947
 3. Moscow, Russia, 1991
 4. Monrovia, Liberia, 2014
@@ -83,7 +83,7 @@ TimeGuessr #879
 5. Athens, Greece, 1991
 
 TimeGuessr #880
-1. Washington DC, United States, 1945
+1. Washington DC (Washington DC), United States, 1945
 2. Helsinki, Finland, 1950
 3. Abidja, Ivory Coast, 2025
 4. St. Petersburg, Russia, 1968
