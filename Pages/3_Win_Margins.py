@@ -269,3 +269,142 @@ fig.update_yaxes(
 
 # --- Display in Streamlit ---
 st.plotly_chart(fig, use_container_width=True, key="win_margins_chart")
+
+# --- Win Summary Table ---
+
+# Define win conditions
+michael_wins = mask_filtered[mask_filtered["Score Diff"] > 0]
+sarah_wins = mask_filtered[mask_filtered["Score Diff"] < 0]
+
+def recent_date(series):
+    return series.max().strftime("%Y-%m-%d") if not series.empty else "-"
+
+# --- Helper function to compute category counts and dates ---
+def get_win_stats(df, lower, upper, is_michael=True):
+    if is_michael:
+        cond = (df["Score Diff"] > lower) & (df["Score Diff"] <= upper)
+    else:
+        cond = (df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper)
+    subset = df[cond]
+    return len(subset), recent_date(subset["Date"])
+
+# --- Calculate all tiers ---
+michael_win_count = len(michael_wins)
+sarah_win_count = len(sarah_wins)
+michael_recent_win = recent_date(michael_wins["Date"])
+sarah_recent_win = recent_date(sarah_wins["Date"])
+
+michael_over_10k, michael_recent_10k = get_win_stats(michael_wins, 10000, np.inf, True)
+sarah_over_10k, sarah_recent_10k = get_win_stats(sarah_wins, 10000, np.inf, False)
+
+michael_5_10k, michael_recent_5_10k = get_win_stats(michael_wins, 5000, 10000, True)
+sarah_5_10k, sarah_recent_5_10k = get_win_stats(sarah_wins, 5000, 10000, False)
+
+michael_2_5k, michael_recent_2_5k = get_win_stats(michael_wins, 2500, 5000, True)
+sarah_2_5k, sarah_recent_2_5k = get_win_stats(sarah_wins, 2500, 5000, False)
+
+michael_1_2_5k, michael_recent_1_2_5k = get_win_stats(michael_wins, 1000, 2500, True)
+sarah_1_2_5k, sarah_recent_1_2_5k = get_win_stats(sarah_wins, 1000, 2500, False)
+
+michael_under_1k, michael_recent_under_1k = get_win_stats(michael_wins, 0, 1000, True)
+sarah_under_1k, sarah_recent_under_1k = get_win_stats(sarah_wins, 0, 1000, False)
+
+# --- Largest and Smallest Wins ---
+michael_largest_win = michael_wins["Score Diff"].max() if not michael_wins.empty else "-"
+michael_largest_date = michael_wins.loc[michael_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+michael_smallest_win = michael_wins["Score Diff"].min() if not michael_wins.empty else "-"
+michael_smallest_date = michael_wins.loc[michael_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+
+sarah_largest_win = sarah_wins["Score Diff"].min() if not sarah_wins.empty else "-"
+sarah_largest_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+sarah_smallest_win = sarah_wins["Score Diff"].max() if not sarah_wins.empty else "-"
+sarah_smallest_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+
+# --- Styled HTML Table ---
+win_summary_html = f"""
+<style>
+.streaks-table tbody tr {{
+    cursor: pointer;
+    transition: background-color 0.2s;
+}}
+.streaks-table tbody tr:hover {{
+    background-color: #e0e0d1;
+}}
+.streaks-table tbody tr.selected {{
+    background-color: #c0c0b0;
+}}
+</style>
+
+<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
+    <thead>
+        <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
+            <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Category</th>
+            <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
+            <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Date</th>
+            <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
+            <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Wins</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_win_count}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_win}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_win_count}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_win}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Massive Wins (>10k)</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_over_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_over_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_10k}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Big Wins (5–10k)</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_5_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_5_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_5_10k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_5_10k}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Small Wins (2.5–5k)</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_2_5k}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Close Wins (1–2.5k)</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_1_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_1_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_1_2_5k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_1_2_5k}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Very CLose Wins (&lt;1k)</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_under_1k}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent_under_1k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_under_1k}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent_under_1k}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Largest Win</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_largest_win}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_largest_date}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{abs(sarah_largest_win) if sarah_largest_win != '-' else '-'}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_largest_date}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Smallest Win</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_smallest_win}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_smallest_date}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{abs(sarah_smallest_win) if sarah_smallest_win != '-' else '-'}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_smallest_date}</td>
+        </tr>
+    </tbody>
+</table>
+"""
+
+st.markdown(win_summary_html, unsafe_allow_html=True)
+
