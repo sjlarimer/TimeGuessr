@@ -15,6 +15,13 @@ input_col, score_col = st.columns([2, 1])
 
 with input_col:
     # Top section - Name, Date, Round Number
+    date = st.date_input(
+    "Date",
+    value=datetime.date.today(),
+    max_value=datetime.date.today()
+)
+    round_number = st.selectbox("Round Number", options=[None, 1, 2, 3, 4, 5], format_func=lambda x: "Select a round" if x is None else str(x))
+
     name = st.text_input("Name")
 
     # Validate name
@@ -24,13 +31,6 @@ with input_col:
             st.error("Name must be either 'Michael' or 'Sarah'")
         else:
             name_valid = True
-
-    date = st.date_input(
-    "Date",
-    value=datetime.date.today(),
-    max_value=datetime.date.today()
-)
-    round_number = st.selectbox("Round Number", options=[None, 1, 2, 3, 4, 5], format_func=lambda x: "Select a round" if x is None else str(x))
 
 # Display score summary if name and date are selected
 with score_col:
@@ -294,8 +294,8 @@ if name_valid and date and round_number is not None:
                 if not actual_year.isdigit() or len(actual_year) != 4:
                     st.error("Year must be a 4-digit number")
                     year_valid = False
-                elif not (1900 <= int(actual_year) <= 2100):
-                    st.error("Year must be between 1900 and 2100")
+                elif not (1900 <= int(actual_year) <= date.year):
+                    st.error(f"Year must be between 1900 and {date.year}")
                     year_valid = False
             elif row_exists and not edit_mode_actual:
                 year_valid = True
@@ -529,8 +529,8 @@ if name_valid and date and round_number is not None:
             if year_guessed:
                 if not year_guessed.isdigit() or len(year_guessed) != 4:
                     st.error("Year must be a 4-digit number")
-                elif not (1900 <= int(year_guessed) <= 2100):
-                    st.error("Year must be between 1900 and 2100")
+                elif not (1900 <= int(year_guessed) <= date.year):
+                    st.error(f"Year must be between 1900 and {date.year}")
                 else:
                     year_guessed_valid = True
                     
