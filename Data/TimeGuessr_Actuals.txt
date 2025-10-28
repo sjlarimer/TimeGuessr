@@ -81,3 +81,10 @@ TimeGuessr #879
 3. Berlin, Germany, 1941
 4. New York (New York), United States, 1911
 5. Athens, Greece, 1991
+
+TimeGuessr #880
+1. Washington DC, United States, 1945
+2. Helsinki, Finland, 1950
+3. Abidja, Ivory Coast, 2025
+4. St. Petersburg, Russia, 1968
+5. Dubai, United Arab Emirates, 2006
