@@ -88,3 +88,11 @@ TimeGuessr #880
 3. Abidja, Ivory Coast, 2025
 4. St. Petersburg, Russia, 1968
 5. Dubai, United Arab Emirates, 2006
+
+TimeGuessr #881
+1. Tokyo, Japan, 2012
+2. Jerusalem, Israel, 2025
+3. Los Angeles (California), United States, 1994
+4. Caracas, Venezuela, 1988
+5. Amsterdam, Netherlands, 1950
+
