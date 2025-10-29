@@ -406,5 +406,135 @@ win_summary_html = f"""
 </table>
 """
 
-st.markdown(win_summary_html, unsafe_allow_html=True)
+# --- Calculate Win Streaks ---
+def calculate_streaks(df):
+    """Calculate win streaks for both players"""
+    streaks = []
+    current_streak = 0
+    current_winner = None
+    streak_start = None
+    
+    for idx, row in df.iterrows():
+        if row["Score Diff"] > 0:
+            winner = "Michael"
+        elif row["Score Diff"] < 0:
+            winner = "Sarah"
+        else:
+            continue  # Skip ties
+        
+        if winner == current_winner:
+            current_streak += 1
+        else:
+            if current_winner is not None and current_streak > 0:
+                streaks.append({
+                    'winner': current_winner,
+                    'length': current_streak,
+                    'start_date': streak_start,
+                    'end_date': df.iloc[idx-1]["Date"]
+                })
+            current_winner = winner
+            current_streak = 1
+            streak_start = row["Date"]
+    
+    # Add final streak
+    if current_winner is not None and current_streak > 0:
+        streaks.append({
+            'winner': current_winner,
+            'length': current_streak,
+            'start_date': streak_start,
+            'end_date': df.iloc[-1]["Date"]
+        })
+    
+    return streaks
 
+streaks = calculate_streaks(mask_filtered)
+
+# Find longest streaks
+michael_streaks = [s for s in streaks if s['winner'] == 'Michael']
+sarah_streaks = [s for s in streaks if s['winner'] == 'Sarah']
+
+michael_longest = max(michael_streaks, key=lambda x: x['length']) if michael_streaks else None
+sarah_longest = max(sarah_streaks, key=lambda x: x['length']) if sarah_streaks else None
+
+michael_longest_length = michael_longest['length'] if michael_longest else "-"
+michael_longest_date = f"{michael_longest['start_date'].strftime('%Y-%m-%d')} to {michael_longest['end_date'].strftime('%Y-%m-%d')}" if michael_longest else "-"
+
+sarah_longest_length = sarah_longest['length'] if sarah_longest else "-"
+sarah_longest_date = f"{sarah_longest['start_date'].strftime('%Y-%m-%d')} to {sarah_longest['end_date'].strftime('%Y-%m-%d')}" if sarah_longest else "-"
+
+# Current streak
+current_streak_winner = streaks[-1]['winner'] if streaks else None
+current_streak_length = streaks[-1]['length'] if streaks else 0
+current_streak_start = streaks[-1]['start_date'].strftime('%Y-%m-%d') if streaks else "-"
+
+michael_current_streak = current_streak_length if current_streak_winner == "Michael" else 0
+michael_current_date = current_streak_start if current_streak_winner == "Michael" else "-"
+
+sarah_current_streak = current_streak_length if current_streak_winner == "Sarah" else 0
+sarah_current_date = current_streak_start if current_streak_winner == "Sarah" else "-"
+
+# Determine max streak length
+max_streak = max([s['length'] for s in streaks]) if streaks else 0
+
+# Count streaks at each length (each streak only counted once at its actual length)
+def count_streaks_at_length(streaks_list, min_length):
+    """Count how many streaks are >= min_length"""
+    return sum(1 for s in streaks_list if s['length'] >= min_length)
+
+# Build streak count rows
+streak_rows_html = ""
+for streak_len in range(max_streak, 0, -1):
+    michael_count = count_streaks_at_length(michael_streaks, streak_len)
+    sarah_count = count_streaks_at_length(sarah_streaks, streak_len)
+    
+    # Get most recent date for streaks of this length or greater
+    michael_recent_streaks = [s for s in michael_streaks if s['length'] >= streak_len]
+    sarah_recent_streaks = [s for s in sarah_streaks if s['length'] >= streak_len]
+    
+    michael_recent = max([s['end_date'] for s in michael_recent_streaks]).strftime('%Y-%m-%d') if michael_recent_streaks else "-"
+    sarah_recent = max([s['end_date'] for s in sarah_recent_streaks]).strftime('%Y-%m-%d') if sarah_recent_streaks else "-"
+    
+    streak_rows_html += f"""<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Streaks ≥ {streak_len}</td><td style="padding: 8px; text-align: center; color: #221e8f;">{michael_count}</td><td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_recent}</td><td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_count}</td><td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_recent}</td></tr>"""
+
+# --- Streaks Table HTML ---
+streaks_html = f"""
+<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
+    <thead>
+        <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
+            <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
+            <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
+            <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Date(s)</th>
+            <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
+            <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Date(s)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Current Streak</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_current_streak}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_current_date}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_current_streak}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_current_date}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #d9d7cc;">
+            <td style="padding: 8px; color: #696761;">Longest Streak</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f;">{michael_longest_length}</td>
+            <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_longest_date}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15;">{sarah_longest_length}</td>
+            <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_longest_date}</td>
+        </tr>
+        {streak_rows_html}
+    </tbody>
+</table>
+"""
+
+# --- Display tables side by side ---
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("### Win Summary")
+    st.markdown(win_summary_html, unsafe_allow_html=True)
+
+with col2:
+    st.markdown("### Streaks")
+    st.markdown(streaks_html, unsafe_allow_html=True)
