@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import datetime
+import re
 
 st.title("Total Scores")
 
@@ -187,12 +188,10 @@ st.markdown("---")
 st.subheader("Statistics Summary")
 
 # Add slider for bin size selection
-bin_size = st.slider(
+bin_size = st.select_slider(
     "Select Score Bucket Size",
-    min_value=1000,
-    max_value=15000,
+    options=[500, 1000, 2000, 2500, 3000, 4000, 5000, 7500, 10000, 15000],
     value=5000,
-    step=500,
     help="Adjust the size of score ranges in the statistics table"
 )
 
@@ -229,91 +228,126 @@ sarah_min = sarah_scores.min()
 michael_max = michael_scores.max()
 sarah_max = sarah_scores.max()
 
+# Calculate quartiles
+michael_q1 = michael_scores.quantile(0.25)
+sarah_q1 = sarah_scores.quantile(0.25)
+michael_q3 = michael_scores.quantile(0.75)
+sarah_q3 = sarah_scores.quantile(0.75)
 
-# Find dates for median, min, max
+# Find dates for quartiles, median, min, max
 michael_median_date = michael_dates.iloc[(michael_scores - michael_median).abs().argmin()].strftime(date_format)
 sarah_median_date = sarah_dates.iloc[(sarah_scores - sarah_median).abs().argmin()].strftime(date_format)
+michael_q1_date = michael_dates.iloc[(michael_scores - michael_q1).abs().argmin()].strftime(date_format)
+sarah_q1_date = sarah_dates.iloc[(sarah_scores - sarah_q1).abs().argmin()].strftime(date_format)
+michael_q3_date = michael_dates.iloc[(michael_scores - michael_q3).abs().argmin()].strftime(date_format)
+sarah_q3_date = sarah_dates.iloc[(sarah_scores - sarah_q3).abs().argmin()].strftime(date_format)
 michael_min_date = michael_dates.iloc[michael_scores.argmin()].strftime(date_format)
 sarah_min_date = sarah_dates.iloc[sarah_scores.argmin()].strftime(date_format)
 michael_max_date = michael_dates.iloc[michael_scores.argmax()].strftime(date_format)
 sarah_max_date = sarah_dates.iloc[sarah_scores.argmax()].strftime(date_format)
 
-# Generate dynamic buckets based on bin_size (starting from ceiling)
-ceiling = 50000
-buckets = []
-current_upper = ceiling
-
-while current_upper > 0:
-    current_lower = max(current_upper - bin_size, 0)
-    
-    # Calculate counts for this bucket
-    if current_upper == ceiling:
-        # Top bucket includes ceiling
-        michael_mask = michael_scores >= current_lower
-        sarah_mask = sarah_scores >= current_lower
-    else:
-        michael_mask = (michael_scores >= current_lower) & (michael_scores < current_upper)
-        sarah_mask = (sarah_scores >= current_lower) & (sarah_scores < current_upper)
-    
-    michael_count = michael_mask.sum()
-    sarah_count = sarah_mask.sum()
-    
-    # Only include bucket if either player has scores in it
-    if michael_count > 0 or sarah_count > 0:
-        michael_date = michael_dates[michael_mask].max().strftime(date_format) if michael_count > 0 else '-'
-        sarah_date = sarah_dates[sarah_mask].max().strftime(date_format) if sarah_count > 0 else '-'
-        
-        # Format bucket label
-        if current_upper == ceiling:
-            # Top bucket
-            if current_lower % 1000 == 0:
-                label = f"Scores {current_lower//1000}k+"
-            else:
-                label = f"Scores {current_lower/1000:.1f}k+"
-        elif bin_size == 1000:
-            # For 1k bins, show single value
-            if current_lower % 1000 == 0:
-                label = f"Scores {current_lower//1000}k"
-            else:
-                label = f"Scores {current_lower/1000:.1f}k"
-        else:
-            # Range format
-            lower_str = f"{current_lower//1000}k" if current_lower % 1000 == 0 else f"{current_lower/1000:.1f}k"
-            upper_str = f"{current_upper//1000}k" if current_upper % 1000 == 0 else f"{current_upper/1000:.1f}k"
-            label = f"Scores {lower_str}-{upper_str}"
-        
-        buckets.append({
-            'label': label,
-            'michael_count': michael_count,
-            'michael_date': michael_date,
-            'sarah_count': sarah_count,
-            'sarah_date': sarah_date
-        })
-    
-    current_upper = current_lower
-    if current_lower == 0:
-        break
-
-
 # Create two columns - table on left, empty on right
 col1, col2 = st.columns(2)
 
 with col1:
-    # Build bucket rows HTML
+    # Generate dynamic buckets based on bin_size (starting from ceiling) - only if bin_size >= 2500
     bucket_rows = ""
-    for i, bucket in enumerate(buckets):
-        border_style = "" if i == len(buckets) - 1 else "border-bottom: 1px solid #d9d7cc;"
-        michael_bold = "font-weight: bold;" if bucket['michael_count'] > bucket['sarah_count'] else ""
-        sarah_bold = "font-weight: bold;" if bucket['sarah_count'] > bucket['michael_count'] else ""
-        
-        bucket_rows += f"""<tr style="{border_style}">
+    if bin_size >= 2500:
+        ceiling = 50000
+        buckets = []
+        current_upper = ceiling
+
+        while current_upper > 0:
+            current_lower = max(current_upper - bin_size, 0)
+            
+            # Calculate counts for this bucket
+            if current_upper == ceiling:
+                # Top bucket includes ceiling
+                michael_mask = michael_scores >= current_lower
+                sarah_mask = sarah_scores >= current_lower
+            else:
+                michael_mask = (michael_scores >= current_lower) & (michael_scores < current_upper)
+                sarah_mask = (sarah_scores >= current_lower) & (sarah_scores < current_upper)
+            
+            michael_count = michael_mask.sum()
+            sarah_count = sarah_mask.sum()
+            
+            # Only include bucket if either player has scores in it
+            if michael_count > 0 or sarah_count > 0:
+                michael_date = michael_dates[michael_mask].max().strftime(date_format) if michael_count > 0 else '-'
+                sarah_date = sarah_dates[sarah_mask].max().strftime(date_format) if sarah_count > 0 else '-'
+                
+                # Format bucket label
+                if current_upper == ceiling:
+                    # Top bucket
+                    if current_lower % 1000 == 0:
+                        label = f"Scores {current_lower//1000}k+"
+                    else:
+                        label = f"Scores {current_lower/1000:.1f}k+"
+                elif bin_size == 1000:
+                    # For 1k bins, show single value
+                    if current_lower % 1000 == 0:
+                        label = f"Scores {current_lower//1000}k"
+                    else:
+                        label = f"Scores {current_lower/1000:.1f}k"
+                else:
+                    # Range format
+                    lower_str = f"{current_lower//1000}k" if current_lower % 1000 == 0 else f"{current_lower/1000:.1f}k"
+                    upper_str = f"{current_upper//1000}k" if current_upper % 1000 == 0 else f"{current_upper/1000:.1f}k"
+                    label = f"Scores {lower_str}-{upper_str}"
+                
+                buckets.append({
+                    'label': label,
+                    'michael_count': michael_count,
+                    'michael_date': michael_date,
+                    'sarah_count': sarah_count,
+                    'sarah_date': sarah_date
+                })
+            
+            current_upper = current_lower
+            if current_lower == 0:
+                break
+
+        # Build bucket rows HTML
+        for i, bucket in enumerate(buckets):
+            border_style = "" if i == len(buckets) - 1 else "border-bottom: 1px solid #d9d7cc;"
+            michael_bold = "font-weight: bold;" if bucket['michael_count'] > bucket['sarah_count'] else ""
+            sarah_bold = "font-weight: bold;" if bucket['sarah_count'] > bucket['michael_count'] else ""
+            
+            # Determine which date is most recent for bolding
+            michael_date_obj = None
+            sarah_date_obj = None
+            if bucket['michael_date'] != '-':
+                try:
+                    michael_date_obj = pd.to_datetime(bucket['michael_date'], format=date_format)
+                except:
+                    pass
+            if bucket['sarah_date'] != '-':
+                try:
+                    sarah_date_obj = pd.to_datetime(bucket['sarah_date'], format=date_format)
+                except:
+                    pass
+            
+            michael_date_bold = ""
+            sarah_date_bold = ""
+            if michael_date_obj and sarah_date_obj:
+                if michael_date_obj > sarah_date_obj:
+                    michael_date_bold = "font-weight: bold;"
+                elif sarah_date_obj > michael_date_obj:
+                    sarah_date_bold = "font-weight: bold;"
+            elif michael_date_obj and not sarah_date_obj:
+                michael_date_bold = "font-weight: bold;"
+            elif sarah_date_obj and not michael_date_obj:
+                sarah_date_bold = "font-weight: bold;"
+            
+            bucket_rows += f"""<tr style="{border_style}">
     <td style="padding: 8px; color: #696761;">{bucket['label']}</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {michael_bold}">{bucket['michael_count']}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{bucket['michael_date']}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {sarah_bold}">{bucket['sarah_count']}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{bucket['sarah_date']}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_date_bold}">{bucket['michael_date']}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_date_bold}">{bucket['sarah_date']}</td>
     </tr>"""
-    
+
     # Create HTML table
     stats_html = f"""
     <style>
@@ -333,8 +367,8 @@ with col1:
             <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
                 <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Statistic</th>
                 <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
-                <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Date</th>
                 <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
+                <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Date</th>
                 <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Date</th>
             </tr>
         </thead>
@@ -342,44 +376,132 @@ with col1:
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Mean</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_mean > sarah_mean else ''}">{michael_mean:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">-</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_mean > michael_mean else ''}">{sarah_mean:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">-</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">-</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Median</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_median > sarah_median else ''}">{michael_median:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_median_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_median > michael_median else ''}">{sarah_median:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_median_date}</td>
             </tr>
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Standard Deviation</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_std > sarah_std else ''}">{michael_std:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">-</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_std > michael_std else ''}">{sarah_std:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">-</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">-</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #d9d7cc;">
-                <td style="padding: 8px; color: #696761;">Min</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_min > sarah_min else ''}">{michael_min:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_min_date}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_min > michael_min else ''}">{sarah_min:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_min_date}</td>
             </tr>
             <tr style="border-bottom: 1px solid #d9d7cc;">
                 <td style="padding: 8px; color: #696761;">Max</td>
                 <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_max > sarah_max else ''}">{michael_max:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_max_date}</td>
                 <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_max > michael_max else ''}">{sarah_max:.0f}</td>
-                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_max_date}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(michael_max_date, format=date_format) > pd.to_datetime(sarah_max_date, format=date_format) else ''}">{michael_max_date}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(sarah_max_date, format=date_format) > pd.to_datetime(michael_max_date, format=date_format) else ''}">{sarah_max_date}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #d9d7cc;">
+                <td style="padding: 8px; color: #696761;">Median</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_median > sarah_median else ''}">{michael_median:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_median > michael_median else ''}">{sarah_median:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(michael_median_date, format=date_format) > pd.to_datetime(sarah_median_date, format=date_format) else ''}">{michael_median_date}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(sarah_median_date, format=date_format) > pd.to_datetime(michael_median_date, format=date_format) else ''}">{sarah_median_date}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #d9d7cc;">
+                <td style="padding: 8px; color: #696761;">Min</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_min > sarah_min else ''}">{michael_min:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_min > michael_min else ''}">{sarah_min:.0f}</td>
+                <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(michael_min_date, format=date_format) > pd.to_datetime(sarah_min_date, format=date_format) else ''}">{michael_min_date}</td>
+                <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {'font-weight: bold;' if pd.to_datetime(sarah_min_date, format=date_format) > pd.to_datetime(michael_min_date, format=date_format) else ''}">{sarah_min_date}</td>
             </tr>
             {bucket_rows}
         </tbody>
     </table>
     """
+    stats_html = re.sub(r'\n\s*\n\s*</tbody>', '\n    </tbody>', stats_html)
     
     st.markdown(stats_html, unsafe_allow_html=True)
+    
+    # Create histogram below table
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    hist_fig = go.Figure()
+    
+    # Align bins from 50000 downwards
+    max_ceiling = 50000
+    
+    # Create histograms with the bin_size, aligned from ceiling
+    hist_fig.add_trace(go.Histogram(
+        x=michael_scores,
+        name='Michael',
+        marker_color='#221e8f',
+        opacity=0.7,
+        xbins=dict(
+            size=bin_size,
+            start=max_ceiling - int(np.ceil(max_ceiling / bin_size) * bin_size),
+            end=max_ceiling
+        )
+    ))
+    
+    hist_fig.add_trace(go.Histogram(
+        x=sarah_scores,
+        name='Sarah',
+        marker_color='#bf8f15',
+        opacity=0.7,
+        xbins=dict(
+            size=bin_size,
+            start=max_ceiling - int(np.ceil(max_ceiling / bin_size) * bin_size),
+            end=max_ceiling
+        )
+    ))
+    
+    # Generate tick values to match bucket boundaries (from 50000 downwards)
+    min_score = min(michael_scores.min(), sarah_scores.min())
+    
+    # Calculate how many bins we need below 50000
+    bins_needed = int(np.ceil((max_ceiling - min_score) / bin_size))
+    tick_start = max_ceiling - (bins_needed * bin_size)
+    
+    # Create tick values at every bin boundary, going up to 50000
+    tick_values = list(range(tick_start, max_ceiling + 1, bin_size))
+    
+    hist_fig.update_layout(
+        barmode='overlay',
+        xaxis_title='Score',
+        yaxis_title='Count',
+        height=400,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor='#eae8dc',
+        plot_bgcolor='#d9d7cc',
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color='#696761')
+        ),
+    )
+    
+    hist_fig.update_xaxes(
+        showgrid=True,
+        gridcolor='#bdbbb1',
+        zeroline=False,
+        linecolor='#8f8d85',
+        tickcolor='#8f8d85',
+        tickfont=dict(color='#696761'),
+        title_font=dict(color='#696761'),
+        tickmode='array',
+        tickvals=tick_values
+    )
+    hist_fig.update_yaxes(
+        showgrid=True,
+        gridcolor='#bdbbb1',
+        zeroline=False,
+        linecolor='#8f8d85',
+        tickcolor='#8f8d85',
+        tickfont=dict(color='#696761'),
+        title_font=dict(color='#696761')
+    )
+    
+    st.plotly_chart(hist_fig, use_container_width=True, key="histogram_chart")
 
 with col2:
     # Calculate streaks with dates
@@ -505,8 +627,8 @@ with col2:
                 current_streak = 0  # reset streak
 
         if max_streak > 0:
-            start_date = dates.iloc[max_start_idx].strftime("%Y-%m-%d")
-            end_date = dates.iloc[max_end_idx].strftime("%Y-%m-%d")
+            start_date = dates.iloc[max_start_idx].strftime(date_format)
+            end_date = dates.iloc[max_end_idx].strftime(date_format)
             return max_streak, start_date, end_date
 
         return 0, "", ""
@@ -621,58 +743,145 @@ with col2:
         michael_dates_str = '-' if streak['michael_streak'] == 0 else (streak['michael_start'] if streak['michael_start'] == streak['michael_end'] else f"{streak['michael_start']}<br/>to {streak['michael_end']}")
         sarah_dates_str = '-' if streak['sarah_streak'] == 0 else (streak['sarah_start'] if streak['sarah_start'] == streak['sarah_end'] else f"{streak['sarah_start']}<br/>to {streak['sarah_end']}")
         
+        # Determine which streak is more recent for bolding
+        michael_date_bold = ""
+        sarah_date_bold = ""
+        if streak['michael_streak'] > 0 and streak['sarah_streak'] > 0:
+            try:
+                michael_end_date = pd.to_datetime(streak['michael_end'], format=date_format)
+                sarah_end_date = pd.to_datetime(streak['sarah_end'], format=date_format)
+                if michael_end_date > sarah_end_date:
+                    michael_date_bold = "font-weight: bold;"
+                elif sarah_end_date > michael_end_date:
+                    sarah_date_bold = "font-weight: bold;"
+            except:
+                pass
+        elif streak['michael_streak'] > 0:
+            michael_date_bold = "font-weight: bold;"
+        elif streak['sarah_streak'] > 0:
+            sarah_date_bold = "font-weight: bold;"
+        
         streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
     <td style="padding: 8px; color: #696761;">{streak['label']}</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {michael_bold}">{streak['michael_streak']}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_dates_str}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {sarah_bold}">{streak['sarah_streak']}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_dates_str}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_date_bold}">{michael_dates_str}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_date_bold}">{sarah_dates_str}</td>
     </tr>"""
 
     # Add cumulative average streaks
     michael_above_dates = '-' if michael_streak_above_avg == 0 else (michael_above_avg_start if michael_above_avg_start == michael_above_avg_end else f"{michael_above_avg_start}<br/>to {michael_above_avg_end}")
     sarah_above_dates = '-' if sarah_streak_above_avg == 0 else (sarah_above_avg_start if sarah_above_avg_start == sarah_above_avg_end else f"{sarah_above_avg_start}<br/>to {sarah_above_avg_end}")
 
+    # Determine which is more recent
+    michael_above_date_bold = ""
+    sarah_above_date_bold = ""
+    if michael_streak_above_avg > 0 and sarah_streak_above_avg > 0:
+        try:
+            michael_above_end = pd.to_datetime(michael_above_avg_end, format=date_format)
+            sarah_above_end = pd.to_datetime(sarah_above_avg_end, format=date_format)
+            if michael_above_end > sarah_above_end:
+                michael_above_date_bold = "font-weight: bold;"
+            elif sarah_above_end > michael_above_end:
+                sarah_above_date_bold = "font-weight: bold;"
+        except:
+            pass
+    elif michael_streak_above_avg > 0:
+        michael_above_date_bold = "font-weight: bold;"
+    elif sarah_streak_above_avg > 0:
+        sarah_above_date_bold = "font-weight: bold;"
+
     streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
     <td style="padding: 8px; color: #696761;">Above Cumulative Average</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_above_avg > sarah_streak_above_avg else ''}">{michael_streak_above_avg}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_above_dates}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_above_avg > michael_streak_above_avg else ''}">{sarah_streak_above_avg}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_above_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_above_date_bold}">{michael_above_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_above_date_bold}">{sarah_above_dates}</td>
     </tr>"""
 
     michael_below_dates = '-' if michael_streak_below_avg == 0 else (michael_below_avg_start if michael_below_avg_start == michael_below_avg_end else f"{michael_below_avg_start}<br/>to {michael_below_avg_end}")
     sarah_below_dates = '-' if sarah_streak_below_avg == 0 else (sarah_below_avg_start if sarah_below_avg_start == sarah_below_avg_end else f"{sarah_below_avg_start}<br/>to {sarah_below_avg_end}")
 
+    michael_below_date_bold = ""
+    sarah_below_date_bold = ""
+    if michael_streak_below_avg > 0 and sarah_streak_below_avg > 0:
+        try:
+            michael_below_end = pd.to_datetime(michael_below_avg_end, format=date_format)
+            sarah_below_end = pd.to_datetime(sarah_below_avg_end, format=date_format)
+            if michael_below_end > sarah_below_end:
+                michael_below_date_bold = "font-weight: bold;"
+            elif sarah_below_end > michael_below_end:
+                sarah_below_date_bold = "font-weight: bold;"
+        except:
+            pass
+    elif michael_streak_below_avg > 0:
+        michael_below_date_bold = "font-weight: bold;"
+    elif sarah_streak_below_avg > 0:
+        sarah_below_date_bold = "font-weight: bold;"
+
     streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
     <td style="padding: 8px; color: #696761;">Below Cumulative Average</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_streak_below_avg > sarah_streak_below_avg else ''}">{michael_streak_below_avg}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_below_dates}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_streak_below_avg > michael_streak_below_avg else ''}">{sarah_streak_below_avg}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_below_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_below_date_bold}">{michael_below_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_below_date_bold}">{sarah_below_dates}</td>
     </tr>"""
 
     # Add volatile and stable streaks
     michael_change_dates = '-' if michael_change_streak == 0 else (michael_change_start if michael_change_start == michael_change_end else f"{michael_change_start}<br/>to {michael_change_end}")
     sarah_change_dates = '-' if sarah_change_streak == 0 else (sarah_change_start if sarah_change_start == sarah_change_end else f"{sarah_change_start}<br/>to {sarah_change_end}")
 
+    michael_change_date_bold = ""
+    sarah_change_date_bold = ""
+    if michael_change_streak > 0 and sarah_change_streak > 0:
+        try:
+            michael_change_end_date = pd.to_datetime(michael_change_end, format=date_format)
+            sarah_change_end_date = pd.to_datetime(sarah_change_end, format=date_format)
+            if michael_change_end_date > sarah_change_end_date:
+                michael_change_date_bold = "font-weight: bold;"
+            elif sarah_change_end_date > michael_change_end_date:
+                sarah_change_date_bold = "font-weight: bold;"
+        except:
+            pass
+    elif michael_change_streak > 0:
+        michael_change_date_bold = "font-weight: bold;"
+    elif sarah_change_streak > 0:
+        sarah_change_date_bold = "font-weight: bold;"
+
     streak_rows += f"""<tr style="border-bottom: 1px solid #d9d7cc;">
     <td style="padding: 8px; color: #696761;">Volatile (&gt;5000 change per day)</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_change_streak > sarah_change_streak else ''}">{michael_change_streak}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_change_dates}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_change_streak > michael_change_streak else ''}">{sarah_change_streak}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_change_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_change_date_bold}">{michael_change_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_change_date_bold}">{sarah_change_dates}</td>
     </tr>"""
 
     michael_stable_dates = '-' if michael_stable_streak == 0 else (michael_stable_start if michael_stable_start == michael_stable_end else f"{michael_stable_start}<br/>to {michael_stable_end}")
     sarah_stable_dates = '-' if sarah_stable_streak == 0 else (sarah_stable_start if sarah_stable_start == sarah_stable_end else f"{sarah_stable_start}<br/>to {sarah_stable_end}")
 
+    michael_stable_date_bold = ""
+    sarah_stable_date_bold = ""
+    if michael_stable_streak > 0 and sarah_stable_streak > 0:
+        try:
+            michael_stable_end_date = pd.to_datetime(michael_stable_end, format=date_format)
+            sarah_stable_end_date = pd.to_datetime(sarah_stable_end, format=date_format)
+            if michael_stable_end_date > sarah_stable_end_date:
+                michael_stable_date_bold = "font-weight: bold;"
+            elif sarah_stable_end_date > michael_stable_end_date:
+                sarah_stable_date_bold = "font-weight: bold;"
+        except:
+            pass
+    elif michael_stable_streak > 0:
+        michael_stable_date_bold = "font-weight: bold;"
+    elif sarah_stable_streak > 0:
+        sarah_stable_date_bold = "font-weight: bold;"
+
     streak_rows += f"""<tr>
     <td style="padding: 8px; color: #696761;">Stable (&lt;5000 change per day)</td>
     <td style="padding: 8px; text-align: center; color: #221e8f; {'font-weight: bold;' if michael_stable_streak > sarah_stable_streak else ''}">{michael_stable_streak}</td>
-    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px;">{michael_stable_dates}</td>
     <td style="padding: 8px; text-align: center; color: #bf8f15; {'font-weight: bold;' if sarah_stable_streak > michael_stable_streak else ''}">{sarah_stable_streak}</td>
-    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px;">{sarah_stable_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #221e8f; font-size: 11px; {michael_stable_date_bold}">{michael_stable_dates}</td>
+    <td style="padding: 8px; text-align: center; color: #bf8f15; font-size: 11px; {sarah_stable_date_bold}">{sarah_stable_dates}</td>
     </tr>"""
 
     # Create streaks HTML table
@@ -694,9 +903,9 @@ with col2:
     <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
     <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
     <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Michael</th>
-    <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Dates</th>
     <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Sarah</th>
-    <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Dates</th>
+    <th style="padding: 10px; text-align: center; color: #221e8f; font-weight: 600;">Date</th>
+    <th style="padding: 10px; text-align: center; color: #bf8f15; font-weight: 600;">Date</th>
     </tr>
     </thead>
     <tbody>
