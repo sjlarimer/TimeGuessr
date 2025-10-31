@@ -103,3 +103,9 @@ TimeGuessr #882
 4. Zagreb, Croatia, 1963
 5. Cork, Ireland, 1920
 
+TimeGuessr #883
+1. Los Angeles (California), United States, 1938
+2. Rabat, Morocco, 2024
+3. Krefeld (North Rhine-Westphalia), Germany, 1945
+4. Bratislava, Slovakia, 1974
+5. Mulhouse, France, 1959
