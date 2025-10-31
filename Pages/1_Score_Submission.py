@@ -369,12 +369,59 @@ if name_valid and date:
         # Store all guess data
         guess_rounds_data = {}
         
+        # Build formatted total score text
+        default_total_score = ""
+        if not guess_df.empty:
+            existing = guess_df[guess_df['Timeguessr Day'] == timeguessr_day]
+            if len(existing) > 0:
+                # Get total score from first row (should be same for all rounds of that day)
+                total_score_val = existing.iloc[0].get(f'{name} Total Score')
+                if pd.notna(total_score_val) and total_score_val != '':
+                    total_score_formatted = f"{int(total_score_val):,}/50,000"
+                else:
+                    total_score_formatted = "_____/50,000"
+                
+                # Build the formatted string
+                default_total_score = f"TimeGuessr #{timeguessr_day} {total_score_formatted}\n"
+                
+                # Convert O/X/% to emojis
+                def convert_to_emoji(s):
+                    if pd.isna(s) or s == "":
+                        return "⬛️⬛️⬛️"
+                    result = ""
+                    for char in s:
+                        if char == "O":
+                            result += "🟩"
+                        elif char == "%":
+                            result += "🟨"
+                        elif char == "X":
+                            result += "⬛️"
+                    return result
+                
+                # Add each round
+                for round_num in range(1, 6):
+                    round_data = existing[existing['Timeguessr Round'] == round_num]
+                    if len(round_data) > 0:
+                        geo_string = round_data.iloc[0].get(f'{name} Geography', '')
+                        time_string = round_data.iloc[0].get(f'{name} Time', '')
+                        geo_display = convert_to_emoji(geo_string)
+                        time_display = convert_to_emoji(time_string)
+                    else:
+                        geo_display = "⬛️⬛️⬛️"
+                        time_display = "⬛️⬛️⬛️"
+                    
+                    default_total_score += f"🌎{geo_display} 📅{time_display}\n"
+                
+                # Remove trailing newline
+                default_total_score = default_total_score.rstrip('\n')
+        
         # Add Total Score input before rounds
         st.text_area("Total Score", 
-                    value="", 
+                    value=default_total_score, 
                     key=f"total_score_text_{date}",
                     help="Share Your Results from TimeGuessr!",
-                    height=180)
+                    height=180,
+                    disabled=(any_guess_exists and not edit_mode_guess))
         
         for round_num in range(1, 6):
             st.markdown(f"**Round {round_num}**")
@@ -697,5 +744,7 @@ if name_valid and date:
                         parsed_df.to_csv(parsed_path, index=False)
                         st.success(f"All guesses submitted successfully!")
                         st.rerun()
+                    else:
+                        st.error("Please fill out all fields correctly for all 5 rounds before submitting.")
                 except Exception as e:
-                    st.error(f"Error preparing submit guesses UI: {e}")
+                    st.error(f"Error submitting guesses: {e}")
