@@ -6,6 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 import datetime
 import os
+from streamlit.components.v1 import html as components_html
 from Score_Update import score_update
 
 st.title("Score Submission")
@@ -35,65 +36,59 @@ with input_col:
 
 # Display score summary if name and date are selected
 with score_col:
-    st.markdown("""
+    st.markdown(
+        """
         <style>
-        /* make internal spacing very tight */
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
-            gap: 0.08rem !important;
-        }
-
-        /* force the score container to move up (actual movement) */
-        .score-container {
-            position: relative;
-            top: -44px;
-            margin-bottom: 0 !important;
-        }
-
-        .score-header {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin: 0 0 5px 0;
-            line-height: 1;
-        }
-        .score-total {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #db5049;
-            margin: 0 0 5px 0;
-            line-height: 1;
-        }
-        .score-sub {
-            font-size: 1.2rem;
-            margin: 0 0 1px 0;
-            line-height: 1;
-        }
-        .round-row {
-            font-size: 1.0rem;
-            margin: 0 0 2px 0;
-            line-height: 1.08;
-        }
-        hr { margin: 6px 0 !important; }
-        
-        /* Red labels for input fields and toggles */
-        label[data-testid="stWidgetLabel"] p {
-            color: #db5049 !important;
-        }
-        
-        /* Red text for toggle labels - more specific selectors */
-        label[data-testid="stWidgetLabel"] span {
-            color: #db5049 !important;
-        }
-        
-        /* Target toggle text specifically */
-        div[data-testid="stToggle"] label span {
-            color: #db5049 !important;
-        }
-        
-        div[data-testid="stToggle"] label p {
-            color: #db5049 !important;
-        }
+            .score-container {
+                text-align: center;
+                background-color: #fff;
+                padding: 15px 0 5px 0;
+                margin-top: -25px; /* moves section up */
+                border-radius: 12px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                width: 100%;
+            }
+            .score-header {
+                font-size: 26px !important;
+                font-weight: 800 !important;
+                margin-bottom: 6px !important;
+                color: #333 !important;
+            }
+            .score-total {
+                font-size: 24px !important;
+                color: #db5049 !important;
+                font-weight: 800 !important;
+                margin-bottom: 8px !important;
+            }
+            .score-sub {
+                font-size: 20px !important;
+                color: #555 !important;
+                margin-bottom: 6px !important;
+            }
+            .round-row {
+                font-size: 18px !important;
+                margin: 8px 0 !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 16px !important;
+            }
+            .bar {
+                width: 180px !important;
+                height: 14px !important;
+                border-radius: 8px !important;
+                background-color: #b0afaa !important;
+                overflow: hidden !important;
+                position: relative !important;
+            }
+            .bar-fill {
+                height: 100% !important;
+                background-color: #db5049 !important;
+            }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     if name_valid and date:
         try:
@@ -106,56 +101,157 @@ with score_col:
                 total_score_col = f"{name} Total Score"
                 total_score = date_rows.iloc[0][total_score_col]
 
-                # check for full 5 rounds
                 all_rounds = date_rows[date_rows["Timeguessr Round"].between(1, 5)]
                 geo_sum = all_rounds[f"{name} Geography Score"].fillna(0).sum()
                 time_sum = all_rounds[f"{name} Time Score"].fillna(0).sum()
 
-                st.markdown("<div class='score-container'>", unsafe_allow_html=True)
-                st.markdown(f"<div class='score-header'>TimeGuessr #{int(timeguessr_day)}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='score-total'>{int(total_score):,}/50,000</div>", unsafe_allow_html=True)
+                # Build a compact HTML card that is lifted up to align with page title
+                html_parts = []
+                html_parts.append(f"""
+                <style>
+                /* compact, lifted card */
+                .tg-container {{
+                position: relative;
+                top: -36px;                 /* LIFT the whole block upward to align with st.title */
+                font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+                padding:8px 10px;           /* compact padding */
+                overflow: hidden;
+                box-sizing: border-box;
+                max-width: 360px;           /* keep it compact in the right column */
+                }}
+                .tg-header {{
+                color:#db5049;
+                font-weight:700;
+                font-size:20px;
+                margin:0 0 4px 0;
+                line-height:1;
+                }}
+                .tg-total {{
+                color:#222;
+                font-size:18px;
+                font-weight:600;
+                margin:0 0 6px 0;
+                line-height:1;
+                }}
+                .tg-sub {{
+                font-size:14px;
+                margin:0 0 6px 0;
+                line-height:1;
+                color:#333;
+                }}
+                .tg-rounds-wrapper {{
+                margin-top:-6px;            /* pull rounds up slightly beneath the subs */
+                }}
+                .tg-round {{
+                margin:6px 0;               /* very tight vertical spacing */
+                }}
+                .tg-round-title {{
+                color:#db5049;
+                font-weight:600;
+                font-size:15px;
+                margin:0 0 6px 0;
+                line-height:1;
+                }}
+                .tg-row {{
+                display:flex;
+                gap:10px;
+                align-items:center;
+                flex-wrap:nowrap;
+                }}
+                .tg-half {{
+                width:49%;
+                }}
+                /* unfinished = light gray, finished = red */
+                .tg-bar-bg {{
+                background:#b0afaa;  /* incomplete */
+                border-radius:8px;
+                height:12px;
+                overflow:hidden;
+                }}
+                .tg-bar-fill {{
+                height:12px;
+                border-radius:8px;
+                background:#db5049;  /* completed */
+                }}
+                .tg-score-note {{
+                font-size:13px;
+                margin:0 0 6px 0;
+                }}
+                .tg-qq {{
+                color:#db5049;
+                font-weight:700;
+                font-size:16px;
+                margin:6px 0;
+                }}
+                /* make numbers align nicely */
+                .tg-score-note small {{ color:#444; }}
+                </style>
 
-                # subtotals
-                st.markdown(f"<div class='score-sub'>🌎 Geography: <b>{int(geo_sum):,}</b>/25,000</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='score-sub'>📅 Time: <b>{int(time_sum):,}</b>/25,000</div>", unsafe_allow_html=True)
+                <div class="tg-container">
+                <div class="tg-header">TimeGuessr #{int(timeguessr_day)}</div>
+                """)
 
-                st.markdown("<hr>", unsafe_allow_html=True)
+                total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
+                html_parts.append(f'<div class="tg-total">{total_text}</div>')
 
-                geo_col = f"{name} Geography"
-                time_col = f"{name} Time"
+                if geo_sum == 0 and time_sum == 0:
+                    html_parts.append('<div class="tg-sub">🌎 Geography: <b>???</b>/25,000</div>')
+                    html_parts.append('<div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
+                else:
+                    html_parts.append(f'<div class="tg-sub">🌎 Geography: <b>{int(geo_sum):,}</b>/25,000</div>')
+                    html_parts.append(f'<div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
+
+                html_parts.append('<div class="tg-rounds-wrapper">')
+
+                def half_bar_html(score):
+                    if score is None or pd.isna(score):
+                        return '<div class="tg-qq">???</div>'
+                    pct = min(max(float(score) / 5000.0 * 100.0, 0.0), 100.0)
+                    return f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%;"></div></div>'
+
+                geo_score_col = f"{name} Geography Score"
+                time_score_col = f"{name} Time Score"
 
                 for round_num in range(1, 6):
                     round_data = date_rows[date_rows["Timeguessr Round"] == round_num]
-
-                    def convert_to_emoji(s):
-                        if pd.isna(s) or s == "":
-                            return "MISSING"
-                        result = ""
-                        for char in s:
-                            if char == "O":
-                                result += "🟩"
-                            elif char == "%":
-                                result += "🟨"
-                            elif char == "X":
-                                result += "⬛"
-                        return result
-
                     if len(round_data) > 0:
-                        geo_string = round_data.iloc[0][geo_col]
-                        time_string = round_data.iloc[0][time_col]
-                        geo_display = convert_to_emoji(geo_string)
-                        time_display = convert_to_emoji(time_string)
+                        geo_score = round_data.iloc[0].get(geo_score_col, None)
+                        time_score = round_data.iloc[0].get(time_score_col, None)
                     else:
-                        geo_display = time_display = "MISSING"
+                        geo_score = time_score = None
 
-                    if geo_display == "MISSING" or time_display == "MISSING":
-                        display_text = "<b style='color:red;'>MISSING</b>"
+                    if pd.isna(total_score) or pd.isna(geo_score) or pd.isna(time_score):
+                        html_parts.append(f'''
+                        <div class="tg-round">
+                            <div class="tg-round-title">Round {round_num}</div>
+                            <div class="tg-qq">???</div>
+                        </div>
+                        ''')
                     else:
-                        display_text = f"🌎{geo_display} &nbsp;&nbsp;📅{time_display}"
+                        geo_html = half_bar_html(geo_score)
+                        time_html = half_bar_html(time_score)
+                        html_parts.append(f'''
+                        <div class="tg-round">
+                            <div class="tg-round-title">Round {round_num}</div>
+                            <div class="tg-row">
+                            <div class="tg-half">
+                                <div class="tg-score-note">🌎 <small>{int(geo_score):,}/5,000</small></div>
+                                {geo_html}
+                            </div>
+                            <div class="tg-half">
+                                <div class="tg-score-note">📅 <small>{int(time_score):,}/5,000</small></div>
+                                {time_html}
+                            </div>
+                            </div>
+                        </div>
+                        ''')
 
-                    st.markdown(f"<div class='round-row'>{display_text}</div>", unsafe_allow_html=True)
+                html_parts.append('</div>')  # end rounds wrapper
+                html_parts.append('</div>')  # end container
+                full_html = "\n".join(html_parts)
 
-                st.markdown("</div>", unsafe_allow_html=True)
+                # Render with a smaller height so it doesn't go down far, and no scrolling
+                components_html(full_html, height=520, scrolling=False)
 
         except FileNotFoundError:
             pass
