@@ -3,7 +3,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 862,2,Helsinki,,Finland,1926
 862,3,Pyongyang,,North Korea,1994
 862,4,Chicago,Illinois,United States,1940
-862,5,Paris,,France,2025
+862,5,Paris,Ile-de-France,France,2025
 865,1,Zurich,,Switzerland,1953
 865,2,Helsinki,,Finland,1926
 865,3,St. George's,,Grenada,1983
@@ -12,7 +12,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 866,1,Budapest,,Hungary,1956
 866,2,Sarajevo,,Bosnia,1984
 866,3,Manchester,New Hampshire,United States,1918
-866,4,Brisbane,,Australia,1910
+866,4,Brisbane,Queensland,Australia,1910
 866,5,Collana,,Bolivia,2012
 867,1,Lisbon,,Portugal,1935
 867,2,Tokyo,,Japan,2008
@@ -21,7 +21,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 867,5,Mexico City,,Mexico,1962
 868,1,London,,United Kingdom,1970
 868,2,Katowice,,Poland,1929
-868,3,Edmonton,,Canada,1913
+868,3,Edmonton,Alberta,Canada,1913
 868,4,Venice,,Italy,1973
 868,5,Memphis,Tennessee,United States,2025
 869,1,Heemskerk,,Netherlands,1990
@@ -43,7 +43,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 874,2,Caracas,,Venezuela,1988
 874,3,Barcelona,,Spain,1957
 874,4,Baku,,Azerbaijan,2024
-874,5,Paris,,France,1924
+874,5,Paris,Ile-de-France,France,1924
 875,1,Zurich,,Switzerland,1962
 875,2,Philadelphia,Pennsylvania,United States,1986
 875,3,Jerusalem,,Israel,1940
@@ -51,12 +51,12 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 875,5,Tokyo,,Japan,2015
 876,1,Oklahoma City,Oklahoma,United States,1995
 876,2,Dublin,,Ireland,1946
-876,3,Dresden,,Germany,1978
+876,3,Dresden,Saxony,Germany,1978
 876,4,Warsaw,,Poland,1959
 876,5,Thimphu,,Bhutan,2008
-879,1,Montreal,,Canada,1967
+879,1,Montreal,Quebec,Canada,1967
 879,2,Shanghai,,China,2012
-879,3,Berlin,,Germany,1941
+879,3,Berlin,Berlin,Germany,1941
 879,4,New York,New York,United States,1911
 879,5,Athens,,Greece,1991
 880,1,Washington DC,Washington DC,United States,1945
@@ -78,4 +78,4 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 883,2,Rabat,,Morocco,2024
 883,3,Krefeld,North Rhine-Westphalia,Germany,1945
 883,4,Bratislava,,Slovakia,1974
-883,5,Mulhouse,,France,1959
+883,5,Mulhouse,Grand Est,France,1959

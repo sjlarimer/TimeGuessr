@@ -3,7 +3,7 @@ TimeGuessr #862
 2. Helsinki, Finland, 1926
 3. Pyongyang, North Korea, 1994
 4. Chicago (Illinois), United States, 1940
-5. Paris, France, 2025
+5. Paris (Ile-de-France), France, 2025
 
 TimeGuessr #865
 1. Zurich, Switzerland, 1953
@@ -16,7 +16,7 @@ TimeGuessr #866
 1. Budapest, Hungary, 1956
 2. Sarajevo, Bosnia, 1984
 3. Manchester (New Hampshire), United States, 1918
-4. Brisbane, Australia, 1910
+4. Brisbane (Queensland), Australia, 1910
 5. Collana, Bolivia, 2012
 
 TimeGuessr #867
@@ -29,7 +29,7 @@ TimeGuessr #867
 TimeGuessr #868
 1. London, United Kingdom, 1970
 2. Katowice, Poland, 1929
-3. Edmonton, Canada, 1913
+3. Edmonton (Alberta), Canada, 1913
 4. Venice, Italy, 1973
 5. Memphis (Tennessee), United States, 2025
 
@@ -59,7 +59,7 @@ TimeGuessr #874
 2. Caracas, Venezuela, 1988
 3. Barcelona, Spain, 1957
 4. Baku, Azerbaijan, 2024
-5. Paris, France, 1924
+5. Paris (Ile-de-France), France, 1924
 
 TimeGuessr #875
 1. Zurich, Switzerland, 1962
@@ -71,14 +71,14 @@ TimeGuessr #875
 TimeGuessr #876
 1. Oklahoma City (Oklahoma), United States, 1995
 2. Dublin, Ireland, 1946
-3. Dresden, Germany, 1978
+3. Dresden (Saxony), Germany, 1978
 4. Warsaw, Poland, 1959
 5. Thimphu, Bhutan, 2008
 
 TimeGuessr #879
-1. Montreal, Canada, 1967
+1. Montreal (Quebec), Canada, 1967
 2. Shanghai, China, 2012
-3. Berlin, Germany, 1941
+3. Berlin (Berlin), Germany, 1941
 4. New York (New York), United States, 1911
 5. Athens, Greece, 1991
 
@@ -108,4 +108,4 @@ TimeGuessr #883
 2. Rabat, Morocco, 2024
 3. Krefeld (North Rhine-Westphalia), Germany, 1945
 4. Bratislava, Slovakia, 1974
-5. Mulhouse, France, 1959
+5. Mulhouse (Grand Est), France, 1959
