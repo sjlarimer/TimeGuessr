@@ -35,4 +35,36 @@ with col1:
 
 st.markdown("""## Data""")
 data = pd.read_csv("./Data/Timeguessr_Stats.csv")
+
+# Ensure 'Date' is treated as a date column
+data["Date"] = pd.to_datetime(data["Date"]).dt.date
+
+# --- Convert scores to numeric safely ---
+data["Michael Total Score"] = pd.to_numeric(data["Michael Total Score"], errors="coerce")
+data["Sarah Total Score"] = pd.to_numeric(data["Sarah Total Score"], errors="coerce")
+
+# --- Group by date and determine who played ---
+daily = data.groupby("Date", as_index=False).agg(
+    michael_played=("Michael Total Score", lambda x: x.notna().any()),
+    sarah_played=("Sarah Total Score", lambda x: x.notna().any())
+)
+
+# --- Compute summary stats ---
+total_days = len(daily)
+both_played = ((daily["michael_played"]) & (daily["sarah_played"])).sum()
+michael_only = ((daily["michael_played"]) & (~daily["sarah_played"])).sum()
+sarah_only = ((~daily["michael_played"]) & (daily["sarah_played"])).sum()
+
+# --- Display results (vertically) ---
+st.markdown(
+    f"""
+    <div style='font-family: Poppins; font-size: 18px; color: #db5049;'>
+        <p><b>Total Days Played:</b> {total_days}</p>
+        <p><b>Days Both Played:</b> {both_played}</p>
+        <p><b>Days Only Michael Played:</b> {michael_only}</p>
+        <p><b>Days Only Sarah Played:</b> {sarah_only}</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.dataframe(data)

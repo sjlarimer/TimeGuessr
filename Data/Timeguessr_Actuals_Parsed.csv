@@ -1,5 +1,5 @@
 Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
-862,1,London,,United Kingdom,1970
+862,1,London,England,United Kingdom,1970
 862,2,Helsinki,,Finland,1926
 862,3,Pyongyang,,North Korea,1994
 862,4,Chicago,Illinois,United States,1940
@@ -19,18 +19,18 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 867,3,Brussels,,Belgium,1982
 867,4,New Orleans,Louisiana,United States,1943
 867,5,Mexico City,,Mexico,1962
-868,1,London,,United Kingdom,1970
+868,1,London,England,United Kingdom,1970
 868,2,Katowice,,Poland,1929
 868,3,Edmonton,Alberta,Canada,1913
 868,4,Venice,,Italy,1973
 868,5,Memphis,Tennessee,United States,2025
 869,1,Heemskerk,,Netherlands,1990
-869,2,Istanbul,,Turkey,2005
+869,2,Istanbul,,Türkiye,2005
 869,3,Copenhagen,,Denmark,1953
 869,4,Manila,,Philippines,1986
 869,5,Chicago,Illinois,United States,1941
 872,1,Vatican City,,Vatican City,1959
-872,2,London,,United Kingdom,1911
+872,2,London,England,United Kingdom,1911
 872,3,Havana,,Cuba,2006
 872,4,Ocean City,New Jersey,United States,2017
 872,5,Oslo,,Norway,1950
@@ -61,7 +61,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 879,5,Athens,,Greece,1991
 880,1,Washington DC,Washington DC,United States,1945
 880,2,Helsinki,,Finland,1950
-880,3,Abidja,,Ivory Coast,2025
+880,3,Abidja,,Côte d'Ivoire,2025
 880,4,St. Petersburg,,Russia,1968
 880,5,Dubai,,United Arab Emirates,2006
 881,1,Tokyo,,Japan,2012
