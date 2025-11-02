@@ -10,6 +10,9 @@ from streamlit.components.v1 import html as components_html
 from Score_Update import score_update
 import pycountry
 import emoji
+import json
+with open("config.json") as f:
+    config = json.load(f)
 
 st.title("Score Submission")
 
@@ -603,7 +606,7 @@ if name_valid and date:
                     default_subdivision = existing_data.get('Subdivision', '')
                     default_city = existing_data['City']
             
-            # Create 4 columns for Year, City, Subdivision, Country
+            # Create 4 columns for Year, Country, Subdivision, City
             r_cols = st.columns(4)
             
             with r_cols[0]:
@@ -613,22 +616,64 @@ if name_valid and date:
                                     label_visibility="visible")
             
             with r_cols[1]:
+                # Get country options from config (dict keys)
+                country_options = [""] + list(config.get('countries', {}).keys())
+                
+                # Find the index for the default country
+                if default_country and default_country in country_options:
+                    default_index = country_options.index(default_country)
+                else:
+                    default_index = 0
+                
+                country = st.selectbox("Country", 
+                                      options=country_options,
+                                      index=default_index,
+                                      key=f"actual_country_r{round_num}_{date}",
+                                      disabled=(actual_exists and not edit_mode_actual),
+                                      label_visibility="visible")
+            
+            with r_cols[2]:
+                # --- Subdivision options ---
+                subdivision_display = [""]  # What user sees
+                subdivision_actual = [""]   # Actual selectable values
+
+                if country and country in config.get('countries', {}):
+                    country_data = config['countries'][country]
+                    for category, subs in country_data.items():
+                        # Use visual separator instead of markdown/HTML for safety
+                        header = f"─ {category.replace('_', ' ').title()} ─"
+                        subdivision_display.append(header)
+                        subdivision_actual.append(None)
+                        subdivision_display.extend(subs)
+                        subdivision_actual.extend(subs)
+
+                # Mapping display → actual
+                display_to_actual = dict(zip(subdivision_display, subdivision_actual))
+
+                # Find default index
+                if default_subdivision in subdivision_actual:
+                    default_index = subdivision_actual.index(default_subdivision)
+                else:
+                    default_index = 0
+
+                subdivision_display_value = st.selectbox(
+                    "Subdivision",
+                    options=subdivision_display,
+                    index=default_index,
+                    key=f"actual_subdivision_r{round_num}_{date}",
+                    disabled=(actual_exists and not edit_mode_actual),
+                    label_visibility="visible"
+                )
+
+                subdivision = display_to_actual.get(subdivision_display_value, "")
+                if subdivision is None:
+                    subdivision = ""
+            
+            with r_cols[3]:
                 city = st.text_input("City", key=f"actual_city_r{round_num}_{date}", 
                                     value=default_city,
                                     disabled=(actual_exists and not edit_mode_actual),
                                     label_visibility="visible")
-            
-            with r_cols[2]:
-                subdivision = st.text_input("Subdivision", key=f"actual_subdivision_r{round_num}_{date}", 
-                                           value=default_subdivision,
-                                           disabled=(actual_exists and not edit_mode_actual),
-                                           label_visibility="visible")
-            
-            with r_cols[3]:
-                country = st.text_input("Country", key=f"actual_country_r{round_num}_{date}", 
-                                       value=default_country,
-                                       disabled=(actual_exists and not edit_mode_actual),
-                                       label_visibility="visible")
             
             # Validate year
             year_valid = True
