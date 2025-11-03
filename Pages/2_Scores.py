@@ -837,15 +837,70 @@ def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series,
 
 # --- Main App ---
 
-# Page selector dropdown
-page_type = st.selectbox(
-    "Select Page",
-    options=["Total Scores", "Time Scores", "Geography Scores"],
-    index=0,
-    key="page_selector"
+st.markdown(
+    """
+    <style>
+    /* Hide the label */
+    div[data-testid="stSelectbox"] > label {
+        display: none !important;
+    }
+
+    /* Remove default Streamlit select styling */
+    div[data-baseweb="select"] > div {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        width: fit-content !important;          /* only as wide as text */
+        min-width: 0 !important;
+        overflow: visible !important;           /* prevent clipping */
+    }
+
+    /* Style visible select text */
+    div[data-baseweb="select"] > div > div {
+        height: auto !important;                /* allow natural height */
+        min-height: 90px !important;            /* taller block */
+        display: flex !important;
+        align-items: flex-end !important;       /* align text visually bottom */
+        padding: 8px 4px 14px 4px !important;   /* extra bottom padding */
+        font-size: 46px !important;             /* large title font */
+        font-weight: 800 !important;
+        color: #db5049 !important;              /* your red */
+        text-align: left !important;
+        line-height: 1.2em !important;          /* prevent clipping */
+        width: fit-content !important;
+        overflow: visible !important;
+    }
+
+    /* Make sure dropdown list aligns left */
+    div[data-baseweb="popover"] {
+        text-align: left !important;
+    }
+
+    /* Adjust dropdown arrow */
+    div[data-baseweb="select"] svg {
+        width: 24px !important;
+        height: 24px !important;
+        margin-left: 6px;
+    }
+
+    /* Prevent container clipping */
+    div[data-testid="stSelectbox"] {
+        display: inline-block !important;
+        width: auto !important;
+        overflow: visible !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.title(page_type)
+page_type = st.selectbox(
+    "",
+    options=["Total Scores", "Time Scores", "Geography Scores"],
+    index=0,
+    key="page_selector",
+)
 
 # Load data
 data = load_data()
