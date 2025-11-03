@@ -615,21 +615,25 @@ mask_filtered["Rolling Diff"] = mask_filtered["Score Diff"].rolling(window=windo
 mask_filtered["Cumulative Diff"] = mask_filtered["Score Diff"].expanding().mean()
 
 # Add zero-crossing interpolation
-mask_filtered2 = add_zero_crossing_interpolation(mask_filtered, window_length)
+mask_filtered = add_zero_crossing_interpolation(mask_filtered, window_length)
 
 # Create and display figure
-fig = create_win_margins_figure(mask_filtered2, window_length)
+fig = create_win_margins_figure(mask_filtered, window_length)
 st.plotly_chart(fig, use_container_width=True, key="win_margins_chart")
 
 # Create tables
 col1, col2 = st.columns(2)
 
+# Filter to only original midnight points for stats
+mask_original = mask_filtered[mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()].copy()
+mask_original = mask_original.reset_index(drop=True)  # Reset index for calculate_streaks
+
 with col1:
     st.markdown("### Win Summary")
-    win_summary_html = create_win_summary_table(mask_filtered, win_categories)
+    win_summary_html = create_win_summary_table(mask_original, win_categories)
     st.markdown(win_summary_html, unsafe_allow_html=True)
 
 with col2:
     st.markdown("### Streaks")
-    streaks_html = create_streaks_table(mask_filtered)
+    streaks_html = create_streaks_table(mask_original)
     st.markdown(streaks_html, unsafe_allow_html=True)
