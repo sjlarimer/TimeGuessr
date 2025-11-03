@@ -206,15 +206,23 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     """Create the win margins Plotly figure."""
     fig = go.Figure()
     
-    # Scatter points for each game
+    # Scatter points for each game — only show markers at 00:00
+    is_midnight = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
+    marker_opacity = np.where(is_midnight, 0.4, 0)  # show only 00:00 points
+
     fig.add_trace(go.Scatter(
         x=mask_filtered["Date"],
         y=mask_filtered["Score Diff"],
         mode="markers",
-        marker=dict(color="gray", opacity=0.4, size=7),
+        marker=dict(
+            color="gray",
+            opacity=marker_opacity,
+            size=7
+        ),
         name="Game Result (Michael − Sarah)",
         hovertemplate="Date: %{x}<br>Score Diff: %{y}<extra></extra>"
     ))
+
     
     # Shaded win regions
     fig.add_trace(go.Scatter(
@@ -607,10 +615,10 @@ mask_filtered["Rolling Diff"] = mask_filtered["Score Diff"].rolling(window=windo
 mask_filtered["Cumulative Diff"] = mask_filtered["Score Diff"].expanding().mean()
 
 # Add zero-crossing interpolation
-mask_filtered = add_zero_crossing_interpolation(mask_filtered, window_length)
+mask_filtered2 = add_zero_crossing_interpolation(mask_filtered, window_length)
 
 # Create and display figure
-fig = create_win_margins_figure(mask_filtered, window_length)
+fig = create_win_margins_figure(mask_filtered2, window_length)
 st.plotly_chart(fig, use_container_width=True, key="win_margins_chart")
 
 # Create tables
