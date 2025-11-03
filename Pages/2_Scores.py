@@ -62,12 +62,6 @@ CUSTOM_STYLES = """
         .stats-table tbody tr.selected, .streaks-table tbody tr.selected {
             background-color: #c0c0b0;
         }
-        
-        /* Selectbox styling */
-        div[data-baseweb="select"] > div {
-            background-color: #f2f1ea !important;
-            border-color: #d9d7cc !important;
-        }
     </style>
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
