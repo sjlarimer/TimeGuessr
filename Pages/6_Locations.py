@@ -203,3 +203,281 @@ if unrecognized:
     st.write(", ".join(sorted(unrecognized)))
 else:
     st.markdown("✅ All countries recognized successfully!")
+
+
+
+# --- Filter to rows where both Michael and Sarah Geography Scores are populated ---
+subset = data.dropna(subset=["Michael Geography Score", "Sarah Geography Score"])
+
+# --- Count appearances per country ---
+country_counts = subset["Country"].value_counts().reset_index()
+country_counts.columns = ["Country", "Appearances"]
+
+# --- Sum Geography Scores per country ---
+country_sums = subset.groupby("Country", as_index=False)[["Michael Geography Score", "Sarah Geography Score"]].sum()
+
+# --- Merge counts with sums ---
+country_stats = pd.merge(country_counts, country_sums, on="Country", how="left")
+
+# --- Determine which score is higher ---
+country_stats["Higher Score"] = country_stats.apply(
+    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
+    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
+    axis=1
+)
+
+# --- Calculate percent higher ---
+def percent_higher(m, s):
+    if m == s:
+        return 0
+    larger = max(m, s)
+    smaller = min(m, s)
+    return round((larger - smaller) / smaller * 100, 2) if smaller != 0 else None
+
+country_stats["Percent Higher"] = country_stats.apply(
+    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
+)
+
+# --- Determine continent automatically ---
+cc = coco.CountryConverter()
+country_stats["Continent"] = cc.convert(names=country_stats["Country"].tolist(), to="continent")
+
+# --- Define nicer colors ---
+continent_colors = {
+    "Europe": "#00012e",          # Soft yellow
+    "Asia": "#2e2200",            # Orange
+    "Americas": "#002e02",         # Blue
+    "Africa": "#2e0800",          # Red-orange
+    "Oceania": "#2e0026",         # Purple
+    "Antarctica": "#404040",      # Gray
+    "Unknown": "#000000",
+    "United States": "#002e29",             # Darker Blue
+    "Other Americas": "#002e02"   # Green
+}
+
+def color_by_continent(row):
+    return ['background-color: {}'.format(continent_colors.get(row.Continent, "#000000"))]*len(row)
+
+# --- Display table by country ---
+st.title("Geography Score Comparison by Country (Colored by Continent)")
+st.dataframe(
+    country_stats.style.apply(color_by_continent, axis=1).format({
+        "Appearances": "{:,.0f}",
+        "Michael Geography Score": "{:,.0f}",
+        "Sarah Geography Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
+
+# --- Continent aggregation including United States in Americas ---
+continent_incl_us = country_stats.copy()
+continent_incl_us["Continent_agg"] = continent_incl_us["Continent"].replace({"America": "Americas"})
+continent_stats_incl_us = continent_incl_us.groupby("Continent_agg", as_index=False).agg({
+    "Appearances": "sum",
+    "Michael Geography Score": "sum",
+    "Sarah Geography Score": "sum"
+})
+# Recalculate percent higher after aggregation
+continent_stats_incl_us["Percent Higher"] = continent_stats_incl_us.apply(
+    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
+)
+continent_stats_incl_us["Higher Score"] = continent_stats_incl_us.apply(
+    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
+    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
+    axis=1
+)
+
+st.title("Geography Score Comparison by Continent (Including United States in Americas)")
+st.dataframe(
+    continent_stats_incl_us.style.apply(
+        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
+        axis=1
+    ).format({
+        "Appearances": "{:,.0f}",
+        "Michael Geography Score": "{:,.0f}",
+        "Sarah Geography Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
+
+# --- Continent aggregation excluding United States ---
+def continent_split_americas(row):
+    if row["Country"] == "United States":
+        return "United States"
+    elif row["Continent"] == "America":
+        return "Other Americas"
+    else:
+        return row["Continent"]
+
+continent_excl_us = country_stats.copy()
+continent_excl_us["Continent_agg"] = continent_excl_us.apply(continent_split_americas, axis=1)
+continent_stats_excl_us = continent_excl_us.groupby("Continent_agg", as_index=False).agg({
+    "Appearances": "sum",
+    "Michael Geography Score": "sum",
+    "Sarah Geography Score": "sum"
+})
+# Recalculate percent higher after aggregation
+continent_stats_excl_us["Percent Higher"] = continent_stats_excl_us.apply(
+    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
+)
+continent_stats_excl_us["Higher Score"] = continent_stats_excl_us.apply(
+    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
+    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
+    axis=1
+)
+
+st.title("Geography Score Comparison by Continent (Excluding United States from Americas)")
+st.dataframe(
+    continent_stats_excl_us.style.apply(
+        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
+        axis=1
+    ).format({
+        "Appearances": "{:,.0f}",
+        "Michael Geography Score": "{:,.0f}",
+        "Sarah Geography Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
+
+
+
+
+
+
+
+
+
+
+
+# --- Filter to rows where both Michael and Sarah Time Scores are populated ---
+subset = data.dropna(subset=["Michael Time Score", "Sarah Time Score"])
+
+# --- Count appearances per country ---
+country_counts = subset["Country"].value_counts().reset_index()
+country_counts.columns = ["Country", "Appearances"]
+
+# --- Sum Time Scores per country ---
+country_sums = subset.groupby("Country", as_index=False)[["Michael Time Score", "Sarah Time Score"]].sum()
+
+# --- Merge counts with sums ---
+country_stats = pd.merge(country_counts, country_sums, on="Country", how="left")
+
+# --- Determine which score is higher ---
+country_stats["Higher Score"] = country_stats.apply(
+    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
+    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
+    axis=1
+)
+
+# --- Calculate percent higher ---
+def percent_higher(m, s):
+    if m == s:
+        return 0
+    larger = max(m, s)
+    smaller = min(m, s)
+    return round((larger - smaller) / smaller * 100, 2) if smaller != 0 else None
+
+country_stats["Percent Higher"] = country_stats.apply(
+    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
+)
+
+# --- Determine continent automatically ---
+cc = coco.CountryConverter()
+country_stats["Continent"] = cc.convert(names=country_stats["Country"].tolist(), to="continent")
+
+# --- Define nicer colors ---
+continent_colors = {
+    "Europe": "#00012e",          # Soft yellow
+    "Asia": "#2e2200",            # Orange
+    "Americas": "#002e02",         # Blue
+    "Africa": "#2e0800",          # Red-orange
+    "Oceania": "#2e0026",         # Purple
+    "Antarctica": "#404040",      # Gray
+    "Unknown": "#000000",
+    "United States": "#002e29",             # Darker Blue
+    "Other Americas": "#002e02"   # Green
+}
+
+def color_by_continent(row):
+    return ['background-color: {}'.format(continent_colors.get(row.Continent, "#000000"))]*len(row)
+
+# --- Display table by country ---
+st.title("Time Score Comparison by Country (Colored by Continent)")
+st.dataframe(
+    country_stats.style.apply(color_by_continent, axis=1).format({
+        "Appearances": "{:,.0f}",
+        "Michael Time Score": "{:,.0f}",
+        "Sarah Time Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
+
+# --- Continent aggregation including United States in Americas ---
+continent_incl_us = country_stats.copy()
+continent_incl_us["Continent_agg"] = continent_incl_us["Continent"].replace({"America": "Americas"})
+continent_stats_incl_us = continent_incl_us.groupby("Continent_agg", as_index=False).agg({
+    "Appearances": "sum",
+    "Michael Time Score": "sum",
+    "Sarah Time Score": "sum"
+})
+# Recalculate percent higher after aggregation
+continent_stats_incl_us["Percent Higher"] = continent_stats_incl_us.apply(
+    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
+)
+continent_stats_incl_us["Higher Score"] = continent_stats_incl_us.apply(
+    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
+    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
+    axis=1
+)
+
+st.title("Time Score Comparison by Continent (Including United States in Americas)")
+st.dataframe(
+    continent_stats_incl_us.style.apply(
+        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
+        axis=1
+    ).format({
+        "Appearances": "{:,.0f}",
+        "Michael Time Score": "{:,.0f}",
+        "Sarah Time Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
+
+# --- Continent aggregation excluding United States ---
+def continent_split_americas(row):
+    if row["Country"] == "United States":
+        return "United States"
+    elif row["Continent"] == "America":
+        return "Other Americas"
+    else:
+        return row["Continent"]
+
+continent_excl_us = country_stats.copy()
+continent_excl_us["Continent_agg"] = continent_excl_us.apply(continent_split_americas, axis=1)
+continent_stats_excl_us = continent_excl_us.groupby("Continent_agg", as_index=False).agg({
+    "Appearances": "sum",
+    "Michael Time Score": "sum",
+    "Sarah Time Score": "sum"
+})
+# Recalculate percent higher after aggregation
+continent_stats_excl_us["Percent Higher"] = continent_stats_excl_us.apply(
+    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
+)
+continent_stats_excl_us["Higher Score"] = continent_stats_excl_us.apply(
+    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
+    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
+    axis=1
+)
+
+st.title("Time Score Comparison by Continent (Excluding United States from Americas)")
+st.dataframe(
+    continent_stats_excl_us.style.apply(
+        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
+        axis=1
+    ).format({
+        "Appearances": "{:,.0f}",
+        "Michael Time Score": "{:,.0f}",
+        "Sarah Time Score": "{:,.0f}",
+        "Percent Higher": "{:.2f}%"
+    })
+)
