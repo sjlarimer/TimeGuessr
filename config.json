@@ -10,18 +10,23 @@
     "Argentina": {},
     "Armenia": {},
     "Australia": {
-      "states": [
-        "New South Wales",
-        "Queensland",
-        "South Australia",
-        "Tasmania",
-        "Victoria",
-        "Western Australia"
-      ],
-      "territories": [
-        "Australian Capital Territory",
-        "Northern Territory"
-      ]
+        "states": [
+            "New South Wales",
+            "Queensland",
+            "South Australia",
+            "Tasmania",
+            "Victoria",
+            "Western Australia"
+        ],
+        "territories": [
+            "Australian Capital Territory",
+            "Northern Territory"
+        ],
+        "overseas_territories": [
+            "Christmas Island",
+            "Cocos (Keeling) Islands",
+            "Norfolk Island"
+        ]
     },
     "Austria": {},
     "Azerbaijan": {},
@@ -67,7 +72,49 @@
     "Central African Republic": {},
     "Chad": {},
     "Chile": {},
-    "China": {},
+    "China": {
+        "provinces": [
+            "Anhui",
+            "Fujian",
+            "Gansu",
+            "Guangdong",
+            "Guizhou",
+            "Hainan",
+            "Hebei",
+            "Heilongjiang",
+            "Henan",
+            "Hubei",
+            "Hunan",
+            "Jiangsu",
+            "Jiangxi",
+            "Jilin",
+            "Liaoning",
+            "Qinghai",
+            "Shaanxi",
+            "Shandong",
+            "Shanxi",
+            "Sichuan",
+            "Yunnan",
+            "Zhejiang"
+        ],
+        "autonomous_regions": [
+            "Guangxi",
+            "Inner Mongolia",
+            "Ningxia",
+            "Tibet",
+            "Xinjiang"
+        ],
+        "municipalities": [
+            "Beijing",
+            "Chongqing",
+            "Shanghai",
+            "Tianjin"
+        ],
+        "special_administrative_regions": [
+            "Hong Kong",
+            "Macau"
+        ]
+    },
     "Colombia": {},
     "Comoros": {},
     "Costa Rica": {},
@@ -77,7 +124,12 @@
     "Cyprus": {},
     "Czechia": {},
     "Democratic Republic of the Congo": {},
-    "Denmark": {},
+    "Denmark": {
+        "territories": [
+            "Faroe Islands",
+            "Greenland"
+        ]
+    },
     "Djibouti": {},
     "Dominica": {},
     "Dominican Republic": {},
@@ -90,8 +142,43 @@
     "Eswatini": {},
     "Ethiopia": {},
     "Fiji": {},
-    "Finland": {},
-    "France": {},
+    "Finland": {
+        "territories": [
+            "Åland Islands"
+        ]
+    },
+    "France": {
+        "regions": [
+            "Auvergne-Rhône-Alpes",
+            "Bourgogne-Franche-Comté",
+            "Brittany",
+            "Centre-Val de Loire",
+            "Corsica",
+            "Grand Est",
+            "Hauts-de-France",
+            "Île-de-France",
+            "Normandy",
+            "Nouvelle-Aquitaine",
+            "Occitanie",
+            "Pays de la Loire",
+            "Provence-Alpes-Côte d’Azur"
+        ],
+        "overseas_regions": [
+            "French Guiana",
+            "Guadeloupe",
+            "Martinique",
+            "Mayotte",
+            "Réunion"
+        ],
+        "territories": [
+            "French Polynesia",
+            "New Caledonia",
+            "Saint Barthélemy",
+            "Saint Martin",
+            "Saint Pierre and Miquelon",
+            "Wallis and Futuna"
+        ]
+    },
     "Gabon": {},
     "Gambia": {},
     "Georgia": {},
@@ -213,14 +300,35 @@
     "Namibia": {},
     "Nauru": {},
     "Nepal": {},
-    "Netherlands": {},
-    "New Zealand": {},
+    "Netherlands": {
+        "countries": [
+            "Aruba",
+            "Curaçao",
+            "Sint Maarten"
+        ],
+        "territories": [
+            "Bonaire",
+            "Saba",
+            "Sint Eustatius"
+        ]
+    },
+    "New Zealand": {
+        "territories": [
+            "Cook Islands",
+            "Niue",
+            "Tokelau"
+        ]
+    },
     "Nicaragua": {},
     "Niger": {},
     "Nigeria": {},
     "North Macedonia": {},
     "North Korea": {},
-    "Norway": {},
+    "Norway": {
+        "territories": [
+            "Svalbard and Jan Mayen"
+        ]
+    },
     "Oman": {},
     "Pakistan": {},
     "Palau": {},
