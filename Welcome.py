@@ -5,6 +5,8 @@ import pandas as pd
 from PIL import Image
 import numpy as np
 
+
+
 st.set_page_config(layout='wide')
 
 st.logo("Images/logo.png")
@@ -36,3 +38,6 @@ with col1:
 st.markdown("""## Data""")
 data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 st.dataframe(data)
+
+with st.expander("raw data",expanded=False):
+    st.audio("./Images/BlankSpace.mp3", start_time=10, autoplay=True)

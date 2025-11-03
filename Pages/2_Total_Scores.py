@@ -95,7 +95,7 @@ fig.add_trace(go.Scatter(
     y=df_daily_filtered["Sarah Total Score"],
     mode='markers',
     name='Sarah Total Score',
-    marker=dict(color='#fce4a7', size=8),
+    marker=dict(color="#FF63AC", size=8),
     hovertemplate='Date: %{x}<br>Score: %{y}<extra></extra>'
 ))
 
@@ -114,7 +114,7 @@ fig.add_trace(go.Scatter(
     y=mask_filtered["Sarah Rolling Avg"],
     mode='lines',
     name=f'Sarah {window_length}-game Avg',
-    line=dict(color='#bf8f15', width=2.5),
+    line=dict(color="#9b0067", width=2.5),
     hovertemplate='Date: %{x}<br>Rolling Avg: %{y:.0f}<extra></extra>'
 ))
 
