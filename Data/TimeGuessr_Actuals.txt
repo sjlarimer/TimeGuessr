@@ -109,3 +109,10 @@ TimeGuessr #883
 3. Krefeld (North Rhine-Westphalia), Germany, 1945
 4. Bratislava, Slovakia, 1974
 5. Mulhouse (Grand Est), France, 1959
+
+TimeGuessr #886
+1. Moscow, Russia, 1990
+2. Berlin (Berlin), Germany, 1955
+3. Santiago, Chile, 1910
+4. Lisbon, Portugal, 1982
+5. Indianapolis (Indiana), United States, 1918

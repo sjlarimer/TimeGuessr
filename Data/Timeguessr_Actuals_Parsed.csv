@@ -55,7 +55,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 876,4,Warsaw,,Poland,1959
 876,5,Thimphu,,Bhutan,2008
 879,1,Montreal,Quebec,Canada,1967
-879,2,Shanghai,,China,2012
+879,2,Shanghai,Shanghai,China,2012
 879,3,Berlin,Berlin,Germany,1941
 879,4,New York,New York,United States,1911
 879,5,Athens,,Greece,1991
@@ -79,3 +79,8 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 883,3,Krefeld,North Rhine-Westphalia,Germany,1945
 883,4,Bratislava,,Slovakia,1974
 883,5,Mulhouse,Grand Est,France,1959
+886,1,Moscow,,Russia,1990
+886,2,Berlin,Berlin,Germany,1955
+886,3,Santiago,,Chile,1910
+886,4,Lisbon,,Portugal,1982
+886,5,Indianapolis,Indiana,United States,1918
