@@ -206,12 +206,23 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     """Create the win margins Plotly figure."""
     fig = go.Figure()
     
+    # Create equidistant x-axis indices based only on visible (midnight) dots
+    mask_filtered = mask_filtered.copy()
+    is_midnight = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
+
+    # Assign indices only for visible (midnight) entries
+    visible_indices = np.arange(is_midnight.sum())
+    mask_filtered.loc[is_midnight, "x_index"] = visible_indices
+
+    # Fill missing x_index values for hidden dots via interpolation
+    mask_filtered["x_index"] = mask_filtered["x_index"].interpolate(method="linear")
+    
     # Scatter points for each game — only show markers at 00:00
     is_midnight = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
     marker_opacity = np.where(is_midnight, 0.4, 0)  # show only 00:00 points
 
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=mask_filtered["Score Diff"],
         mode="markers",
         marker=dict(
@@ -220,13 +231,14 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
             size=7
         ),
         name="Game Result (Michael − Sarah)",
-        hovertemplate="Date: %{x}<br>Score Diff: %{y}<extra></extra>"
+        customdata=mask_filtered["Date"],
+        hovertemplate="Date: %{customdata}<br>Score Diff: %{y}<extra></extra>"
     ))
 
     
     # Shaded win regions
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=np.where(mask_filtered["Score Diff"] > 0, mask_filtered["Score Diff"], 0),
         fill='tozeroy',
         mode='none',
@@ -235,7 +247,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     ))
     
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=np.where(mask_filtered["Score Diff"] < 0, mask_filtered["Score Diff"], 0),
         fill='tozeroy',
         mode='none',
@@ -245,36 +257,40 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     
     # Cumulative average line
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=mask_filtered["Cumulative Diff"],
         mode="lines",
         name="Cumulative Avg",
         line=dict(color="black", width=1.5, dash="dot"),
-        opacity=0.7
+        opacity=0.7,
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
     ))
     
     # Rolling average - positive segment
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=mask_filtered["Rolling Diff Pos"],
         mode="lines",
         name=f"{window_length}-Game Rolling Avg",
         line=dict(color="#221e8f", width=2.5),
         opacity=0.8,
         showlegend=False,
-        hovertemplate='Date: %{x}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata}<br>Rolling Avg: %{y:.1f}<extra></extra>'
     ))
     
     # Rolling average - negative segment
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"],
+        x=mask_filtered["x_index"],
         y=mask_filtered["Rolling Diff Neg"],
         mode="lines",
         name=f"{window_length}-Game Rolling Avg",
         line=dict(color="#bf8f15", width=2.5),
         opacity=0.8,
         showlegend=False,
-        hovertemplate='Date: %{x}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata}<br>Rolling Avg: %{y:.1f}<extra></extra>'
     ))
     
     # Determine symmetric y-axis range
@@ -294,6 +310,27 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     
     # Layout
     fig.add_hline(y=0, line=dict(color="#8f8d85", dash="dash", width=1))
+    
+        # Determine x-axis tick positions at the start of each month
+    month_starts = pd.date_range(
+        start=mask_filtered["Date"].min().replace(day=1),
+        end=mask_filtered["Date"].max(),
+        freq="MS"  # Month start frequency
+    )
+
+    tick_indices = []
+    tick_labels = []
+
+    # For each month start, find where it would appear on the x-axis
+    for m in month_starts:
+        # Find closest date index in the data (or where it would fall)
+        diffs = abs(mask_filtered["Date"] - m)
+        closest_idx = diffs.idxmin()
+        tick_indices.append(mask_filtered.index.get_loc(closest_idx))
+        # Label as abbreviated month name and year (e.g. "Jan 2024")
+        tick_labels.append(m.strftime("%b %Y"))
+
+    
     fig.update_layout(
         xaxis_title="Date",
         yaxis_title="Score Difference (Michael − Sarah)",
@@ -324,7 +361,11 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         linecolor="#8f8d85",
         tickcolor="#8f8d85",
         tickfont=dict(color="#696761"),
-        title_font=dict(color="#696761")
+        title_font=dict(color="#696761"),
+        tickmode='array',
+        tickvals=tick_indices,
+        ticktext=tick_labels,
+        tickangle=-45
     )
     
     fig.update_yaxes(
