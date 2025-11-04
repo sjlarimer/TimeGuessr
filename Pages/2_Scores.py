@@ -12,8 +12,8 @@ st.set_page_config(page_title="Timeguessr Dashboard", layout="wide")
 COLORS = {
     'michael': '#221e8f',
     'michael_light': '#bcb0ff',
-    'sarah': '#bf8f15',
-    'sarah_light': '#fce4a7',
+    'sarah': "#8a005c",
+    'sarah_light': "#ff70a7",
     'bg_paper': '#eae8dc',
     'bg_plot': '#d9d7cc',
     'grid': '#bdbbb1',
@@ -456,7 +456,7 @@ def create_stats_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
     
     # Build rows
     rows = []
-    rows.append(create_table_row("Sum", f"{michael_sum:.0f}", f"{sarah_sum:.0f}", "-", "-", date_format))
+    rows.append(create_table_row("Sum", f"{int(michael_sum):,}", f"{int(sarah_sum):,}", "-", "-", date_format))
     rows.append(create_table_row("Mean", f"{michael_mean:.0f}", f"{sarah_mean:.0f}", "-", "-", date_format))
     rows.append(create_table_row("Standard Deviation", f"{michael_std:.0f}", f"{sarah_std:.0f}", "-", "-", date_format))
     rows.append(create_table_row("Max", f"{michael_max:.0f}", f"{sarah_max:.0f}", michael_max_date, sarah_max_date, date_format))
