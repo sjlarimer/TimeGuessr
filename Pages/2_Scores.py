@@ -433,6 +433,8 @@ def create_stats_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
         return "<p>No data available for the selected date range.</p>"
     
     # Calculate statistics
+    michael_sum = michael_scores.sum() if len(michael_scores) > 0 else 0
+    sarah_sum = sarah_scores.sum() if len(sarah_scores) > 0 else 0
     michael_mean = michael_scores.mean() if len(michael_scores) > 0 else 0
     sarah_mean = sarah_scores.mean() if len(sarah_scores) > 0 else 0
     michael_std = michael_scores.std() if len(michael_scores) > 0 else 0
@@ -454,6 +456,7 @@ def create_stats_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
     
     # Build rows
     rows = []
+    rows.append(create_table_row("Sum", f"{michael_sum:.0f}", f"{sarah_sum:.0f}", "-", "-", date_format))
     rows.append(create_table_row("Mean", f"{michael_mean:.0f}", f"{sarah_mean:.0f}", "-", "-", date_format))
     rows.append(create_table_row("Standard Deviation", f"{michael_std:.0f}", f"{sarah_std:.0f}", "-", "-", date_format))
     rows.append(create_table_row("Max", f"{michael_max:.0f}", f"{sarah_max:.0f}", michael_max_date, sarah_max_date, date_format))
@@ -924,14 +927,14 @@ elif page_type == "Time Scores":
     score_type = "time"
     default_bin_size = 2500
     bin_options = [500, 1000, 2000, 2500, 3000, 4000, 5000, 7500]
-    change_threshold = 500
+    change_threshold = 2500
 else:  # Geography Scores
     df_daily, mask = prepare_geography_scores_data(data, remove_estimated)
     ceiling = 25000
     score_type = "geography"
     default_bin_size = 2500
     bin_options = [500, 1000, 2000, 2500, 3000, 4000, 5000, 7500]
-    change_threshold = 500
+    change_threshold = 2500
 
 # Date range
 min_date, max_date = mask["Date"].min(), mask["Date"].max()
