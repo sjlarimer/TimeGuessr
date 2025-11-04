@@ -116,3 +116,10 @@ TimeGuessr #886
 3. Santiago, Chile, 1910
 4. Lisbon, Portugal, 1982
 5. Indianapolis (Indiana), United States, 1918
+
+TimeGuessr #887
+1. Beirut, Lebanon, 2020
+2. Dublin, Ireland, 1996
+3. Barcelona, Spain, 1957
+4. Denver (Colorado), United States, 1966
+5. Helsinki, Finland, 1936

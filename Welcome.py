@@ -9,7 +9,7 @@ import numpy as np
 
 st.set_page_config(layout='wide')
 
-st.logo("Images/logo.png")
+st.logo("Images/logo.png", size="large")
 
 # --- Top centered title ---
 st.markdown("<h1 style='text-align: center;'>Michael and Sarah</h1>", unsafe_allow_html=True)
