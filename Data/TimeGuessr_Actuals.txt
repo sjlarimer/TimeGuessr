@@ -123,3 +123,10 @@ TimeGuessr #887
 3. Barcelona, Spain, 1957
 4. Denver (Colorado), United States, 1966
 5. Helsinki, Finland, 1936
+
+TimeGuessr #888
+1. New York (New York), United States, 2025
+2. Vilnius, Lithuania, 1939
+3. Cologne (North Rhine-Westphalia), Germany, 1976
+4. Melbourne (Victoria), Australia, 1998
+5. Nouakchott, Mauritania, 2016
