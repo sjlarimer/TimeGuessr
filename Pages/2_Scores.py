@@ -4,9 +4,154 @@ import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 from typing import Tuple, List, Dict
+import time
 
 # --- Configuration ---
 st.set_page_config(page_title="Timeguessr Dashboard", layout="wide")
+
+st.title("🎤 Streamlit Karaoke Demo")
+
+# --- 1. Audio file ---
+st.audio("./Images/BlankSpace.mp3")  # Replace with your own public-domain mp3
+
+# --- 2. Timed lyric lines ---
+lyrics = [
+    (6, "Nice to meet you, where you been?"),
+    (8, "I could show you incredible things"),
+    (11, "Magic, madness, heaven, sin"),
+    (13, "Saw you there and I thought"),
+    (15, "Oh, my God, look at that face"),
+    (18, "You look like my next mistake"),
+    (20, "Love's a game, wanna play?"),
+    (23, "New money, suit and tie"),
+    (26, "I can read you like a magazine"),
+    (28, "Ain't it funny? Rumors fly"),
+    (30, "And I know you heard about me"),
+    (33, "So, hey, let's be friends"),
+    (35, "I'm dying to see how this one ends"),
+    (37, "Grab your passport and my hand"),
+    (39, "I can make the bad guys good for a weekend"),
+
+    (46, "So it's gonna be forever"),
+    (48, "Or it's gonna go down in flames?"),
+    (50, "You can tell me when it's over, mm"),
+    (52, "If the high was worth the pain"),
+    (54, "Got a long list of ex-lovers"),
+    (56, "They'll tell you I'm insane"),
+    (58, "'Cause you know I love the players"),
+    (60, "And you love the game"),
+    (62, "'Cause we're young and we're reckless"),
+    (64, "We'll take this way too far"),
+    (66, "It'll leave you breathless, mm"),
+    (68, "Or with a nasty scar"),
+    (70, "Got a long list of ex-lovers"),
+    (72, "They'll tell you I'm insane"),
+    (74, "But I've got a blank space, baby"),
+    (76, "And I'll write your name"),
+
+    (82, "Cherry lips, crystal skies"),
+    (84, "I could show you incredible things"),
+    (86, "Stolen kisses, pretty lies"),
+    (88, "You're the king, baby, I'm your queen"),
+    (90, "Find out what you want"),
+    (92, "Be that girl for a month"),
+    (94, "Wait, the worst is yet to come, oh, no"),
+    (97, "Screaming, crying, perfect storms"),
+    (99, "I can make all the tables turn"),
+    (101, "Rose garden filled with thorns"),
+    (103, "Keep you second guessing, like"),
+    (105, "Oh, my God, who is she?"),
+    (107, "I get drunk on jealousy"),
+    (109, "But you'll come back each time you leave"),
+    (111, "'Cause, darling, I'm a nightmare dressed like a daydream"),
+
+    (117, "So it's gonna be forever"),
+    (119, "Or it's gonna go down in flames?"),
+    (121, "You can tell me when it's over, mm"),
+    (123, "If the high was worth the pain"),
+    (125, "Got a long list of ex-lovers"),
+    (127, "They'll tell you I'm insane"),
+    (129, "'Cause you know I love the players"),
+    (131, "And you love the game"),
+    (133, "'Cause we're young and we're reckless (Oh)"),
+    (135, "We'll take this way too far"),
+    (137, "It'll leave you breathless (Oh-oh), mm"),
+    (139, "Or with a nasty scar"),
+    (141, "Got a long list of ex-lovers"),
+    (143, "They'll tell you I'm insane (Insane)"),
+    (145, "But I've got a blank space, baby"),
+    (147, "And I'll write your name"),
+
+    (152, "Boys only want love if it's torture"),
+    (154, "Don't say I didn't, say I didn't warn ya"),
+    (156, "Boys only want love if it's torture"),
+    (158, "Don't say I didn't, say I didn't warn ya"),
+
+
+    (162, "So it's gonna be forever"),
+    (164, "Or it's gonna go down in flames?"),
+    (166, "You can tell me when it's over (Over), mm"),
+    (168, "If the high was worth the pain"),
+    (170, "Got a long list of ex-lovers"),
+    (172, "They'll tell you I'm insane (I'm insane)"),
+    (174, "'Cause you know I love the players"),
+    (176, "And you love the game (And you love the game)"),
+    (178, "'Cause we're young and we're reckless (Yeah)"),
+    (180, "We'll take this way too far (Ooh)"),
+    (182, "It'll leave you breathless, mm"),
+    (184, "Or with a nasty scar (With a nasty scar)"),
+    (186, "Got a long list of ex-lovers"),
+    (188, "They'll tell you I'm insane"),
+    (190, "But I've got a blank space, baby"),
+    (192, "And I'll write your name"),
+]
+
+# --- 3. CSS for highlighted lyric display ---
+st.markdown(
+    """
+    <style>
+    .lyric-line {
+        font-size: 1.3rem;
+        font-family: 'Poppins', sans-serif;
+        color: #666;
+        text-align: center;
+        transition: all 0.3s ease-in-out;
+    }
+    .active-line {
+        color: #db5049;
+        font-weight: 700;
+        font-size: 1.6rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- Karaoke Start Button ---
+start = st.button("▶️ Start Karaoke")
+
+if start:
+    start_time = time.time()
+    placeholder = st.empty()
+
+    for i, (t, line) in enumerate(lyrics):
+        # Calculate time to wait until next line
+        next_line_time = lyrics[i + 1][0] if i + 1 < len(lyrics) else None
+
+        # Wait for the correct moment
+        while time.time() - start_time < t:
+            time.sleep(0.05)
+
+        # Build the HTML to highlight the current line
+        display = ""
+        for start_t, txt in lyrics:
+            active = (start_t == t)
+            display += f"<div class='lyric-line {'active-line' if active else ''}'>{txt}</div>"
+
+        placeholder.markdown(display, unsafe_allow_html=True)
+
+        if next_line_time:
+            time.sleep(next_line_time - t)
 
 # --- Constants ---
 COLORS = {
