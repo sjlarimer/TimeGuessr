@@ -130,3 +130,10 @@ TimeGuessr #888
 3. Cologne (North Rhine-Westphalia), Germany, 1976
 4. Melbourne (Victoria), Australia, 1998
 5. Nouakchott, Mauritania, 2016
+
+TimeGuessr #889
+1. Kingston, Jamaica, 2016
+2. Washington DC (Washington DC), United States, 1911
+3. Tel Aviv, Israel, 1933
+4. Budapest, Hungary, 1985
+5. Athens, Greece, 1964
