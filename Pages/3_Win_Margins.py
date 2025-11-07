@@ -311,7 +311,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     # Layout
     fig.add_hline(y=0, line=dict(color="#8f8d85", dash="dash", width=1))
     
-        # Determine x-axis tick positions at the start of each month
+    # Determine x-axis tick positions at the start of each month
     month_starts = pd.date_range(
         start=mask_filtered["Date"].min().replace(day=1),
         end=mask_filtered["Date"].max(),
@@ -323,12 +323,12 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
 
     # For each month start, find where it would appear on the x-axis
     for m in month_starts:
-        # Find closest date index in the data (or where it would fall)
-        diffs = abs(mask_filtered["Date"] - m)
-        closest_idx = diffs.idxmin()
-        tick_indices.append(mask_filtered.index.get_loc(closest_idx))
-        # Label as abbreviated month name and year (e.g. "Jan 2024")
-        tick_labels.append(m.strftime("%b %Y"))
+        # Find the first date in the data that's in this month (or later)
+        dates_in_month = mask_filtered[mask_filtered["Date"] >= m]
+        if not dates_in_month.empty:
+            first_date_idx = dates_in_month.index[0]
+            tick_indices.append(mask_filtered.loc[first_date_idx, "x_index"])
+            tick_labels.append(m.strftime("%b %Y"))
 
     
     fig.update_layout(
