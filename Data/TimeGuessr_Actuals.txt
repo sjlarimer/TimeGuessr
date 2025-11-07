@@ -137,3 +137,10 @@ TimeGuessr #889
 3. Tel Aviv, Israel, 1933
 4. Budapest, Hungary, 1985
 5. Athens, Greece, 1964
+
+TimeGuessr #890
+1. Memphis (Tennessee), United States, 1977
+2. Copenhagen, Denmark, 1923
+3. New Delhi (Delhi), India, 2008
+4. Belfast (Northern Ireland), United Kingdom, 1912
+5. Paris (Ile-de-France), France, 1930
