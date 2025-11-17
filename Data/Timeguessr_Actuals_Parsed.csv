@@ -104,3 +104,8 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 890,3,New Delhi,Delhi,India,2008
 890,4,Belfast,Northern Ireland,United Kingdom,1912
 890,5,Paris,Ile-de-France,France,1930
+900,1,Toronto,Ontario,Canada,2022
+900,2,Sofia,,Bulgaria,1995
+900,3,Paris,Ile-de-France,France,1909
+900,4,Athens,,Greece,1989
+900,5,Bloomington,Indiana,United States,1911
