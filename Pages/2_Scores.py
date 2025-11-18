@@ -382,8 +382,12 @@ def get_date_bold_style(date1: str, date2: str, date_format: str) -> Tuple[str, 
         return "font-weight: bold;", ""
     
     try:
-        d1 = pd.to_datetime(date1, format=date_format)
-        d2 = pd.to_datetime(date2, format=date_format)
+        # Extract the end date from ranges (e.g., "Sep 15 to Sep 16" -> "Sep 16")
+        date1_end = date1.split(' to ')[-1].strip()
+        date2_end = date2.split(' to ')[-1].strip()
+        
+        d1 = pd.to_datetime(date1_end, format=date_format)
+        d2 = pd.to_datetime(date2_end, format=date_format)
         if d1 > d2:
             return "font-weight: bold;", ""
         elif d2 > d1:
