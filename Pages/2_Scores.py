@@ -227,6 +227,47 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
         st.error(f"Error loading data: {e}")
         st.stop()
 
+def filter_by_score_range(df: pd.DataFrame, score_min: int, score_max: int, score_type: str = "total", include_single: bool = False) -> pd.DataFrame:
+    """Filter dataframe by score range for both players."""
+    df = df.copy()
+    
+    if score_type == "total":
+        michael_col = "Michael Total Score"
+        sarah_col = "Sarah Total Score"
+    elif score_type == "time":
+        michael_col = "Michael Time Midpoint"
+        sarah_col = "Sarah Time Midpoint"
+    else:  # geography
+        michael_col = "Michael Geography Midpoint"
+        sarah_col = "Sarah Geography Midpoint"
+    
+    if include_single:
+        # Keep rows where at least one player's score is within range
+        # But set out-of-range scores to NaN
+        mask = (
+            ((df[michael_col] >= score_min) & (df[michael_col] <= score_max)) |
+            ((df[sarah_col] >= score_min) & (df[sarah_col] <= score_max))
+        )
+        
+        df = df[mask].copy()
+        
+        # Set out-of-range scores to NaN
+        df.loc[(df[michael_col] < score_min) | (df[michael_col] > score_max), michael_col] = np.nan
+        df.loc[(df[sarah_col] < score_min) | (df[sarah_col] > score_max), sarah_col] = np.nan
+    else:
+        # Remove entire day if ANY score is outside range
+        # Only keep days where BOTH players have scores AND both are in range
+        mask = (
+            (df[michael_col].notna()) & 
+            (df[sarah_col].notna()) &
+            (df[michael_col] >= score_min) & (df[michael_col] <= score_max) &
+            (df[sarah_col] >= score_min) & (df[sarah_col] <= score_max)
+        )
+        
+        df = df[mask].copy()
+    
+    return df
+
 def prepare_total_scores_data(data: pd.DataFrame, include_single: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prepare data for Total Scores view."""
     df_daily = data.groupby("Timeguessr Day").first().reset_index()
@@ -1172,6 +1213,7 @@ window_length = st.slider(
     min_value=1, max_value=30, value=5, step=1
 )
 
+# Date range slider
 start_date, end_date = st.slider(
     "Select Date Range:",
     min_value=min_date.to_pydatetime(),
@@ -1180,9 +1222,25 @@ start_date, end_date = st.slider(
     format="YYYY-MM-DD"
 )
 
-# Filter data
+# Score range slider
+score_min, score_max = st.slider(
+    "Select Score Range:",
+    min_value=0,
+    max_value=ceiling,
+    value=(0, ceiling),
+    step=100 if ceiling == CEILING_TOTAL else 50
+)
+
+# Filter data by date range
 mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
 df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
+
+# Filter data by score range
+mask_filtered = filter_by_score_range(mask_filtered, score_min, score_max, score_type, include_single_player_days)
+df_daily_filtered = filter_by_score_range(df_daily_filtered, score_min, score_max, score_type, include_single_player_days)
+
+# Calculate averages
+mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
 
 # Calculate averages
 mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
