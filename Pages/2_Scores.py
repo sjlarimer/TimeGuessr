@@ -3,15 +3,36 @@ import base64
 from PIL import Image
 
 def get_base64_image(image_path):
-    """Encodes an image to a Base64 string."""
+    """
+    Encodes an image to a Base64 string, using its detected format (e.g., PNG or JPEG) 
+    when saving to the in-memory buffer.
+
+    Args:
+        image_path (str): Path to the image file (e.g., "Images/Sarah.jpg").
+
+    Returns:
+        str or None: The Base64 encoded string, or None if the file is not found.
+    """
     try:
-        # Save the PIL image to a buffer before encoding
+        # Open the image using PIL
         img = Image.open(image_path)
-        # Convert to PNG buffer (good for transparency)
+        
+        # Determine the saving format. PIL reports 'JPEG' for .jpg/.jpeg files 
+        # and 'PNG' for .png files. We use the detected format.
+        file_format = img.format if img.format is not None else 'PNG'
+        
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
+        # Save the image into the buffer using its original format
+        img.save(buffer, format=file_format)
+        
+        # Encode the buffer content to Base64
         return base64.b64encode(buffer.getvalue()).decode()
+        
     except FileNotFoundError:
+        print(f"Error: Image file not found at {image_path}")
+        return None
+    except Exception as e:
+        print(f"An error occurred during image processing: {e}")
         return None
 
 def set_lighter_background_image(base64_string, lightness_level=0.7):
@@ -50,7 +71,7 @@ def set_lighter_background_image(base64_string, lightness_level=0.7):
 # --- Main Streamlit Script ---
 import io
 
-image_file_path = "Images/Sarah.jpg"
+image_file_path = "Images/Sarah3.jpg"
 
 # 1. Get the base64 string
 base64_img = get_base64_image(image_file_path)
