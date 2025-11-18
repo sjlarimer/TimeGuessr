@@ -123,7 +123,7 @@ def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
     return (True, "")
 
 # Create two columns - left for inputs, right for score display
-input_col, score_col = st.columns([2, 1])
+input_col, score_col = st.columns([1, 1])
 
 with input_col:
     # Top section - Name and Date only

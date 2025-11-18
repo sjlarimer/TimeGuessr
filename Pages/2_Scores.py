@@ -227,19 +227,25 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
         st.error(f"Error loading data: {e}")
         st.stop()
 
-def prepare_total_scores_data(data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def prepare_total_scores_data(data: pd.DataFrame, include_single: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prepare data for Total Scores view."""
     df_daily = data.groupby("Timeguessr Day").first().reset_index()
     
-    # Create mask with only days where BOTH players have scores
-    mask = df_daily[
-        df_daily["Michael Total Score"].notna() & df_daily["Sarah Total Score"].notna()
-    ][["Date", "Michael Total Score", "Sarah Total Score"]].copy()
-    mask = mask.sort_values("Date").reset_index(drop=True)
+    if include_single:
+        # Include all days with at least one score
+        mask = df_daily[
+            df_daily["Michael Total Score"].notna() | df_daily["Sarah Total Score"].notna()
+        ][["Date", "Michael Total Score", "Sarah Total Score"]].copy()
+    else:
+        # Only include days where BOTH players have scores
+        mask = df_daily[
+            df_daily["Michael Total Score"].notna() & df_daily["Sarah Total Score"].notna()
+        ][["Date", "Michael Total Score", "Sarah Total Score"]].copy()
     
+    mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
 
-def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False, include_single: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prepare data for Time Scores view."""
     data = data.copy()
     
@@ -249,10 +255,7 @@ def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False)
             min_col = f"{player} Time Score (Min)"
             max_col = f"{player} Time Score (Max)"
             
-            # Identify dates where ANY round has min != max for this player
             estimated_dates = data[data[min_col] != data[max_col]]["Date"].unique()
-            
-            # Set those scores to NaN for that player on those dates
             data.loc[data["Date"].isin(estimated_dates), [min_col, max_col]] = np.nan
     
     # Compute midpoints per round
@@ -269,18 +272,23 @@ def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False)
         .reset_index()
     )
     
-    # Sort by date
     df_daily = df_daily.sort_values("Date").reset_index(drop=True)
     
-    # Create mask with only days where BOTH players have data
-    mask = df_daily[
-        df_daily["Michael Time Midpoint"].notna() & df_daily["Sarah Time Midpoint"].notna()
-    ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"]].copy()
-    mask = mask.sort_values("Date").reset_index(drop=True)
+    if include_single:
+        # Include all days with at least one score
+        mask = df_daily[
+            df_daily["Michael Time Midpoint"].notna() | df_daily["Sarah Time Midpoint"].notna()
+        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"]].copy()
+    else:
+        # Only include days where BOTH players have data
+        mask = df_daily[
+            df_daily["Michael Time Midpoint"].notna() & df_daily["Sarah Time Midpoint"].notna()
+        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"]].copy()
     
+    mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
 
-def prepare_geography_scores_data(data: pd.DataFrame, remove_estimated: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def prepare_geography_scores_data(data: pd.DataFrame, remove_estimated: bool = False, include_single: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prepare data for Geography Scores view."""
     data = data.copy()
     
@@ -290,10 +298,7 @@ def prepare_geography_scores_data(data: pd.DataFrame, remove_estimated: bool = F
             min_col = f"{player} Geography Score (Min)"
             max_col = f"{player} Geography Score (Max)"
             
-            # Identify dates where ANY round has min != max for this player
             estimated_dates = data[data[min_col] != data[max_col]]["Date"].unique()
-            
-            # Set those scores to NaN for that player on those dates
             data.loc[data["Date"].isin(estimated_dates), [min_col, max_col]] = np.nan
     
     # Compute midpoints per round
@@ -310,15 +315,20 @@ def prepare_geography_scores_data(data: pd.DataFrame, remove_estimated: bool = F
         .reset_index()
     )
     
-    # Sort by date
     df_daily = df_daily.sort_values("Date").reset_index(drop=True)
     
-    # Create mask with only days where BOTH players have data
-    mask = df_daily[
-        df_daily["Michael Geography Midpoint"].notna() & df_daily["Sarah Geography Midpoint"].notna()
-    ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"]].copy()
-    mask = mask.sort_values("Date").reset_index(drop=True)
+    if include_single:
+        # Include all days with at least one score
+        mask = df_daily[
+            df_daily["Michael Geography Midpoint"].notna() | df_daily["Sarah Geography Midpoint"].notna()
+        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"]].copy()
+    else:
+        # Only include days where BOTH players have data
+        mask = df_daily[
+            df_daily["Michael Geography Midpoint"].notna() & df_daily["Sarah Geography Midpoint"].notna()
+        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"]].copy()
     
+    mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
 
 def get_daily_data(data: pd.DataFrame) -> pd.DataFrame:
@@ -804,7 +814,8 @@ def create_streaks_table_html(michael_scores: pd.Series, sarah_scores: pd.Series
     """
 
 def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame, 
-                        window_length: int, score_type: str = "total") -> go.Figure:
+                        window_length: int, score_type: str = "total",
+                        show_single_player_days: bool = False) -> go.Figure:
     """Create the main Plotly figure."""
     fig = go.Figure()
     
@@ -818,49 +829,104 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         michael_col = "Michael Geography Midpoint"
         sarah_col = "Sarah Geography Midpoint"
 
+    # Always use sequential integers for equal spacing
+    x_values = list(range(len(mask_filtered)))
+    
+    # Create custom tick positions for first day of each month
+    mask_filtered_copy = mask_filtered.copy()
+    mask_filtered_copy['month_year'] = mask_filtered_copy['Date'].dt.to_period('M')
+    first_of_month_indices = mask_filtered_copy.groupby('month_year').head(1).index.tolist()
+    
+    tickvals = [i for i, idx in enumerate(mask_filtered.index) if idx in first_of_month_indices]
+    ticktext = [mask_filtered.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
+
+    # Add shaded rectangles for single-player days if toggle is on
+    if show_single_player_days:
+        for i in range(len(mask_filtered)):
+            michael_val = mask_filtered.iloc[i][michael_col]
+            sarah_val = mask_filtered.iloc[i][sarah_col]
+            
+            # Check if only one player has data
+            if pd.isna(michael_val) and not pd.isna(sarah_val):
+                # Only Sarah played - pinkish tint
+                fig.add_shape(
+                    type="rect",
+                    x0=i - 0.5,
+                    x1=i + 0.5,
+                    y0=0,
+                    y1=1,
+                    yref="paper",
+                    fillcolor="#d4c5cf",  # darker gray with pinkish tint
+                    opacity=0.4,
+                    layer="below",
+                    line_width=0,
+                )
+            elif pd.isna(sarah_val) and not pd.isna(michael_val):
+                # Only Michael played - bluish tint
+                fig.add_shape(
+                    type="rect",
+                    x0=i - 0.5,
+                    x1=i + 0.5,
+                    y0=0,
+                    y1=1,
+                    yref="paper",
+                    fillcolor="#c5c9d4",  # darker gray with bluish tint
+                    opacity=0.4,
+                    layer="below",
+                    line_width=0,
+                )
+
     # Scatter plots
     fig.add_trace(go.Scatter(
-        x=df_daily["Date"], y=df_daily[michael_col],
+        x=x_values, y=mask_filtered[michael_col],
         mode='markers', name=f'Michael {score_type.title()} Score',
         marker=dict(color=COLORS['michael_light'], size=8),
-        hovertemplate='Date: %{x}<br>Score: %{y}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Score: %{y}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
-        x=df_daily["Date"], y=df_daily[sarah_col],
+        x=x_values, y=mask_filtered[sarah_col],
         mode='markers', name=f'Sarah {score_type.title()} Score',
         marker=dict(color=COLORS['sarah_light'], size=8),
-        hovertemplate='Date: %{x}<br>Score: %{y}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Score: %{y}<extra></extra>'
     ))
 
     # Rolling average lines
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"], y=mask_filtered["Michael Rolling Avg"],
+        x=x_values, y=mask_filtered["Michael Rolling Avg"],
         mode='lines', name=f'Michael {window_length}-game Avg',
         line=dict(color=COLORS['michael'], width=2.5),
-        hovertemplate='Date: %{x}<br>Rolling Avg: %{y:.0f}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"], y=mask_filtered["Sarah Rolling Avg"],
+        x=x_values, y=mask_filtered["Sarah Rolling Avg"],
         mode='lines', name=f'Sarah {window_length}-game Avg',
         line=dict(color=COLORS['sarah'], width=2.5),
-        hovertemplate='Date: %{x}<br>Rolling Avg: %{y:.0f}<extra></extra>'
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
 
     # Cumulative average lines
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"], y=mask_filtered["Michael Cumulative Avg"],
+        x=x_values, y=mask_filtered["Michael Cumulative Avg"],
         mode='lines', name='Michael Cumulative Avg',
         line=dict(color=COLORS['michael'], width=1.5, dash='dot'),
-        opacity=0.7
+        opacity=0.7,
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
-        x=mask_filtered["Date"], y=mask_filtered["Sarah Cumulative Avg"],
+        x=x_values, y=mask_filtered["Sarah Cumulative Avg"],
         mode='lines', name='Sarah Cumulative Avg',
         line=dict(color=COLORS['sarah'], width=1.5, dash='dot'),
-        opacity=0.7
+        opacity=0.7,
+        customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
 
     # Layout
@@ -889,7 +955,15 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text'])
     )
-    fig.update_xaxes(**axis_config)
+    
+    # X-axis with custom month ticks
+    fig.update_xaxes(
+        **axis_config,
+        tickmode='array',
+        tickvals=tickvals,
+        ticktext=ticktext
+    )
+    
     fig.update_yaxes(**axis_config)
 
     return fig
@@ -1053,28 +1127,32 @@ page_type = st.selectbox(
 # Load data
 data = load_data()
 
-# Conditional toggle for Time Scores and Geography Scores
+# After the conditional toggle for estimated scores
 remove_estimated = False
 if page_type in ["Time Scores", "Geography Scores"]:
     remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
 
+# Add this new toggle for all page types
+include_single_player_days = st.toggle("Include days where only one person played", value=False, key="include_single_player_toggle")
+
+
 # Prepare data based on page type
 if page_type == "Total Scores":
-    df_daily, mask = prepare_total_scores_data(data)
+    df_daily, mask = prepare_total_scores_data(data, include_single_player_days)
     ceiling = CEILING_TOTAL
     score_type = "total"
     default_bin_size = 5000
     bin_options = [1000, 2000, 2500, 3000, 4000, 5000, 7500, 10000, 15000]
     change_threshold = 5000
 elif page_type == "Time Scores":
-    df_daily, mask = prepare_time_scores_data(data, remove_estimated)
+    df_daily, mask = prepare_time_scores_data(data, remove_estimated, include_single_player_days)
     ceiling = 25000
     score_type = "time"
     default_bin_size = 2500
     bin_options = [500, 1000, 2000, 2500, 3000, 4000, 5000, 7500]
     change_threshold = 2500
 else:  # Geography Scores
-    df_daily, mask = prepare_geography_scores_data(data, remove_estimated)
+    df_daily, mask = prepare_geography_scores_data(data, remove_estimated, include_single_player_days)
     ceiling = 25000
     score_type = "geography"
     default_bin_size = 2500
@@ -1106,7 +1184,8 @@ df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"
 mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
 
 # Display main chart
-fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type)
+fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type, 
+                          show_single_player_days=include_single_player_days)
 st.plotly_chart(fig, use_container_width=True, key="main_chart")
 
 # Statistics section
