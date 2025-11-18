@@ -434,8 +434,8 @@ with score_col:
 
                     html_parts = []
                     # Set player-specific color
-                    player_color = "#221e8f" if player_name == "Michael" else "#bf8f15"
-                    background_color = "#dde5eb" if player_name == "Michael" else "#e8dec5"
+                    player_color = "#221e8f" if player_name == "Michael" else "#8a005c"
+                    background_color = "#dde5eb" if player_name == "Michael" else "#edd3df"
                     
                     html_parts.append(f'''
                     <style>

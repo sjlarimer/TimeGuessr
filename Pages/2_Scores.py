@@ -96,7 +96,7 @@ COLORS = {
     'michael': '#221e8f',
     'michael_light': '#bcb0ff',
     'sarah': "#8a005c",
-    'sarah_light': "#ff70a7",
+    'sarah_light': "#ff94bd",
     'bg_paper': '#eae8dc',
     'bg_plot': '#d9d7cc',
     'grid': '#bdbbb1',
