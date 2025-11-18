@@ -9,9 +9,9 @@ st.markdown("---")
 # --- 2. Timed lyric lines (Adjusted Timings) ---
 lyrics: List[Tuple[int, str]] = [
     # ... (Your original lyrics list)
-    (9, "Nice to meet you, where you been?"),
+    (9.5, "Nice to meet you, where you been?"),
     (12, "I could show you incredible things"),
-    (14, "Magic, madness, heaven, sin"),
+    (14.5, "Magic, madness, heaven, sin"),
     (17, "Saw you there and I thought"),
     (19, "Oh, my God, look at that face"),
     (21, "You look like my next mistake"),

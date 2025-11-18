@@ -151,3 +151,10 @@ TimeGuessr #900
 3. Paris (Ile-de-France), France, 1909 
 4. Athens, Greece, 1989
 5. Bloomington (Indiana), United States, 1911
+
+TimeGuessr #901
+1. Cambridge (England), United Kingdom, 1939
+2. San Francisco (California), United States, 2016
+3. Havana, Cuba, 1960
+4. Rio de Janeiro, Brazil, 1991
+5. Amsterdam, Netherlands, 1949
