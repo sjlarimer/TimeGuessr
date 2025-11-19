@@ -220,33 +220,84 @@ custom_red_scale = [
     (1.0, "#db5049")
 ]
 
-# --- Create choropleth map ---
-fig = px.choropleth(
-    country_counts,
-    locations="Country",
-    locationmode="country names",
-    color="Count",
-    color_continuous_scale=custom_red_scale,
-    projection="mercator"
+# --- Add continent and UN region columns to country_counts ---
+cc = coco.CountryConverter()
+country_counts["Continent"] = cc.convert(names=country_counts["Country"].tolist(), to="continent")
+country_counts["UN_Region"] = cc.convert(names=country_counts["Country"].tolist(), to="UNregion")
+
+# --- Add view selector at top ---
+view_mode = st.radio(
+    "Select view:",
+    options=["Countries", "Continents", "UN Regions"],
+    horizontal=True,
+    label_visibility="collapsed"
 )
 
-# --- Add microstates as markers with fixed pixel size (only if there are any) ---
-if microstate_lons:
-    fig.add_trace(go.Scattergeo(
-        lon=microstate_lons,
-        lat=microstate_lats,
-        text=microstate_texts,
-        mode='markers',
-        marker=dict(
-            size=6,
-            color=microstate_colors,
-            line=dict(width=0.5, color='black'),
-            sizemode='diameter'  # Fixed pixel size regardless of zoom
-        ),
-        showlegend=False,
-        hoverinfo='text'
-    ))
+if view_mode == "Continents":
+    # Aggregate data by continent
+    continent_counts = country_counts.groupby('Continent')['Count'].sum().reset_index()
+    
+    # Create a dataframe with all countries colored by their continent's count
+    country_continent_map = country_counts[['Country', 'Continent']].copy()
+    continent_country_df = country_continent_map.merge(continent_counts, on='Continent', how='left')
+    
+    fig = px.choropleth(
+        continent_country_df,
+        locations="Country",
+        locationmode="country names",
+        color="Count",
+        color_continuous_scale=custom_red_scale,
+        hover_name="Continent",
+        hover_data={'Country': True, 'Count': True}
+    )
+    
+elif view_mode == "UN Regions":
+    # Aggregate data by UN region
+    un_region_counts = country_counts.groupby('UN_Region')['Count'].sum().reset_index()
+    
+    # Create a dataframe with all countries colored by their UN region's count
+    country_un_map = country_counts[['Country', 'UN_Region']].copy()
+    un_country_df = country_un_map.merge(un_region_counts, on='UN_Region', how='left')
+    
+    fig = px.choropleth(
+        un_country_df,
+        locations="Country",
+        locationmode="country names",
+        color="Count",
+        color_continuous_scale=custom_red_scale,
+        hover_name="UN_Region",
+        hover_data={'Country': True, 'Count': True}
+    )
+    
+else:
+    # --- Create choropleth map for countries (original code) ---
+    fig = px.choropleth(
+        country_counts,
+        locations="Country",
+        locationmode="country names",
+        color="Count",
+        color_continuous_scale=custom_red_scale,
+        projection="mercator"
+    )
 
+    # --- Add microstates as markers with fixed pixel size (only if there are any) ---
+    if microstate_lons:
+        fig.add_trace(go.Scattergeo(
+            lon=microstate_lons,
+            lat=microstate_lats,
+            text=microstate_texts,
+            mode='markers',
+            marker=dict(
+                size=6,
+                color=microstate_colors,
+                line=dict(width=0.5, color='black'),
+                sizemode='diameter'
+            ),
+            showlegend=False,
+            hoverinfo='text'
+        ))
+
+# Common layout for both views
 fig.update_layout(
     geo=dict(
         showframe=False,
@@ -256,19 +307,22 @@ fig.update_layout(
         showcountries=True,
         countrycolor="white",
         projection=dict(
-            type="natural earth"
+            type="robinson"
         ),
         lonaxis=dict(range=[-180, 180]),
-        lataxis=dict(range=[-90, 90]),
+        lataxis=dict(range=[-80, 90]),
+        domain=dict(x=[0, 1], y=[0, 1]),
     ),
-    paper_bgcolor="#eae8dc",
+    paper_bgcolor='rgba(0,0,0,0)',
     font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
     width=1600,
-    height=1000,
-    coloraxis_showscale=False,  # Remove color legend
+    height=1200,
+    coloraxis_showscale=False,
     showlegend=False,
-    margin=dict(t=0, b=0, l=0, r=0)  # Remove all margins
+    margin=dict(t=0, b=0, l=0, r=0)
 )
+
+fig.update_geos(fitbounds=False)
 
 st.plotly_chart(fig, use_container_width=True)
 
