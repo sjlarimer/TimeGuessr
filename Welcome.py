@@ -68,6 +68,4 @@ st.markdown(
     unsafe_allow_html=True
 )
 st.dataframe(data)
-
-with st.expander("raw data",expanded=False):
-    st.audio("./Images/Sarah.mp3", start_time=0, autoplay=True)
+    

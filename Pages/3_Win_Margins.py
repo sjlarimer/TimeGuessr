@@ -760,3 +760,5 @@ with col2:
     st.markdown("### Streaks")
     streaks_html = create_streaks_table(mask_original)
     st.markdown(streaks_html, unsafe_allow_html=True)
+
+st.audio("./Images/Sarah.mp3", start_time=0, autoplay=True)

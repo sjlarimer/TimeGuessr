@@ -158,3 +158,10 @@ TimeGuessr #901
 3. Havana, Cuba, 1960
 4. Rio de Janeiro, Brazil, 1991
 5. Amsterdam, Netherlands, 1949
+
+TimeGuessr #902
+1. RAF Harwell (England), United Kingdom, 1944
+2. Bratislava, Slovakia, 2016
+3. Copenhagen, Denmark, 1972
+4. Stockholm, Sweden, 1958
+5. Washington DC (Washington DC), United States, 1962
