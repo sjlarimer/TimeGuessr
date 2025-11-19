@@ -255,7 +255,11 @@ fig.update_layout(
         lakecolor="#d9d7cc",
         showcountries=True,
         countrycolor="white",
-        projection=dict(type="mercator", scale=1.1),
+        projection=dict(
+            type="natural earth"
+        ),
+        lonaxis=dict(range=[-180, 180]),
+        lataxis=dict(range=[-90, 90]),
     ),
     paper_bgcolor="#eae8dc",
     font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
@@ -263,7 +267,7 @@ fig.update_layout(
     height=1000,
     coloraxis_showscale=False,  # Remove color legend
     showlegend=False,
-    margin=dict(t=0, b=0, l=0, r=0)  # Remove margins where title would be
+    margin=dict(t=0, b=0, l=0, r=0)  # Remove all margins
 )
 
 st.plotly_chart(fig, use_container_width=True)
