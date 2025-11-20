@@ -92,3 +92,125 @@ fig_sarah.update_layout(title="Histogram of Sarah Time Guessed", **common_layout
 st.plotly_chart(fig_year, use_container_width=True)
 st.plotly_chart(fig_michael, use_container_width=True)
 st.plotly_chart(fig_sarah, use_container_width=True)
+
+# --- Scatterplot of time guessed vs actual year ---
+
+# we need to align year, michael, sarah from the same rows (instead of independently dropping NaNs)
+df_scatter = data[[col_year, col_michael, col_sarah]].copy()
+df_scatter[col_year] = pd.to_numeric(df_scatter[col_year], errors="coerce")
+df_scatter[col_michael] = pd.to_numeric(df_scatter[col_michael], errors="coerce")
+df_scatter[col_sarah] = pd.to_numeric(df_scatter[col_sarah], errors="coerce")
+df_scatter = df_scatter.dropna()
+
+x_year = df_scatter[col_year].astype(float).values
+y_michael = df_scatter[col_michael].astype(float).values
+y_sarah = df_scatter[col_sarah].astype(float).values
+
+# diagonal reference line (y = x)
+line_x = np.linspace(min(x_year.min(), y_michael.min(), y_sarah.min()),
+                     max(x_year.max(), y_michael.max(), y_sarah.max()),
+                     200)
+
+fig_scatter = go.Figure()
+
+fig_scatter.add_trace(go.Scatter(
+    x=x_year,
+    y=y_michael,
+    mode="markers",
+    name="Michael Time Guessed",
+    marker=dict(size=8, color="#221e8f")     # Michael = same red as bars
+))
+
+fig_scatter.add_trace(go.Scatter(
+    x=x_year,
+    y=y_sarah,
+    mode="markers",
+    name="Sarah Time Guessed",
+    marker=dict(size=8, color="#8a005c")     # blue for contrast
+))
+
+fig_scatter.add_trace(go.Scatter(
+    x=line_x,
+    y=line_x,
+    mode="lines",
+    name="y = year",
+    line=dict(color="black", width=2)
+))
+
+fig_scatter.update_layout(
+    title="Time Guessed vs Actual Year",
+    xaxis_title="Actual Year",
+    yaxis_title="Guessed Year",
+    margin=dict(l=50, r=20, t=40, b=40),
+    showlegend=True
+)
+
+# Show in Streamlit
+st.plotly_chart(fig_scatter, use_container_width=True)
+
+
+
+# --- Boxplots of signed error by decade ---
+
+df_box = data[[col_year, col_michael, col_sarah]].copy()
+df_box[col_year] = pd.to_numeric(df_box[col_year], errors="coerce")
+df_box[col_michael] = pd.to_numeric(df_box[col_michael], errors="coerce")
+df_box[col_sarah] = pd.to_numeric(df_box[col_sarah], errors="coerce")
+df_box = df_box.dropna()
+
+# decade bucket
+df_box["decade"] = (df_box[col_year] // 10 * 10).astype(int)
+
+# signed errors
+df_box["michael_err"] = df_box[col_michael] - df_box[col_year]
+df_box["sarah_err"] = df_box[col_sarah] - df_box[col_year]
+
+# sorted list of decades to keep ordering stable
+decades = sorted(df_box["decade"].unique())
+
+fig_box = go.Figure()
+
+# Michael boxplots
+for d in decades:
+    fig_box.add_trace(go.Box(
+        y=df_box.loc[df_box["decade"] == d, "michael_err"],
+        x=[f"{d}s"] * len(df_box.loc[df_box["decade"] == d]),
+        name=f"Michael {d}s",
+        marker_color="#221e8f",
+        boxmean="sd"
+    ))
+
+# Sarah boxplots
+for d in decades:
+    fig_box.add_trace(go.Box(
+        y=df_box.loc[df_box["decade"] == d, "sarah_err"],
+        x=[f"{d}s"] * len(df_box.loc[df_box["decade"] == d]),
+        name=f"Sarah {d}s",
+        marker_color="#8a005c",
+        boxmean="sd"
+    ))
+
+# determine symmetric axis range
+all_errors = pd.concat([
+    df_box["michael_err"],
+    df_box["sarah_err"]
+])
+max_abs = max(abs(all_errors.min()), abs(all_errors.max()))
+
+fig_box.update_layout(
+    title="Signed Error by Decade (Michael vs Sarah)",
+    xaxis_title="Decade",
+    yaxis_title="Guessed Year − Actual Year",
+    boxmode="group",
+    boxgap=0.3,          # <-- spacing inside each decade group
+    boxgroupgap=0.6,     # <-- spacing between decades
+    yaxis=dict(
+        range=[-max_abs, max_abs],
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor="black"
+    ),
+    margin=dict(l=50, r=20, t=40, b=40)
+)
+
+st.plotly_chart(fig_box, use_container_width=True)
