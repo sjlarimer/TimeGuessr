@@ -165,3 +165,10 @@ TimeGuessr #902
 3. Copenhagen, Denmark, 1972
 4. Stockholm, Sweden, 1958
 5. Washington DC (Washington DC), United States, 1962
+
+TimeGuessr #903
+1. Chicago (Illinois), United States, 1920
+2. Essen (North Rhine-Westphalia), Germany, 1981
+3. Placencia, Belize, 2018
+4. Madrid, Spain, 1965
+5. Shanghai, China, 1972
