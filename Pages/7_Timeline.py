@@ -214,3 +214,57 @@ fig_box.update_layout(
 )
 
 st.plotly_chart(fig_box, use_container_width=True)
+
+
+# --- Create contingency tables for Michael and Sarah ---
+
+# Function to compute count table
+def count_table(guess_col, actual_col):
+    df_temp = df_box.copy()
+    df_temp["guess_decade"] = (df_temp[guess_col] // 10 * 10).astype(int)
+    df_temp["actual_decade"] = (df_temp[actual_col] // 10 * 10).astype(int)
+    
+    table = pd.crosstab(df_temp["guess_decade"], df_temp["actual_decade"])
+    
+    # Make sure rows and columns include all decades
+    decades_all = sorted(df_box["decade"].unique())
+    table = table.reindex(index=decades_all, columns=decades_all, fill_value=0)
+    
+    return table
+
+# Compute count tables
+michael_counts = count_table(col_michael, col_year)
+sarah_counts = count_table(col_sarah, col_year)
+
+# Function to create heatmap figure
+def heatmap_fig(table, title, colorscale="Blues"):
+    fig = go.Figure(data=go.Heatmap(
+        z=table.values,
+        x=[f"{c}s" for c in table.columns],
+        y=[f"{r}s" for r in table.index],
+        text=table.values,
+        texttemplate="%{text}",
+        colorscale=colorscale,
+        reversescale=False,
+        showscale=True,
+        colorbar=dict(title="Count")
+    ))
+    fig.update_layout(
+        title=title,
+        xaxis_title="Actual Decade",
+        yaxis_title="Guessed Decade",
+        yaxis_autorange="reversed",  # so lower decades on bottom
+        margin=dict(l=50, r=20, t=40, b=40)
+    )
+    return fig
+
+# Display side-by-side in Streamlit
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("Michael: Guessed vs Actual Decade (Counts)")
+    st.plotly_chart(heatmap_fig(michael_counts, "Michael"), use_container_width=True)
+
+with col2:
+    st.subheader("Sarah: Guessed vs Actual Decade (Counts)")
+    st.plotly_chart(heatmap_fig(sarah_counts, "Sarah", colorscale="Reds"), use_container_width=True)
