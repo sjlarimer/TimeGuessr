@@ -102,110 +102,40 @@ score_update()
 
 # Helper function to validate distance against geography pattern
 def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
-    if geo_pattern == "OOO":  # 🟩🟩🟩
-        if dist_meters <= 50:
+    patterns = {
+        "OOO": (0, 50), "OO%": (50, 37500), "OOX": (37500, 100000),
+        "O%X": (100000, 250000), "OXX": (250000, 1000000),
+        "%XX": (1000000, 2000000), "XXX": (2000000, float('inf'))
+    }
+    if geo_pattern not in patterns:
+        return (True, "")
+    low, high = patterns[geo_pattern]
+    if geo_pattern == "OOO":
+        if dist_meters <= high:
             return (True, "")
-        else:
-            excess = dist_meters - 50
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟩🟩🟩 requires ≤ 50 m)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟩🟩🟩 requires ≤ 50 m)")
-    
-    elif geo_pattern == "OO%":  # 🟩🟩🟨
-        if 50 < dist_meters <= 37500:
+        excess = dist_meters - high
+        unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
+        return (False, f"Round {round_num}: Distance is {unit} too great (🟩🟩🟩 requires ≤ 50 m)")
+    elif geo_pattern == "XXX":
+        if dist_meters > low:
             return (True, "")
-        elif dist_meters <= 50:
-            deficit = 50 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (🟩🟩🟨 requires > 50 m and ≤ 37.5 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (🟩🟩🟨 requires > 50 m and ≤ 37.5 km)")
-        else:
-            excess = dist_meters - 37500
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟩🟩🟨 requires > 50 m and ≤ 37.5 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟩🟩🟨 requires > 50 m and ≤ 37.5 km)")
-    
-    elif geo_pattern == "OOX":  # 🟩🟩⬛
-        if 37500 < dist_meters <= 100000:
+        deficit = low - dist_meters + 1
+        unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
+        return (False, f"Round {round_num}: Distance is {unit} too few (⬛⬛⬛ requires > 2000 km)")
+    else:
+        if low < dist_meters <= high:
             return (True, "")
-        elif dist_meters <= 37500:
-            deficit = 37500 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (🟩🟩⬛ requires > 37.5 km and ≤ 100 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (🟩🟩⬛ requires > 37.5 km and ≤ 100 km)")
+        elif dist_meters <= low:
+            deficit = low - dist_meters + 1
+            unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
+            return (False, f"Round {round_num}: Distance is {unit} too few")
         else:
-            excess = dist_meters - 100000
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟩🟩⬛ requires > 37.5 km and ≤ 100 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟩🟩⬛ requires > 37.5 km and ≤ 100 km)")
-    
-    elif geo_pattern == "O%X":  # 🟩🟨⬛
-        if 100000 < dist_meters <= 250000:
-            return (True, "")
-        elif dist_meters <= 100000:
-            deficit = 100000 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (🟩🟨⬛ requires > 100 km and ≤ 250 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (🟩🟨⬛ requires > 100 km and ≤ 250 km)")
-        else:
-            excess = dist_meters - 250000
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟩🟨⬛ requires > 100 km and ≤ 250 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟩🟨⬛ requires > 100 km and ≤ 250 km)")
-    
-    elif geo_pattern == "OXX":  # 🟩⬛⬛
-        if 250000 < dist_meters <= 1000000:
-            return (True, "")
-        elif dist_meters <= 250000:
-            deficit = 250000 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (🟩⬛⬛ requires > 250 km and ≤ 1000 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (🟩⬛⬛ requires > 250 km and ≤ 1000 km)")
-        else:
-            excess = dist_meters - 1000000
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟩⬛⬛ requires > 250 km and ≤ 1000 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟩⬛⬛ requires > 250 km and ≤ 1000 km)")
-    
-    elif geo_pattern == "%XX":  # 🟨⬛⬛
-        if 1000000 < dist_meters <= 2000000:
-            return (True, "")
-        elif dist_meters <= 1000000:
-            deficit = 1000000 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (🟨⬛⬛ requires > 1000 km and ≤ 2000 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (🟨⬛⬛ requires > 1000 km and ≤ 2000 km)")
-        else:
-            excess = dist_meters - 2000000
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {excess/1000:.3f} km too great given the Total Score box (🟨⬛⬛ requires > 1000 km and ≤ 2000 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {excess} m too great given the Total Score box (🟨⬛⬛ requires > 1000 km and ≤ 2000 km)")
-    
-    elif geo_pattern == "XXX":  # ⬛⬛⬛
-        if dist_meters > 2000000:
-            return (True, "")
-        else:
-            deficit = 2000000 - dist_meters + 1
-            if is_km:
-                return (False, f"Round {round_num}: Distance is {deficit/1000:.3f} km too few given the Total Score box (⬛⬛⬛ requires > 2000 km)")
-            else:
-                return (False, f"Round {round_num}: Distance is {deficit} m too few given the Total Score box (⬛⬛⬛ requires > 2000 km)")
-    
-    return (True, "")
+            excess = dist_meters - high
+            unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
+            return (False, f"Round {round_num}: Distance is {unit} too great")
 
 # Create two columns - left for inputs, right for score display
-input_col, score_col = st.columns([1, 1])
+input_col, score_col = st.columns([1.25, 2])
 
 with input_col:
     # Top section - Name and Date only
@@ -656,7 +586,7 @@ if name_valid and date:
         guess_df = pd.DataFrame()
     
     # Create two columns
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns([1.25, 1, 1])
     
     # Left column - Actual Answers (all 5 rounds)
     with col1:
@@ -992,14 +922,6 @@ if name_valid and date:
                 # Remove trailing newline
                 default_total_score = default_total_score.rstrip('\n')
         
-        # Add Total Score input before rounds
-        total_score_input = st.text_area("Total Score", 
-                    value=default_total_score, 
-                    key=f"total_score_text_{date}",
-                    help="Share Your Results from TimeGuessr!",
-                    height=180,
-                    disabled=(any_guess_exists and not edit_mode_guess))
-        
         for round_num in range(1, 6):
             st.markdown(f"**Round {round_num}**")
             
@@ -1035,7 +957,7 @@ if name_valid and date:
                     actual_year_for_round = int(actual_rounds_data[round_num]['year'])
             
             # Create 4 columns for Distance, Geo Score, Year, Time Score
-            g_cols = st.columns([1.2, 0.6, 0.8, 0.6])
+            g_cols = st.columns([1, 0.5, 1, 0.5])
             
             # Calculate scores first
             geo_score = None
@@ -1110,7 +1032,22 @@ if name_valid and date:
             with g_cols[1]:
                 st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
                 if geo_score is not None:
-                    st.info(f"🌎 {geo_score:.0f}")
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: #dde5eb;
+                            color: #221e8f;
+                            padding: 4px 8px;
+                            border-left: 7px solid #221e8f;
+                            border-radius: 4px;
+                            font-size: 1rem;
+                            line-height: 1.9;
+                        ">
+                            🌎 {geo_score:.0f}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 else:
                     st.markdown("")
             
@@ -1160,7 +1097,22 @@ if name_valid and date:
             with g_cols[3]:
                 st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
                 if time_score is not None:
-                    st.info(f"📅 {time_score}")
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: #dde5eb;
+                            color: #221e8f;
+                            padding: 4px 8px;
+                            border-left: 7px solid #221e8f;
+                            border-radius: 4px;
+                            font-size: 1rem;
+                            line-height: 1.9;
+                        ">
+                            📅 {time_score:.0f}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 elif year_guessed_valid and actual_year_for_round is None:
                     # Show help text with year ranges
                     guessed = int(year_guessed)
@@ -1168,18 +1120,35 @@ if name_valid and date:
                         return max(1900, min(year, date.year))
                     
                     help_text = f"""5000: {clamp(guessed)}  
-4950: {clamp(guessed-1)}/{clamp(guessed+1)}   
-4800: {clamp(guessed-2)}/{clamp(guessed+2)}    
-4600: {clamp(guessed-3)}/{clamp(guessed+3)}     
-4300: {clamp(guessed-4)}/{clamp(guessed+4)}     
-3900: {clamp(guessed-5)}/{clamp(guessed+5)}     
-3400: {clamp(guessed-7)}-{clamp(guessed-6)}/{clamp(guessed+6)}-{clamp(guessed+7)}      
-2500: {clamp(guessed-10)}-{clamp(guessed-8)}/{clamp(guessed+8)}-{clamp(guessed+10)}    
-2000: {clamp(guessed-15)}-{clamp(guessed-11)}/{clamp(guessed+11)}-{clamp(guessed+15)}  
-1000: {clamp(guessed-20)}-{clamp(guessed-16)}/{clamp(guessed+16)}-{clamp(guessed+20)}  
-0: {clamp(1900)}-{clamp(guessed-21)}/{clamp(guessed+21)}-{clamp(date.year)}"""
+                                    4950: {clamp(guessed-1)}/{clamp(guessed+1)}   
+                                    4800: {clamp(guessed-2)}/{clamp(guessed+2)}    
+                                    4600: {clamp(guessed-3)}/{clamp(guessed+3)}     
+                                    4300: {clamp(guessed-4)}/{clamp(guessed+4)}     
+                                    3900: {clamp(guessed-5)}/{clamp(guessed+5)}     
+                                    3400: {clamp(guessed-7)}-{clamp(guessed-6)}/{clamp(guessed+6)}-{clamp(guessed+7)}      
+                                    2500: {clamp(guessed-10)}-{clamp(guessed-8)}/{clamp(guessed+8)}-{clamp(guessed+10)}    
+                                    2000: {clamp(guessed-15)}-{clamp(guessed-11)}/{clamp(guessed+11)}-{clamp(guessed+15)}  
+                                    1000: {clamp(guessed-20)}-{clamp(guessed-16)}/{clamp(guessed+16)}-{clamp(guessed+20)}  
+                                    0: {clamp(1900)}-{clamp(guessed-21)}/{clamp(guessed+21)}-{clamp(date.year)}"""
                     
-                    st.markdown(f'<div title="{help_text}" style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 0.25rem; padding: 0.75rem 1.25rem; color: #0c5460;">📅 ?</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f"""
+                        <div title="{help_text}"
+                            style="
+                                background-color: #bcb0ff;
+                                color: #221e8f;
+                                padding: 4px 8px;
+                                border-left: 7px solid #221e8f;
+                                border-radius: 4px;
+                                font-size: 1rem;
+                                line-height: 1.9;
+                                display: inline-block;
+                            ">
+                            📅 ?
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 else:
                     st.markdown("")
             
@@ -1190,6 +1159,14 @@ if name_valid and date:
                 'year_valid': year_guessed_valid,
                 'exists': guess_exists
             }
+
+        # Add Total Score input before rounds
+        total_score_input = st.text_area("Total Score", 
+                    value=default_total_score, 
+                    key=f"total_score_text_{date}",
+                    help="Share Your Results from TimeGuessr!",
+                    height=180,
+                    disabled=(any_guess_exists and not edit_mode_guess))
         
         # Save/Submit buttons for guesses
         if any_guess_exists and edit_mode_guess:
