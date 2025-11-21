@@ -215,15 +215,9 @@ with input_col:
         max_value=datetime.date.today()
     )
 
-    name = st.text_input("Name")
+    name = st.selectbox("Name", ["", "Michael", "Sarah"], format_func=lambda x: "Select..." if x == "" else x)
 
-    # Validate name
-    name_valid = False
-    if name:
-        if name not in ["Michael", "Sarah"]:
-            st.error("Name must be either 'Michael' or 'Sarah'")
-        else:
-            name_valid = True
+    name_valid = name in ["Michael", "Sarah"]
 
 # Display score summary if date is selected
 with score_col:
@@ -447,73 +441,76 @@ with score_col:
                         padding: 10px 12px;
                         overflow: visible;
                         box-sizing: border-box;
-                        max-width: 432px;
+                        width: 100%;  /* CHANGED: Was max-width: 432px */
                         background-color: {background_color};
                         border-radius: 12px;
                         {container_style}
                     }}
                     .tg-header-{player_name.lower()} {{
-                    color:{player_color};
-                    font-weight:700;
-                    font-size:30px;
-                    margin:0 0 5px 0;
-                    line-height:1.1;
+                        color:{player_color};
+                        font-weight:700;
+                        font-size:30px;
+                        margin:0 0 5px 0;
+                        line-height:1.1;
                     }}
                     .tg-total {{
-                    color:#222;
-                    font-size:24px;
-                    font-weight:600;
-                    margin:0 0 7px 0;
-                    line-height:1.1;
+                        color:#222;
+                        font-size:24px;
+                        font-weight:600;
+                        margin:0 0 7px 0;
+                        line-height:1.1;
                     }}
                     .tg-sub {{
-                    font-size:20px;
-                    margin:0 0 7px 0;
-                    line-height:1.1;
-                    color:#333;
+                        font-size:20px;
+                        margin:0 0 7px 0;
+                        line-height:1.1;
+                        color:#333;
                     }}
                     .tg-rounds-wrapper {{
-                    margin-top:7px;
+                        margin-top:7px;
                     }}
                     .tg-round {{
-                    margin:7px 0;
+                        margin:7px 0;
                     }}
                     .tg-round-title {{
-                    color:#db5049;
-                    font-weight:600;
-                    font-size:20px;
-                    margin:0 0 7px 0;
-                    line-height:1.1;
+                        color:#db5049;
+                        font-weight:600;
+                        font-size:20px;
+                        margin:0 0 7px 0;
+                        line-height:1.1;
                     }}
                     .tg-row {{
-                    display:flex;
-                    gap:12px;
-                    align-items:center;
-                    flex-wrap:nowrap;
+                        display:flex;
+                        gap:12px;
+                        align-items:center;
+                        flex-wrap:nowrap;
                     }}
                     .tg-half {{
-                    width:49%;
+                        width: 50%; /* CHANGED: Slightly increased to fill flex space better */
+                        flex: 1;    /* ADDED: Ensures they grow evenly */
                     }}
                     .tg-bar-bg {{
-                    background:#b0afaa;
-                    border-radius:10px;
-                    height:10px;
-                    overflow:hidden;
+                        background:#b0afaa;
+                        border-radius:10px;
+                        height:10px;
+                        overflow:hidden;
+                        width: 100%; /* Ensure bars fill their half */
                     }}
                     .tg-bar-fill {{
-                    height:10px;
-                    border-radius:10px;
-                    background:#db5049;
+                        height:10px;
+                        border-radius:10px;
+                        background:#db5049;
                     }}
                     .tg-score-note {{
-                    font-size:20px;
-                    margin:0 0 7px 0;
+                        font-size:20px;
+                        margin:0 0 7px 0;
+                        white-space: nowrap; /* Prevent text wrapping weirdly */
                     }}
                     .tg-qq {{
-                    color:#db5049;
-                    font-weight:700;
-                    font-size:19px;
-                    margin:7px 0;
+                        color:#db5049;
+                        font-weight:700;
+                        font-size:19px;
+                        margin:7px 0;
                     }}
                     .tg-score-note small {{ color:#444; }}
                     </style>
@@ -550,7 +547,23 @@ with score_col:
                         else:
                             geo_score = time_score = geo_pattern = time_pattern = country_name = None
 
-                        flag = get_flag_emoji(country_name)
+                        # --- CHECK IF ALL PLAYERS HAVE SCORES (UN Flag Logic) ---
+                        round_fully_revealed = True
+                        if len(round_data) > 0:
+                            for p in players:
+                                p_check_col = f"{p} Geography Score"
+                                p_score = round_data.iloc[0].get(p_check_col, None)
+                                if pd.isna(p_score):
+                                    round_fully_revealed = False
+                                    break
+                        else:
+                            round_fully_revealed = False
+
+                        if round_fully_revealed:
+                            flag = get_flag_emoji(country_name)
+                        else:
+                            flag = get_flag_emoji("United Nations")
+                        # -------------------------------------------------------
 
                         if pd.isna(geo_score):
                             if geo_pattern in GEOGRAPHY_RANGES:
@@ -588,8 +601,8 @@ with score_col:
                         </div>
                         ''')
 
-                    html_parts.append('</div>')  # end rounds wrapper
-                    html_parts.append('</div>')  # end container
+                    html_parts.append('</div>')
+                    html_parts.append('</div>')
                     return "\n".join(html_parts)
 
                 # Generate HTML for both players
@@ -649,214 +662,267 @@ if name_valid and date:
     with col1:
         st.subheader("Actual Answers")
         
-        # Check if edit mode toggle should appear (if any round has data)
+        # --- 1. Initialize the dictionary early to prevent NameError ---
+        actual_rounds_data = {} 
+
+        # --- 2. Check if Actuals Exist ---
         any_actual_exists = False
         if not actuals_df.empty:
             for round_num in range(1, 6):
                 existing = actuals_df[(actuals_df['Timeguessr Day'] == timeguessr_day) & 
-                                     (actuals_df['Timeguessr Round'] == round_num)]
+                                      (actuals_df['Timeguessr Round'] == round_num)]
                 if len(existing) > 0:
                     any_actual_exists = True
                     break
         
-        if any_actual_exists:
-            edit_mode_actual = st.toggle("Edit Mode", value=False, key=f"edit_mode_actual_{date}")
-        else:
-            edit_mode_actual = False
-        
-        # Store all actual data for validation
-        actual_rounds_data = {}
-        
-        for round_num in range(1, 6):
-            st.markdown(f"**Round {round_num}**")
-            
-            # Get existing data for this round
-            default_year = ""
-            default_country = ""
-            default_subdivision = ""
-            default_city = ""
-            actual_exists = False
-            
-            if not actuals_df.empty:
-                existing = actuals_df[(actuals_df['Timeguessr Day'] == timeguessr_day) & 
-                                     (actuals_df['Timeguessr Round'] == round_num)]
+        # --- 3. Check if Guesses Exist ---
+        any_guess_exists = False
+        if not guess_df.empty:
+            for round_num in range(1, 6):
+                existing = guess_df[(guess_df['Timeguessr Day'] == timeguessr_day) & 
+                                   (guess_df['Timeguessr Round'] == round_num)]
                 if len(existing) > 0:
-                    actual_exists = True
-                    existing_data = existing.iloc[0]
-                    default_year = str(int(existing_data['Year']))
-                    default_country = existing_data['Country']
-                    default_subdivision = existing_data.get('Subdivision', '')
-                    default_city = existing_data['City']
-            
-            # Create 4 columns for Year, Country, Subdivision, City
-            r_cols = st.columns(4)
-            
-            with r_cols[0]:
-                year = st.text_input("Year", key=f"actual_year_r{round_num}_{date}", 
-                                    value=default_year, 
-                                    disabled=(actual_exists and not edit_mode_actual),
-                                    label_visibility="visible")
-            
-            with r_cols[1]:
-                # Get country options from config (dict keys)
-                country_options = [""] + list(config.get('countries', {}).keys())
-                
-                # Find the index for the default country
-                if default_country and default_country in country_options:
-                    default_index = country_options.index(default_country)
-                else:
-                    default_index = 0
-                
-                country = st.selectbox("Country", 
-                                      options=country_options,
-                                      index=default_index,
-                                      key=f"actual_country_r{round_num}_{date}",
-                                      disabled=(actual_exists and not edit_mode_actual),
-                                      label_visibility="visible")
-            
-            with r_cols[2]:
-                # --- Subdivision options ---
-                subdivision_display = [""]  # What user sees
-                subdivision_actual = [""]   # Actual selectable values
+                    any_guess_exists = True
+                    break
 
-                if country and country in config.get('countries', {}):
-                    country_data = config['countries'][country]
-                    for category, subs in country_data.items():
-                        # Use visual separator instead of markdown/HTML for safety
-                        header = f"─ {category.replace('_', ' ').title()} ─"
-                        subdivision_display.append(header)
-                        subdivision_actual.append(None)
-                        subdivision_display.extend(subs)
-                        subdivision_actual.extend(subs)
-
-                # Mapping display → actual
-                display_to_actual = dict(zip(subdivision_display, subdivision_actual))
-
-                # Find default index
-                if default_subdivision in subdivision_actual:
-                    default_index = subdivision_actual.index(default_subdivision)
-                else:
-                    default_index = 0
-
-                subdivision_display_value = st.selectbox(
-                    "Subdivision",
-                    options=subdivision_display,
-                    index=default_index,
-                    key=f"actual_subdivision_r{round_num}_{date}",
-                    disabled=(actual_exists and not edit_mode_actual),
-                    label_visibility="visible"
-                )
-
-                subdivision = display_to_actual.get(subdivision_display_value, "")
-                if subdivision is None:
-                    subdivision = ""
-            
-            with r_cols[3]:
-                city = st.text_input("City", key=f"actual_city_r{round_num}_{date}", 
-                                    value=default_city,
-                                    disabled=(actual_exists and not edit_mode_actual),
-                                    label_visibility="visible")
-            
-            # Validate year
-            year_valid = True
-            if year and (not actual_exists or edit_mode_actual):
-                if not year.isdigit() or len(year) != 4:
-                    st.error(f"Round {round_num}: Year must be a 4-digit number")
-                    year_valid = False
-                elif not (1900 <= int(year) <= date.year):
-                    st.error(f"Round {round_num}: Year must be between 1900 and {date.year}")
-                    year_valid = False
-            
-            actual_rounds_data[round_num] = {
-                'year': year,
-                'city': city,
-                'subdivision': subdivision,
-                'country': country,
-                'year_valid': year_valid,
-                'exists': actual_exists
-            }
+        # --- 4. Session State Logic for Revealing (With Reset on Date Change) ---
         
-        # Save/Submit buttons for actual answers
-        if any_actual_exists and edit_mode_actual:
-            if st.button("Save All Changes", key="save_all_actual"):
-                try:
-                    actuals_path = "./Data/Timeguessr_Actuals_Parsed.csv"
-                    actuals_df = pd.read_csv(actuals_path)
-                    
-                    all_valid = True
-                    for round_num, data in actual_rounds_data.items():
-                        if data['exists'] and data['year'] and data['country'] and data['city'] and data['year_valid']:
-                            mask = (actuals_df['Timeguessr Day'] == timeguessr_day) & (actuals_df['Timeguessr Round'] == round_num)
-                            actuals_df.loc[mask, 'Year'] = int(data['year'])
-                            actuals_df.loc[mask, 'Country'] = data['country']
-                            actuals_df.loc[mask, 'Subdivision'] = data['subdivision']
-                            actuals_df.loc[mask, 'City'] = data['city']
-                        elif data['exists']:
-                            all_valid = False
-                    
-                    if all_valid:
-                        actuals_df = actuals_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                        actuals_df.to_csv(actuals_path, index=False)
-                        st.success("All changes saved successfully!")
+        # A. Track the last viewed day to detect changes
+        if "last_viewed_timeguessr_day" not in st.session_state:
+            st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
+
+        reveal_state_key = f"reveal_confirmed_{timeguessr_day}"
+
+        # B. Check if date changed since last run
+        if st.session_state["last_viewed_timeguessr_day"] != timeguessr_day:
+            # Date changed! Reset the reveal state for the current day to False (Hidden)
+            st.session_state[reveal_state_key] = False
+            # Update the tracker
+            st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
+
+        # C. Initialize key if not present
+        if reveal_state_key not in st.session_state:
+            st.session_state[reveal_state_key] = False
+            
+        # --- 5. The Logic Condition ---
+        # Hidden if: Actuals exist AND No guesses exist AND Not yet manually revealed
+        is_hidden = any_actual_exists and not any_guess_exists and not st.session_state[reveal_state_key]
+
+        if is_hidden:
+            st.warning("⚠️ You should not view the actual answers as they have already been filled in.")
+            
+            # Button to trigger the "popup"
+            if st.button("Reveal Actual Answers", key=f"btn_req_reveal_{date}"):
+                st.session_state[f"show_confirm_popup_{timeguessr_day}"] = True
+            
+            # The "Popup" (Confirmation Area)
+            if st.session_state.get(f"show_confirm_popup_{timeguessr_day}", False):
+                st.info("Are you sure you want to view actual answers?")
+                col_yes, col_no = st.columns(2)
+                
+                with col_yes:
+                    if st.button("Yes, View Answers", key=f"btn_yes_reveal_{date}"):
+                        st.session_state[reveal_state_key] = True
+                        st.session_state[f"show_confirm_popup_{timeguessr_day}"] = False
                         st.rerun()
+                
+                with col_no:
+                    if st.button("No, Keep Hidden", key=f"btn_no_reveal_{date}"):
+                        st.session_state[f"show_confirm_popup_{timeguessr_day}"] = False
+                        st.rerun()
+
+        else:
+            # ============================================================
+            # EXISTING FORM RENDER LOGIC
+            # ============================================================
+            if any_actual_exists:
+                edit_mode_actual = st.toggle("Edit Mode", value=False, key=f"edit_mode_actual_{date}")
+            else:
+                edit_mode_actual = False
+            
+            for round_num in range(1, 6):
+                st.markdown(f"**Round {round_num}**")
+                
+                # Get existing data for this round
+                default_year = ""
+                default_country = ""
+                default_subdivision = ""
+                default_city = ""
+                actual_exists = False
+                
+                if not actuals_df.empty:
+                    existing = actuals_df[(actuals_df['Timeguessr Day'] == timeguessr_day) & 
+                                          (actuals_df['Timeguessr Round'] == round_num)]
+                    if len(existing) > 0:
+                        actual_exists = True
+                        existing_data = existing.iloc[0]
+                        default_year = str(int(existing_data['Year']))
+                        default_country = existing_data['Country']
+                        default_subdivision = existing_data.get('Subdivision', '')
+                        default_city = existing_data['City']
+                
+                # Create 4 columns for Year, Country, Subdivision, City
+                r_cols = st.columns(4)
+                
+                with r_cols[0]:
+                    year = st.text_input("Year", key=f"actual_year_r{round_num}_{date}", 
+                                        value=default_year, 
+                                        disabled=(actual_exists and not edit_mode_actual),
+                                        label_visibility="visible")
+                
+                with r_cols[1]:
+                    country_options = [""] + list(config.get('countries', {}).keys())
+                    
+                    if default_country and default_country in country_options:
+                        default_index = country_options.index(default_country)
                     else:
-                        st.error("Please fill in all required fields correctly for all rounds.")
-                except Exception as e:
-                    st.error(f"Error saving changes: {e}")
-        
-        elif not any_actual_exists:
-            if st.button("Submit All Actual Answers", key="submit_all_actual"):
-                try:
-                    reference_date = datetime.date(2025, 10, 24)
-                    reference_day_number = 876
-                    delta_days = (date - reference_date).days
-                    computed_timeguessr_day = reference_day_number + delta_days
+                        default_index = 0
                     
-                    all_valid = True
-                    new_rows = []
-                    
-                    for round_num, data in actual_rounds_data.items():
-                        # Require year and country for all rounds
-                        if not data['year'] or not data['country']:
-                            st.error(f"Round {round_num}: Year and Country are required fields.")
-                            all_valid = False
-                            break
+                    country = st.selectbox("Country", 
+                                            options=country_options,
+                                            index=default_index,
+                                            key=f"actual_country_r{round_num}_{date}",
+                                            disabled=(actual_exists and not edit_mode_actual),
+                                            label_visibility="visible")
+                
+                with r_cols[2]:
+                    subdivision_display = [""]
+                    subdivision_actual = [""]
+
+                    if country and country in config.get('countries', {}):
+                        country_data = config['countries'][country]
+                        for category, subs in country_data.items():
+                            header = f"─ {category.replace('_', ' ').title()} ─"
+                            subdivision_display.append(header)
+                            subdivision_actual.append(None)
+                            subdivision_display.extend(subs)
+                            subdivision_actual.extend(subs)
+
+                    display_to_actual = dict(zip(subdivision_display, subdivision_actual))
+
+                    if default_subdivision in subdivision_actual:
+                        default_index = subdivision_actual.index(default_subdivision)
+                    else:
+                        default_index = 0
+
+                    subdivision_display_value = st.selectbox(
+                        "Subdivision",
+                        options=subdivision_display,
+                        index=default_index,
+                        key=f"actual_subdivision_r{round_num}_{date}",
+                        disabled=(actual_exists and not edit_mode_actual),
+                        label_visibility="visible"
+                    )
+
+                    subdivision = display_to_actual.get(subdivision_display_value, "")
+                    if subdivision is None:
+                        subdivision = ""
+                
+                with r_cols[3]:
+                    city = st.text_input("City", key=f"actual_city_r{round_num}_{date}", 
+                                        value=default_city,
+                                        disabled=(actual_exists and not edit_mode_actual),
+                                        label_visibility="visible")
+                
+                # Validate year
+                year_valid = True
+                if year and (not actual_exists or edit_mode_actual):
+                    if not year.isdigit() or len(year) != 4:
+                        st.error(f"Round {round_num}: Year must be a 4-digit number")
+                        year_valid = False
+                    elif not (1900 <= int(year) <= date.year):
+                        st.error(f"Round {round_num}: Year must be between 1900 and {date.year}")
+                        year_valid = False
+                
+                # Populate dictionary
+                actual_rounds_data[round_num] = {
+                    'year': year,
+                    'city': city,
+                    'subdivision': subdivision,
+                    'country': country,
+                    'year_valid': year_valid,
+                    'exists': actual_exists
+                }
+            
+            # Save/Submit buttons
+            if any_actual_exists and edit_mode_actual:
+                if st.button("Save All Changes", key="save_all_actual"):
+                    try:
+                        actuals_path = "./Data/Timeguessr_Actuals_Parsed.csv"
+                        actuals_df = pd.read_csv(actuals_path)
                         
-                        if not data['year_valid']:
-                            st.error(f"Round {round_num}: Please enter a valid year.")
-                            all_valid = False
-                            break
+                        all_valid = True
+                        for round_num, data in actual_rounds_data.items():
+                            if data['exists'] and data['year'] and data['country'] and data['city'] and data['year_valid']:
+                                mask = (actuals_df['Timeguessr Day'] == timeguessr_day) & (actuals_df['Timeguessr Round'] == round_num)
+                                actuals_df.loc[mask, 'Year'] = int(data['year'])
+                                actuals_df.loc[mask, 'Country'] = data['country']
+                                actuals_df.loc[mask, 'Subdivision'] = data['subdivision']
+                                actuals_df.loc[mask, 'City'] = data['city']
+                            elif data['exists']:
+                                all_valid = False
                         
-                        if data['year'] and data['country'] and data['year_valid']:
-                            new_rows.append({
-                                "Timeguessr Day": int(computed_timeguessr_day),
-                                "Timeguessr Round": int(round_num),
-                                "City": data['city'],
-                                "Subdivision": data['subdivision'],
-                                "Country": data['country'],
-                                "Year": int(data['year'])
-                            })
+                        if all_valid:
+                            actuals_df = actuals_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
+                            actuals_df.to_csv(actuals_path, index=False)
+                            st.success("All changes saved successfully!")
+                            st.rerun()
                         else:
-                            all_valid = False
-                            break
-                    
-                    if all_valid and len(new_rows) == 5:
-                        parsed_path = "./Data/Timeguessr_Actuals_Parsed.csv"
+                            st.error("Please fill in all required fields correctly for all rounds.")
+                    except Exception as e:
+                        st.error(f"Error saving changes: {e}")
+            
+            elif not any_actual_exists:
+                if st.button("Submit All Actual Answers", key="submit_all_actual"):
+                    try:
+                        reference_date = datetime.date(2025, 10, 24)
+                        reference_day_number = 876
+                        delta_days = (date - reference_date).days
+                        computed_timeguessr_day = reference_day_number + delta_days
                         
-                        if os.path.exists(parsed_path):
-                            parsed_df = pd.read_csv(parsed_path)
-                            # Remove any existing entries for this day
-                            parsed_df = parsed_df[~(pd.to_numeric(parsed_df.get("Timeguessr Day"), errors="coerce") == computed_timeguessr_day)]
-                            parsed_df = pd.concat([parsed_df, pd.DataFrame(new_rows)], ignore_index=True)
-                        else:
-                            parsed_df = pd.DataFrame(new_rows)
+                        all_valid = True
+                        new_rows = []
                         
-                        parsed_df = parsed_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                        parsed_df.to_csv(parsed_path, index=False)
-                        st.success("All actual answers submitted successfully!")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Error submitting actual answers: {e}")
+                        for round_num, data in actual_rounds_data.items():
+                            if not data['year'] or not data['country']:
+                                st.error(f"Round {round_num}: Year and Country are required fields.")
+                                all_valid = False
+                                break
+                            
+                            if not data['year_valid']:
+                                st.error(f"Round {round_num}: Please enter a valid year.")
+                                all_valid = False
+                                break
+                            
+                            if data['year'] and data['country'] and data['year_valid']:
+                                new_rows.append({
+                                    "Timeguessr Day": int(computed_timeguessr_day),
+                                    "Timeguessr Round": int(round_num),
+                                    "City": data['city'],
+                                    "Subdivision": data['subdivision'],
+                                    "Country": data['country'],
+                                    "Year": int(data['year'])
+                                })
+                            else:
+                                all_valid = False
+                                break
+                        
+                        if all_valid and len(new_rows) == 5:
+                            parsed_path = "./Data/Timeguessr_Actuals_Parsed.csv"
+                            
+                            if os.path.exists(parsed_path):
+                                parsed_df = pd.read_csv(parsed_path)
+                                parsed_df = parsed_df[~(pd.to_numeric(parsed_df.get("Timeguessr Day"), errors="coerce") == computed_timeguessr_day)]
+                                parsed_df = pd.concat([parsed_df, pd.DataFrame(new_rows)], ignore_index=True)
+                            else:
+                                parsed_df = pd.DataFrame(new_rows)
+                            
+                            parsed_df = parsed_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
+                            parsed_df.to_csv(parsed_path, index=False)
+                            st.success("All actual answers submitted successfully!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error submitting actual answers: {e}")
     
     # Right column - Guesses (all 5 rounds)
     with col2:

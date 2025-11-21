@@ -823,6 +823,43 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     tickvals = [i for i, idx in enumerate(mask_filtered.index) if idx in first_of_month_indices]
     ticktext = [mask_filtered.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
 
+    # Add vertical line for Score Tracking Start (October 20, 2025)
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
+    
+    # Add vertical line for Score Tracking Start (October 20, 2025)
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
+    
+    # Add vertical line for Score Tracking Start (October 20, 2025)
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
+    
+    if not date_matches.empty:
+        # Exact match found
+        score_tracking_idx = mask_filtered.index.get_loc(date_matches.index[0])
+    else:
+        # Find first date after October 20, 2025 that is visible
+        dates_after = mask_filtered[mask_filtered['Date'] > score_tracking_date]
+        if not dates_after.empty:
+            score_tracking_idx = mask_filtered.index.get_loc(dates_after.index[0])
+        else:
+            score_tracking_idx = None
+    
+    if score_tracking_idx is not None:
+        
+        fig.add_vline(
+            x=score_tracking_idx,
+            line=dict(color="gray", width=2, dash="dash"),
+            annotation_text="Score Tracking Start",
+            annotation_position="bottom",
+            annotation=dict(
+                font=dict(color=COLORS['text'], size=11),
+                textangle=0,
+                yshift=-10
+            )
+        )
+
     # Add shaded rectangles for single-player days if toggle is on
     if show_single_player_days:
         for i in range(len(mask_filtered)):
