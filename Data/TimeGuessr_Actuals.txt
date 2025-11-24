@@ -179,3 +179,11 @@ TimeGuessr #904
 3. Istanbul, Türkiye, 1910
 4. Washington DC (Washington DC), United States, 2025
 5. Dublin, Ireland, 1916
+
+
+TimeGuessr #907
+1. San Francisco (California), United States, 1992
+2. Madrid, Spain, 1965
+3. Buenos Aires, Argentina, 1987
+4. Lillehammer, Norway, 1906
+5. Lima, Peru, 2015
