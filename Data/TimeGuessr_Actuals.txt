@@ -180,10 +180,16 @@ TimeGuessr #904
 4. Washington DC (Washington DC), United States, 2025
 5. Dublin, Ireland, 1916
 
-
 TimeGuessr #907
 1. San Francisco (California), United States, 1992
 2. Madrid, Spain, 1965
 3. Buenos Aires, Argentina, 1987
 4. Lillehammer, Norway, 1906
 5. Lima, Peru, 2015
+
+TimeGuessr #908
+1. Beirut, Lebanon, 2025
+2. Sydney (New South Wales), Australia, 1927
+3. Paris (Ile-de-France), France, 1912
+4. Prague, Czechia, 1960
+5. Washington DC (Washington DC), United States, 2009
