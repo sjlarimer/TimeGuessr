@@ -193,3 +193,10 @@ TimeGuessr #908
 3. Paris (Ile-de-France), France, 1912
 4. Prague, Czechia, 1960
 5. Washington DC (Washington DC), United States, 2009
+
+TimeGuessr #909
+1. London (England), United Kingdom, 1981
+2. Chicago (Illinois), United States, 1903
+3. Ulaanbaatar, Mongolia, 2010
+4. Lublin, Poland, 1963
+5. Beijing, China, 1972
