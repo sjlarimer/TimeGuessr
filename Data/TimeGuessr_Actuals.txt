@@ -214,3 +214,10 @@ TimeGuessr #915
 3. Tunis, Tunisia, 1943
 4. New York (New York), United States, 1964
 5. Warsaw, Poland, 1989
+
+TimeGuessr #916
+1. Amsterdam, Netherlands, 1947
+2. Sydney (New South Wales), Australia, 1983 
+3. Edmonton (Alberta), Canada, 1931
+4. St. Petersburg, Russia, 1974
+5. Seoul, South Korea, 1991
