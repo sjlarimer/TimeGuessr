@@ -235,3 +235,10 @@ TimeGuessr #918
 3. New York (New York), United States, 1908
 4. Cairo, Egypt, 1961
 5. Lahore, Pakistan, 2025
+
+TimeGuessr #921
+1. Sant Julia de Loria, Andorra, 1967
+2. Jerusalem, Israel, 1940
+3. Ho Chi Minh, Vietnam, 2015
+4. Chicago (Illinois), United States, 1909
+5. Berlin (Berlin), Germany, 1953
