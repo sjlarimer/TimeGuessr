@@ -242,3 +242,10 @@ TimeGuessr #921
 3. Ho Chi Minh, Vietnam, 2015
 4. Chicago (Illinois), United States, 1909
 5. Berlin (Berlin), Germany, 1953
+
+TimeGuessr #922
+1. London (England), United Kingdom, 1978
+2. Madre de Dios, Peru, 2023
+3. Atlanta (Georgia), United States, 1996
+4. Warsaw, Poland, 1930
+5. Vatican City, Vatican City, 1984
