@@ -81,23 +81,136 @@ base64_img = get_base64_image(image_file_path)
 set_lighter_background_image(base64_img, lightness_level=0.7)
 
 import streamlit as st
-with open("styles.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import country_converter as coco
+with open("styles.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# ... (Previous Image code remains the same) ...
 
 st.markdown("## Locations")
 
+# --- 1. Global Controls (3 Columns) ---
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    map_metric = st.radio(
+        "Select Metric:",
+        options=["Count", "Comparison", "Michael", "Sarah"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="map_metric_selector"
+    )
+
+with col2:
+    view_mode = st.radio(
+        "Select View Level:",
+        options=["Countries", "Continents", "UN Regions"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="view_mode_selector"
+    )
+
+with col3:
+    score_mode = st.radio(
+        "Select Score Type:",
+        options=["Total Score", "Geography Score", "Time Score"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="score_mode_selector"
+    )
+
 # --- Load data ---
-data = pd.read_csv("./Data/Timeguessr_Stats.csv")
+try:
+    data = pd.read_csv("./Data/Timeguessr_Stats.csv")
+except FileNotFoundError:
+    st.error("Stats file not found.")
+    st.stop()
 
-# --- Count occurrences of each country ---
-country_counts = data["Country"].value_counts().reset_index()
-country_counts.columns = ["Country", "Count"]
+# --- 2. Dynamic Data Prep based on Score Selection ---
+cc = coco.CountryConverter()
 
-# --- Define microstates with coordinates (countries/territories under 4000 km²) ---
+# A. Handle Score Selection Logic
+# we define 'max_points_per_game' to calculate percentages later (5000 for single cat, 10000 for total)
+if score_mode == "Total Score":
+    data["Michael Selected"] = data["Michael Geography Score"].fillna(0) + data["Michael Time Score"].fillna(0)
+    data["Sarah Selected"] = data["Sarah Geography Score"].fillna(0) + data["Sarah Time Score"].fillna(0)
+    max_points_per_game = 10000
+elif score_mode == "Geography Score":
+    data["Michael Selected"] = data["Michael Geography Score"].fillna(0)
+    data["Sarah Selected"] = data["Sarah Geography Score"].fillna(0)
+    max_points_per_game = 5000
+else: # Time Score
+    data["Michael Selected"] = data["Michael Time Score"].fillna(0)
+    data["Sarah Selected"] = data["Sarah Time Score"].fillna(0)
+    max_points_per_game = 5000
+
+# B. Add Metadata
+data["ISO3"] = cc.convert(names=data["Country"].tolist(), to="ISO3", not_found=None)
+data["Continent"] = cc.convert(names=data["Country"].tolist(), to="continent")
+data["UN_Region"] = cc.convert(names=data["Country"].tolist(), to="UNregion")
+
+# --- 3. Aggregation Function ---
+def get_aggregated_data(df, view_mode):
+    """
+    Aggregates data based on view_mode, summing the dynamically created 'Michael Selected' 
+    and 'Sarah Selected' columns.
+    """
+    # 1. Group the data
+    if view_mode == "Countries":
+        grouped = df.groupby("Country").agg({
+            "Michael Selected": "sum",
+            "Sarah Selected": "sum",
+            "Country": "size"
+        }).rename(columns={"Country": "Count"}).reset_index()
+        
+        grouped["ISO3"] = cc.convert(names=grouped["Country"].tolist(), to="ISO3", not_found=None)
+        grouped["Hover_Name"] = grouped["Country"]
+        
+    else:
+        group_key = "Continent" if view_mode == "Continents" else "UN_Region"
+        
+        grouped_agg = df.groupby(group_key).agg({
+            "Michael Selected": "sum",
+            "Sarah Selected": "sum",
+            "Country": "count"
+        }).rename(columns={"Country": "Count"}).reset_index()
+        
+        base_map = df[["Country", "ISO3", group_key]].drop_duplicates()
+        grouped = pd.merge(base_map, grouped_agg, on=group_key, how="left")
+        grouped["Hover_Name"] = grouped[group_key]
+
+    # 2. Calculate Comparison Ratios
+    grouped["Combined Points"] = grouped["Michael Selected"] + grouped["Sarah Selected"]
+    
+    # Filter out empty rows to avoid div/0
+    grouped = grouped[grouped["Combined Points"] > 0].copy()
+    
+    grouped["Michael Ratio"] = grouped["Michael Selected"] / grouped["Combined Points"]
+    grouped["Michael %"] = (grouped["Michael Ratio"] * 100).map('{:,.1f}%'.format)
+    grouped["Sarah %"] = ((1 - grouped["Michael Ratio"]) * 100).map('{:,.1f}%'.format)
+    
+    return grouped
+
+# --- 4. Get Data ---
+map_data = get_aggregated_data(data, view_mode)
+
+# --- 5. Layout Settings ---
+layout_settings = dict(
+    geo=dict(
+        showframe=False, showcoastlines=False, bgcolor="#d9d7cc",
+        lakecolor="#d9d7cc", showcountries=True, countrycolor="white",
+        showland=True, landcolor="white",
+        projection=dict(type="robinson"),
+    ),
+    paper_bgcolor='rgba(0,0,0,0)',
+    font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
+    width=1600, height=1200, coloraxis_showscale=False, showlegend=False,
+    margin=dict(t=0, b=0, l=0, r=0)
+)
+
 microstates = {
     # # Europe
     "Vatican City": {"lon": 12.4534, "lat": 41.9029},
@@ -192,157 +305,153 @@ microstates = {
     "Aland": {"lon": 20.366667, "lat": 60.25},
 }
 
-# --- Prepare microstate data with colors (only for countries with data) ---
-microstate_lons = []
-microstate_lats = []
-microstate_colors = []
-microstate_texts = []
+# --- 5. Visualization Logic ---
+if map_metric == "Count":
+    # ------------------------------------------------------------------
+    # VIEW: COUNT (Unaffected by score type, basically)
+    # ------------------------------------------------------------------
+    count_scale = [(0.0, "#fee6e6"), (1.0, "#db5049")]
 
-for country, coords in microstates.items():
-    if country in country_counts["Country"].values:
-        count = country_counts[country_counts["Country"] == country]["Count"].values[0]
-        # Calculate color based on count using the same scale
-        max_count = country_counts["Count"].max()
-        color_ratio = count / max_count
-        # Interpolate between light and dark red
-        r = int(254 - (254 - 219) * color_ratio)
-        g = int(230 - (230 - 80) * color_ratio)
-        b = int(230 - (230 - 73) * color_ratio)
-        
-        microstate_lons.append(coords["lon"])
-        microstate_lats.append(coords["lat"])
-        microstate_colors.append(f'rgb({r},{g},{b})')
-        microstate_texts.append(f"{country}<br>Count: {count}")
-
-# --- Create custom red color scale ---
-custom_red_scale = [
-    (0.0, "#fee6e6"),
-    (1.0, "#db5049")
-]
-
-# --- Add continent and UN region columns to country_counts ---
-cc = coco.CountryConverter()
-country_counts["Continent"] = cc.convert(names=country_counts["Country"].tolist(), to="continent")
-country_counts["UN_Region"] = cc.convert(names=country_counts["Country"].tolist(), to="UNregion")
-
-# --- Add view selector at top ---
-view_mode = st.radio(
-    "Select view:",
-    options=["Countries", "Continents", "UN Regions"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
-
-if view_mode == "Continents":
-    # Aggregate data by continent
-    continent_counts = country_counts.groupby('Continent')['Count'].sum().reset_index()
-    
-    # Create a dataframe with all countries colored by their continent's count
-    country_continent_map = country_counts[['Country', 'Continent']].copy()
-    continent_country_df = country_continent_map.merge(continent_counts, on='Continent', how='left')
-    
     fig = px.choropleth(
-        continent_country_df,
-        locations="Country",
-        locationmode="country names",
+        map_data,
+        locations="ISO3",
+        locationmode="ISO-3",
         color="Count",
-        color_continuous_scale=custom_red_scale,
-        hover_name="Continent",
-        hover_data={'Country': True, 'Count': True}
-    )
-    
-elif view_mode == "UN Regions":
-    # Aggregate data by UN region
-    un_region_counts = country_counts.groupby('UN_Region')['Count'].sum().reset_index()
-    
-    # Create a dataframe with all countries colored by their UN region's count
-    country_un_map = country_counts[['Country', 'UN_Region']].copy()
-    un_country_df = country_un_map.merge(un_region_counts, on='UN_Region', how='left')
-    
-    fig = px.choropleth(
-        un_country_df,
-        locations="Country",
-        locationmode="country names",
-        color="Count",
-        color_continuous_scale=custom_red_scale,
-        hover_name="UN_Region",
-        hover_data={'Country': True, 'Count': True}
-    )
-    
-else:
-    # --- Create choropleth map for countries (original code) ---
-    fig = px.choropleth(
-        country_counts,
-        locations="Country",
-        locationmode="country names",
-        color="Count",
-        color_continuous_scale=custom_red_scale,
-        projection="mercator"
+        color_continuous_scale=count_scale,
+        hover_name="Hover_Name",
+        hover_data={"ISO3": False, "Count": True, "Michael Selected": False}
     )
 
-    # --- Add microstates as markers with fixed pixel size (only if there are any) ---
-    if microstate_lons:
-        fig.add_trace(go.Scattergeo(
-            lon=microstate_lons,
-            lat=microstate_lats,
-            text=microstate_texts,
-            mode='markers',
-            marker=dict(
-                size=6,
-                color=microstate_colors,
-                line=dict(width=0.5, color='black'),
-                sizemode='diameter'
-            ),
-            showlegend=False,
-            hoverinfo='text'
-        ))
+    # Microstates (Only in 'Countries' view)
+    if view_mode == "Countries":
+        # (Placeholder: Insert your existing microstates dict/loop here)
+        pass 
 
-# Common layout for both views
-fig.update_layout(
-    geo=dict(
-        showframe=False,
-        showcoastlines=False,
-        bgcolor="#d9d7cc",
-        lakecolor="#d9d7cc",
-        showcountries=True,
-        countrycolor="white",
-        projection=dict(
-            type="robinson"
+    fig.update_layout(**layout_settings)
+    st.plotly_chart(fig, use_container_width=True)
+
+elif map_metric == "Comparison":
+    # ------------------------------------------------------------------
+    # VIEW: COMPARISON (Uses "Michael Selected" vs "Sarah Selected")
+    # ------------------------------------------------------------------
+    
+    # 1. Determine Outline Color
+    def get_border_color(ratio):
+        if ratio > 0.5: return "#221e8f"  # Michael
+        elif ratio < 0.5: return "#8a005c"  # Sarah
+        else: return "#666666"
+
+    map_data["BorderColor"] = map_data["Michael Ratio"].apply(get_border_color)
+
+    # 2. Scale
+    comparison_scale = [[0.0, "#ff94bd"], [1.0, "#bcb0ff"]]
+
+    # 3. Figure
+    fig = go.Figure(go.Choropleth(
+        locations=map_data['ISO3'],
+        z=map_data['Michael Ratio'],
+        locationmode='ISO-3',
+        colorscale=comparison_scale,
+        zmin=0.40, zmax=0.60,
+        marker_line_color=map_data['BorderColor'], 
+        marker_line_width=1.5,
+        text=map_data['Hover_Name'],
+        customdata=map_data[['Michael Selected', 'Sarah Selected', 'Michael %', 'Sarah %']],
+        hovertemplate=(
+            "<b>%{text}</b><br>" +
+            "Michael Ratio: %{z:.2f}<br>" +
+            f"Michael ({score_mode}): %{{customdata[0]:,.0f}}<br>" +
+            f"Sarah ({score_mode}): %{{customdata[1]:,.0f}}<br>" +
+            "Michael %: %{customdata[2]}<br>" +
+            "Sarah %: %{customdata[3]}<extra></extra>"
         ),
-        lonaxis=dict(range=[-180, 180]),
-        lataxis=dict(range=[-80, 90]),
-        domain=dict(x=[0, 1], y=[0, 1]),
-    ),
-    paper_bgcolor='rgba(0,0,0,0)',
-    font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
-    width=1600,
-    height=1200,
-    coloraxis_showscale=False,
-    showlegend=False,
-    margin=dict(t=0, b=0, l=0, r=0)
-)
+        showscale=False
+    ))
+    
+    fig.update_layout(**layout_settings)
+    st.plotly_chart(fig, use_container_width=True)
 
-fig.update_geos(fitbounds=False)
+    st.markdown(
+        f"""
+        <div style="text-align: center; font-weight: bold; margin-top: -10px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
+                <span style="color: #ff94bd;">← Sarah Fill</span>
+                <span style="background: linear-gradient(90deg, #ff94bd, #bcb0ff); width: 200px; height: 10px; display: inline-block; border-radius: 5px;"></span>
+                <span style="color: #bcb0ff;">Michael Fill →</span>
+            </div>
+            <div style="font-size: 0.9em;">
+                <span style="color: #8a005c; border: 2px solid #8a005c; padding: 2px 6px; border-radius: 4px;">Sarah Border</span>
+                &nbsp;&nbsp;
+                <span style="color: #221e8f; border: 2px solid #221e8f; padding: 2px 6px; border-radius: 4px;">Michael Border</span>
+            </div>
+            <div style="font-size: 0.8em; color: #555; margin-top: 5px;">*Comparing {score_mode}</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
-st.plotly_chart(fig, use_container_width=True)
+elif map_metric == "Michael":
+    # ------------------------------------------------------------------
+    # VIEW: MICHAEL (Dynamic Score Type)
+    # ------------------------------------------------------------------
+    
+    # 1. Calculate Performance based on selected mode
+    map_data["Possible Points"] = map_data["Count"] * max_points_per_game
+    map_data["Performance"] = map_data["Michael Selected"] / map_data["Possible Points"]
+    map_data["Perf %"] = (map_data["Performance"] * 100).map('{:,.1f}%'.format)
+    
+    michael_scale = [(0.0, "#e6e6ff"), (1.0, "#221e8f")]
 
-# --- Detect which countries Plotly can actually recognize ---
-recognized = []
-unrecognized = []
+    fig = px.choropleth(
+        map_data,
+        locations="ISO3",
+        locationmode="ISO-3",
+        color="Performance",
+        color_continuous_scale=michael_scale,
+        range_color=[0.5, 1], # 50-100%
+        hover_name="Hover_Name",
+        hover_data={
+            "ISO3": False, "Performance": False, "Perf %": True,
+            "Michael Selected": True, "Possible Points": True, "Count": True
+        },
+        labels={"Michael Selected": f"Michael {score_mode}"}
+    )
+    
+    fig.update_layout(**layout_settings)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.caption(f"Showing Michael's **{score_mode} Accuracy** (Score / ({max_points_per_game} × Appearances)). Scale: 50%-100%.")
 
-for country in country_counts["Country"]:
-    iso = coco.convert(names=country, to='ISO3', not_found=None)
-    if iso is None:
-        unrecognized.append(country)
-    else:
-        recognized.append(country)
+elif map_metric == "Sarah":
+    # ------------------------------------------------------------------
+    # VIEW: SARAH (Dynamic Score Type)
+    # ------------------------------------------------------------------
+    
+    map_data["Possible Points"] = map_data["Count"] * max_points_per_game
+    map_data["Performance"] = map_data["Sarah Selected"] / map_data["Possible Points"]
+    map_data["Perf %"] = (map_data["Performance"] * 100).map('{:,.1f}%'.format)
+    
+    sarah_scale = [(0.0, "#ffe6f2"), (1.0, "#8a005c")]
 
-# --- Display missing ones ---
-if unrecognized:
-    st.markdown("### ⚠️ Unrecognized Countries")
-    st.write(", ".join(sorted(unrecognized)))
-else:
-    st.markdown("✅ All countries recognized successfully!")
+    fig = px.choropleth(
+        map_data,
+        locations="ISO3",
+        locationmode="ISO-3",
+        color="Performance",
+        color_continuous_scale=sarah_scale,
+        range_color=[0.5, 1], # 50-100%
+        hover_name="Hover_Name",
+        hover_data={
+            "ISO3": False, "Performance": False, "Perf %": True,
+            "Sarah Selected": True, "Possible Points": True, "Count": True
+        },
+        labels={"Sarah Selected": f"Sarah {score_mode}"}
+    )
+    
+    fig.update_layout(**layout_settings)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.caption(f"Showing Sarah's **{score_mode} Accuracy** (Score / ({max_points_per_game} × Appearances)). Scale: 50%-100%.")
 
 
 
