@@ -14,7 +14,7 @@ TimeGuessr #865
 
 TimeGuessr #866
 1. Budapest, Hungary, 1956
-2. Sarajevo, Bosnia, 1984
+2. Sarajevo, Bosnia and Herzegovina, 1984
 3. Manchester (New Hampshire), United States, 1918
 4. Brisbane (Queensland), Australia, 1910
 5. Collana, Bolivia, 2012
@@ -249,3 +249,24 @@ TimeGuessr #922
 3. Atlanta (Georgia), United States, 1996
 4. Warsaw, Poland, 1930
 5. Vatican City, Vatican City, 1984
+
+TimeGuessr #923
+1. San Francisco (California), United States, 1964
+2. Zurich, Switzerland, 1949
+3. Chisinau, Moldova, 2024
+4. Santa Domingo, Ecuador, 1974
+5. Sydney (New South Wales), Australia, 1954
+
+TimeGuessr #924
+1. Wellington, New Zealand, 1933
+2. Athens, Greece, 1973
+3. Zandvoort, Netherlands, 2025
+4. Mexico City, Mexico, 1956
+5. Kansas City (Missouri), United States, 1906
+
+TimeGuessr #925
+1. Srebenica, Bosnia and Herzegovina, 2015
+2. Macau, China, 2007
+3. Rio de Janeiro, Brazil, 2025
+4. Antwerp, Belgium, 1985
+5. Olney (England), United Kingdom, 1950
