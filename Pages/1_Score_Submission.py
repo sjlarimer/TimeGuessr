@@ -81,50 +81,268 @@ base64_img = get_base64_image(image_file_path)
 set_lighter_background_image(base64_img, lightness_level=0.7)
 
 import streamlit as st
-with open("styles.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 import datetime
 import os
-from streamlit.components.v1 import html as components_html
-from Score_Update import score_update
-import pycountry
-import emoji
 import json
-with open("config.json") as f:
-    config = json.load(f)
+import math
+from streamlit.components.v1 import html as components_html
+
+# --- Setup & Config ---
+try:
+    from Score_Update import score_update
+except ImportError:
+    def score_update(): pass
+
+try:
+    with open("styles.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    pass
+
+# --- Global Font Override & CSS ---
+st.markdown(
+    """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        /* Apply font to text elements only, avoiding icons */
+        html, body, p, h1, h2, h3, h4, h5, h6, label, input, textarea, select, button {
+            font-family: 'Poppins', sans-serif !important;
+        }
+        
+        /* Compact Toggles */
+        .stToggle {
+            margin-top: -5px !important; 
+        }
+        
+        /* Force small font on Toggle Labels inside columns */
+        div[data-testid="column"] div[data-testid="stToggle"] label p {
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            color: #db5049 !important;
+        }
+        
+        /* Prevent score text wrapping */
+        .score-box {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            height: 37px; /* Standard Streamlit Input Height */
+            margin-top: 0px;
+        }
+        
+        /* COLOR OVERRIDE: Make all standard text TimeGuessr Red */
+        .stMarkdown p, label, h1, h2, h3, h4, h5, h6 {
+            color: #db5049 !important;
+        }
+        
+        /* Keep text inside inputs dark for readability */
+        input {
+            color: #333 !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+try:
+    with open("config.json") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    config = {}
 
 st.title("Score Submission")
-
 score_update()
 
-# Helper function to validate distance against geography pattern
+# --- 1. Constants ---
+COUNTRY_ALIASES = {
+    "Russia": "Russian Federation",
+    "Ivory Coast": "Côte d'Ivoire",
+    "South Korea": "Korea, Republic of",
+    "North Korea": "Korea, Democratic People's Republic of",
+    "Vietnam": "Viet Nam",
+    "Syria": "Syrian Arab Republic",
+    "Laos": "Lao People's Democratic Republic",
+    "Bolivia": "Bolivia, Plurinational State of",
+    "Venezuela": "Venezuela, Bolivarian Republic of",
+    "Iran": "Iran, Islamic Republic of",
+    "Moldova": "Moldova, Republic of",
+    "Tanzania": "Tanzania, United Republic of",
+    "Palestine": "Palestine, State of",
+    "Brunei": "Brunei Darussalam",
+    "Congo": "Congo, Republic of the",
+    "Democratic Republic of the Congo": "Congo, The Democratic Republic of the",
+    "Macau": "Macao",
+    "Taiwan": "Taiwan, Province of China",
+    "Cape Verde": "Cabo Verde",
+    "Vatican City": "Holy See (Vatican City State)",
+    "Turkey": "Türkiye",
+    "Bosnia": "Bosnia and Herzegovina",
+    "Bosnia & Herzegovina": "Bosnia and Herzegovina",
+}
+
+GEOGRAPHY_RANGES = {
+    "OOO": (5000, 5000), "OO%": (4750, 4999), "OOX": (4500, 4749),
+    "O%X": (4250, 4499), "OXX": (3500, 4249), "%XX": (2500, 3499),
+    "XXX": (0, 2499)
+}
+
+TIME_RANGES = {
+    "OOO": (5000, 5000), "OO%": (4800, 4950), "OOX": (4300, 4600),
+    "O%X": (3400, 3900), "OXX": (2000, 2500), "%XX": (1000, 1000),
+    "XXX": (0, 0)
+}
+
+# --- 2. Helper Functions (Visuals & Data) ---
+@st.cache_data
+def load_data(filepath):
+    try:
+        df = pd.read_csv(filepath)
+        df["Date"] = pd.to_datetime(df["Date"]).dt.date
+        return df
+    except FileNotFoundError:
+        return None
+
+def get_flag_emoji(country_name):
+    import pycountry
+    fallback = '<img src="https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg" width="20" style="vertical-align:middle;"/>'
+    if not country_name or pd.isna(country_name): return fallback
+    name_str = COUNTRY_ALIASES.get(country_name.strip(), country_name.strip())
+    try:
+        country = pycountry.countries.lookup(name_str)
+        code = country.alpha_2.upper()
+        codepoints = "-".join([f"1f1{format(ord(c) - ord('A') + 0xE6, 'x')}" for c in code])
+        return f'<img src="https://twemoji.maxcdn.com/v/latest/svg/{codepoints}.svg" width="20" style="vertical-align:middle;"/>'
+    except LookupError: return fallback
+
+def half_bar_html(score, pattern=None, range_dict=GEOGRAPHY_RANGES):
+    total = 5000
+    if score is not None and not pd.isna(score):
+        pct = min(max(float(score) / total * 100.0, 0.0), 100.0)
+        return f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#db5049;"></div></div>'
+    elif pattern and pattern in range_dict:
+        min_val, max_val = range_dict[pattern]
+        min_pct = min_val / total * 100
+        max_pct = max_val / total * 100
+        return f'''<div class="tg-bar-bg" style="position:relative;"><div style="position:absolute; left:0; width:{min_pct:.2f}%; height:100%; background:#db5049;"></div><div style="position:absolute; left:{min_pct:.2f}%; width:{max_pct - min_pct:.2f}%; height:100%; background:#d1d647;"></div><div style="position:absolute; left:{max_pct:.2f}%; width:{100 - max_pct:.2f}%; height:100%; background:#b0afaa;"></div></div>'''
+    return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
+
+def generate_player_html(player_name, date_rows, players, highlight=False):
+    if len(date_rows) == 0: return ""
+    row_0 = date_rows.iloc[0]
+    total_score = row_0.get(f"{player_name} Total Score")
+    all_rounds = date_rows[date_rows["Timeguessr Round"].between(1, 5)]
+    
+    geo_sum, time_sum = 0, 0
+    for _, r in all_rounds.iterrows():
+        gs = r.get(f"{player_name} Geography Score")
+        gp = r.get(f"{player_name} Geography")
+        ts = r.get(f"{player_name} Time Score")
+        tp = r.get(f"{player_name} Time")
+        
+        if pd.notna(gs): geo_sum += gs
+        elif gp in GEOGRAPHY_RANGES: geo_sum += sum(GEOGRAPHY_RANGES[gp])/2
+        
+        if pd.notna(ts): time_sum += ts
+        elif tp in TIME_RANGES: time_sum += sum(TIME_RANGES[tp])/2
+
+    total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
+    is_michael = player_name == "Michael"
+    bg = "#dde5eb" if is_michael else "#edd3df"
+    header = "#221e8f" if is_michael else "#8a005c"
+    border = "border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);" if highlight else ""
+
+    html = [f'<div class="tg-container" style="background-color: {bg}; {border}"><div class="tg-header" style="color: {header};">{player_name}</div><div class="tg-total">{total_text}</div>']
+    
+    if geo_sum == 0 and time_sum == 0:
+        html.append('<div class="tg-sub">🌎 Geography: <b>???</b>/25,000</div><div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
+    else:
+        html.append(f'<div class="tg-sub">🌎 Geography: <b>{int(geo_sum):,}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
+    
+    html.append('<div class="tg-rounds-wrapper">')
+    
+    for r_num in range(1, 6):
+        r_data = date_rows[date_rows["Timeguessr Round"] == r_num]
+        geo_score = time_score = geo_pattern = time_pattern = country_name = None
+        if len(r_data) > 0:
+            row = r_data.iloc[0]
+            geo_score = row.get(f"{player_name} Geography Score")
+            time_score = row.get(f"{player_name} Time Score")
+            geo_pattern = row.get(f"{player_name} Geography")
+            time_pattern = row.get(f"{player_name} Time")
+            country_name = row.get("Country")
+
+        round_revealed = True
+        if len(r_data) > 0:
+            game_date = row_0["Date"]
+            if game_date >= datetime.date.today():
+                for p in players:
+                    if pd.isna(r_data.iloc[0].get(f"{p} Geography Score")):
+                        round_revealed = False; break
+        else: round_revealed = False
+        
+        flag = get_flag_emoji(country_name) if round_revealed else get_flag_emoji("United Nations")
+        
+        g_txt = f"{int(geo_score):,}/5k" if pd.notna(geo_score) else ("???/5k" if geo_pattern not in GEOGRAPHY_RANGES else f"{GEOGRAPHY_RANGES[geo_pattern][0]:,}-{GEOGRAPHY_RANGES[geo_pattern][1]:,}/5k")
+        t_txt = f"{int(time_score):,}/5k" if pd.notna(time_score) else ("???/5k" if time_pattern not in TIME_RANGES else f"{TIME_RANGES[time_pattern][0]:,}-{TIME_RANGES[time_pattern][1]:,}/5k")
+        
+        html.append(f'<div class="tg-round"><div class="tg-row"><div class="tg-half"><div class="tg-score-note">{flag} <small>{g_txt}</small></div>{half_bar_html(geo_score, geo_pattern, GEOGRAPHY_RANGES)}</div><div class="tg-half"><div class="tg-score-note">📅 <small>{t_txt}</small></div>{half_bar_html(time_score, time_pattern, TIME_RANGES)}</div></div></div>')
+    
+    html.append('</div></div>')
+    return "\n".join(html)
+
+# --- 3. Math & Logic Helpers ---
+def geography_score(x):
+    if x <= 50: return 5000
+    elif x <= 1000: return 5000 - (x * 0.02)
+    elif x <= 5000: return 4980 - (x * 0.016)
+    elif x <= 100000: return 4900 - (x * 0.004)
+    elif x <= 1000000: return 4500 - (x * 0.001)
+    elif x <= 2000000: return 3500 - (x * 0.0005)
+    elif x <= 3000000: return 2500 - (x * 0.0003333)
+    elif x <= 6000000: return 1500 - (x * 0.0002)
+    else: return 12
+
+def calculate_time_score(year_guessed, actual_year):
+    if actual_year is None: return None
+    years_off = abs(int(year_guessed) - actual_year)
+    if years_off == 0: return 5000
+    elif years_off == 1: return 4950
+    elif years_off == 2: return 4800
+    elif years_off == 3: return 4600
+    elif years_off == 4: return 4300
+    elif years_off == 5: return 3900
+    elif years_off in [6, 7]: return 3400
+    elif years_off in [8, 9, 10]: return 2500
+    elif 10 < years_off < 16: return 2000
+    elif 15 < years_off < 21: return 1000
+    else: return 0
+
 def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
     patterns = {
         "OOO": (0, 50), "OO%": (50, 37500), "OOX": (37500, 100000),
         "O%X": (100000, 250000), "OXX": (250000, 1000000),
         "%XX": (1000000, 2000000), "XXX": (2000000, float('inf'))
     }
-    if geo_pattern not in patterns:
-        return (True, "")
+    if geo_pattern not in patterns: return (True, "")
     low, high = patterns[geo_pattern]
+    
     if geo_pattern == "OOO":
-        if dist_meters <= high:
-            return (True, "")
+        if dist_meters <= high: return (True, "")
         excess = dist_meters - high
         unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
         return (False, f"Round {round_num}: Distance is {unit} too great (🟩🟩🟩 requires ≤ 50 m)")
     elif geo_pattern == "XXX":
-        if dist_meters > low:
-            return (True, "")
+        if dist_meters > low: return (True, "")
         deficit = low - dist_meters + 1
         unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
         return (False, f"Round {round_num}: Distance is {unit} too few (⬛⬛⬛ requires > 2000 km)")
     else:
-        if low < dist_meters <= high:
-            return (True, "")
+        if low < dist_meters <= high: return (True, "")
         elif dist_meters <= low:
             deficit = low - dist_meters + 1
             unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
@@ -134,2119 +352,586 @@ def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
             unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
             return (False, f"Round {round_num}: Distance is {unit} too great")
 
-# Create two columns - left for inputs, right for score display
+# --- 4. Main Layout & Execution ---
 input_col, score_col = st.columns([1.25, 2])
 
 with input_col:
-    # Top section - Name and Date only
-    date = st.date_input(
-        "Date",
-        value=datetime.date.today(),
-        max_value=datetime.date.today()
-    )
+    date = st.date_input("Date", value=datetime.date.today(), max_value=datetime.date.today())
 
-    name = st.selectbox("Name", ["", "Michael", "Sarah"], format_func=lambda x: "Select..." if x == "" else x)
-
-    name_valid = name in ["Michael", "Sarah"]
-
-# Display score summary if date is selected
-with score_col:
-    st.markdown(
-        """
-        <style>
-            .score-container {
-                text-align: center;
-                background-color: #fff;
-                padding: 15px 0 5px 0;
-                margin-top: -25px; /* moves section up */
-                border-radius: 12px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-                width: 100%;
-            }
-            .score-header {
-                font-size: 26px !important;
-                font-weight: 800 !important;
-                margin-bottom: 6px !important;
-                color: #333 !important;
-            }
-            .score-total {
-                font-size: 24px !important;
-                color: #db5049 !important;
-                font-weight: 800 !important;
-                margin-bottom: 8px !important;
-            }
-            .score-sub {
-                font-size: 20px !important;
-                color: #555 !important;
-                margin-bottom: 6px !important;
-            }
-            .round-row {
-                font-size: 18px !important;
-                margin: 8px 0 !important;
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-                gap: 16px !important;
-            }
-            .bar {
-                width: 180px !important;
-                height: 14px !important;
-                border-radius: 8px !important;
-                background-color: #b0afaa !important;
-                overflow: hidden !important;
-                position: relative !important;
-            }
-            .bar-fill {
-                height: 100% !important;
-                background-color: #db5049 !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if date:
-        try:
-            df = pd.read_csv("./Data/Timeguessr_Stats.csv")
-            df["Date"] = pd.to_datetime(df["Date"]).dt.date
-
-            date_rows = df[df["Date"] == date]
-            if len(date_rows) > 0:
-                timeguessr_day = date_rows.iloc[0]["Timeguessr Day"]
-                
-                # Get scores for both players
-                michael_total = date_rows.iloc[0]["Michael Total Score"]
-                sarah_total = date_rows.iloc[0]["Sarah Total Score"]
-                
-                # Determine order (higher score on left)
-                michael_score_val = 0 if pd.isna(michael_total) else michael_total
-                sarah_score_val = 0 if pd.isna(sarah_total) else sarah_total
-                
-                if michael_score_val >= sarah_score_val:
-                    players = ["Michael", "Sarah"]
-                else:
-                    players = ["Sarah", "Michael"]
-
-                # Common country name aliases
-                COUNTRY_ALIASES = {
-                    "Russia": "Russian Federation",
-                    "Ivory Coast": "Côte d'Ivoire",
-                    "South Korea": "Korea, Republic of",
-                    "North Korea": "Korea, Democratic People's Republic of",
-                    "Vietnam": "Viet Nam",
-                    "Syria": "Syrian Arab Republic",
-                    "Laos": "Lao People's Democratic Republic",
-                    "Bolivia": "Bolivia, Plurinational State of",
-                    "Venezuela": "Venezuela, Bolivarian Republic of",
-                    "Iran": "Iran, Islamic Republic of",
-                    "Moldova": "Moldova, Republic of",
-                    "Tanzania": "Tanzania, United Republic of",
-                    "Palestine": "Palestine, State of",
-                    "Brunei": "Brunei Darussalam",
-                    "Congo": "Congo, Republic of the",
-                    "Democratic Republic of the Congo": "Congo, The Democratic Republic of the",
-                    "Macau": "Macao",
-                    "Taiwan": "Taiwan, Province of China",
-                    "Cape Verde": "Cabo Verde",
-                    "Vatican City": "Holy See (Vatican City State)",
-                    "Turkey": "Türkiye",
-                    "Bosnia": "Bosnia and Herzegovina",
-                }
-
-                def get_flag_emoji(country_name):
-                    """Return an HTML <img> tag with the correct Twemoji flag, or 🇺🇳 fallback."""
-                    if not country_name or pd.isna(country_name):
-                        return '<img src="https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg" width="20" style="vertical-align:middle;"/>'
-
-                    name_str = country_name.strip()
-                    if name_str in COUNTRY_ALIASES:
-                        name_str = COUNTRY_ALIASES[name_str]
-
-                    try:
-                        country = pycountry.countries.lookup(name_str)
-                        code = country.alpha_2.upper()
-                        codepoints = "-".join([f"1f1{format(ord(c) - ord('A') + 0xE6, 'x')}" for c in code])
-                        return f'<img src="https://twemoji.maxcdn.com/v/latest/svg/{codepoints}.svg" width="20" style="vertical-align:middle;"/>'
-                    except LookupError:
-                        return '<img src="https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg" width="20" style="vertical-align:middle;"/>'
-
-                GEOGRAPHY_RANGES = {
-                    "OOO": (5000, 5000),
-                    "OO%": (4750, 4999),
-                    "OOX": (4500, 4749),
-                    "O%X": (4250, 4499),
-                    "OXX": (3500, 4249),
-                    "%XX": (2500, 3499),
-                    "XXX": (0, 2499)
-                }
-
-                TIME_RANGES = {
-                    "OOO": (5000, 5000),
-                    "OO%": (4800, 4950),
-                    "OOX": (4300, 4600),
-                    "O%X": (3400, 3900),
-                    "OXX": (2000, 2500),
-                    "%XX": (1000, 1000),
-                    "XXX": (0, 0)
-                }
-
-                def half_bar_html(score, pattern=None):
-                    """Render red-yellow-grey bar for known or uncertain scores."""
-                    total = 5000
-                    
-                    if score is not None and not pd.isna(score):
-                        pct = min(max(float(score) / total * 100.0, 0.0), 100.0)
-                        return f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#db5049;"></div></div>'
-                    
-                    elif pattern and pattern in GEOGRAPHY_RANGES:
-                        min_val, max_val = GEOGRAPHY_RANGES[pattern]
-                        min_pct = min_val / total * 100
-                        max_pct = max_val / total * 100
-                        
-                        return f'''
-                        <div class="tg-bar-bg" style="position:relative;">
-                            <div style="position:absolute; left:0; width:{min_pct:.2f}%; height:100%; background:#db5049;"></div>
-                            <div style="position:absolute; left:{min_pct:.2f}%; width:{max_pct - min_pct:.2f}%; height:100%; background:#d1d647;"></div>
-                            <div style="position:absolute; left:{max_pct:.2f}%; width:{100 - max_pct:.2f}%; height:100%; background:#b0afaa;"></div>
-                        </div>
-                        '''
-                    else:
-                        return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
-
-                def generate_player_html(player_name, highlight=False):
-                    """Generate HTML for a single player's score summary."""
-                    total_score_col = f"{player_name} Total Score"
-                    total_score = date_rows.iloc[0][total_score_col]
-
-                    # Calculate sums using midpoints for unknown scores
-                    all_rounds = date_rows[date_rows["Timeguessr Round"].between(1, 5)]
-                    geo_score_col = f"{player_name} Geography Score"
-                    time_score_col = f"{player_name} Time Score"
-                    geo_pattern_col = f"{player_name} Geography"
-                    time_pattern_col = f"{player_name} Time"
-                    
-                    geo_sum = 0
-                    time_sum = 0
-                    
-                    for _, round_row in all_rounds.iterrows():
-                        # Geography score
-                        geo_score = round_row.get(geo_score_col, None)
-                        if pd.notna(geo_score):
-                            geo_sum += geo_score
-                        else:
-                            geo_pattern = round_row.get(geo_pattern_col, None)
-                            if geo_pattern in GEOGRAPHY_RANGES:
-                                min_val, max_val = GEOGRAPHY_RANGES[geo_pattern]
-                                geo_sum += (min_val + max_val) / 2
-                        
-                        # Time score
-                        time_score = round_row.get(time_score_col, None)
-                        if pd.notna(time_score):
-                            time_sum += time_score
-                        else:
-                            time_pattern = round_row.get(time_pattern_col, None)
-                            if time_pattern in TIME_RANGES:
-                                min_val, max_val = TIME_RANGES[time_pattern]
-                                time_sum += (min_val + max_val) / 2
-
-                    total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
-
-                    # Add highlight styling if this player is selected
-                    container_style = ""
-                    if highlight:
-                        container_style = "border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);"
-
-                    html_parts = []
-                    # Set player-specific color
-                    player_color = "#221e8f" if player_name == "Michael" else "#8a005c"
-                    background_color = "#dde5eb" if player_name == "Michael" else "#edd3df"
-                    
-                    html_parts.append(f'''
-                    <style>
-                    .tg-container-{player_name.lower()} {{
-                        position: relative;
-                        top: 0px;
-                        z-index: 9999;
-                        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-                        padding: 10px 12px;
-                        overflow: visible;
-                        box-sizing: border-box;
-                        width: 100%;  /* CHANGED: Was max-width: 432px */
-                        background-color: {background_color};
-                        border-radius: 12px;
-                        {container_style}
-                    }}
-                    .tg-header-{player_name.lower()} {{
-                        color:{player_color};
-                        font-weight:700;
-                        font-size:30px;
-                        margin:0 0 5px 0;
-                        line-height:1.1;
-                    }}
-                    .tg-total {{
-                        color:#222;
-                        font-size:24px;
-                        font-weight:600;
-                        margin:0 0 7px 0;
-                        line-height:1.1;
-                    }}
-                    .tg-sub {{
-                        font-size:20px;
-                        margin:0 0 7px 0;
-                        line-height:1.1;
-                        color:#333;
-                    }}
-                    .tg-rounds-wrapper {{
-                        margin-top:7px;
-                    }}
-                    .tg-round {{
-                        margin:7px 0;
-                    }}
-                    .tg-round-title {{
-                        color:#db5049;
-                        font-weight:600;
-                        font-size:20px;
-                        margin:0 0 7px 0;
-                        line-height:1.1;
-                    }}
-                    .tg-row {{
-                        display:flex;
-                        gap:12px;
-                        align-items:center;
-                        flex-wrap:nowrap;
-                    }}
-                    .tg-half {{
-                        width: 50%; /* CHANGED: Slightly increased to fill flex space better */
-                        flex: 1;    /* ADDED: Ensures they grow evenly */
-                    }}
-                    .tg-bar-bg {{
-                        background:#b0afaa;
-                        border-radius:10px;
-                        height:10px;
-                        overflow:hidden;
-                        width: 100%; /* Ensure bars fill their half */
-                    }}
-                    .tg-bar-fill {{
-                        height:10px;
-                        border-radius:10px;
-                        background:#db5049;
-                    }}
-                    .tg-score-note {{
-                        font-size:20px;
-                        margin:0 0 7px 0;
-                        white-space: nowrap; /* Prevent text wrapping weirdly */
-                    }}
-                    .tg-qq {{
-                        color:#db5049;
-                        font-weight:700;
-                        font-size:19px;
-                        margin:7px 0;
-                    }}
-                    .tg-score-note small {{ color:#444; }}
-                    </style>
-
-                    <div class="tg-container-{player_name.lower()}">
-                    <div class="tg-header-{player_name.lower()}">{player_name}</div>
-                    ''')
-
-                    html_parts.append(f'<div class="tg-total">{total_text}</div>')
-
-                    if geo_sum == 0 and time_sum == 0:
-                        html_parts.append('<div class="tg-sub">🌎 Geography: <b>???</b>/25,000</div>')
-                        html_parts.append('<div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
-                    else:
-                        html_parts.append(f'<div class="tg-sub">🌎 Geography: <b>{int(geo_sum):,}</b>/25,000</div>')
-                        html_parts.append(f'<div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
-
-                    html_parts.append('<div class="tg-rounds-wrapper">')
-
-                    geo_score_col_final = f"{player_name} Geography Score"
-                    time_score_col_final = f"{player_name} Time Score"
-                    geo_pattern_col_final = f"{player_name} Geography"
-                    time_pattern_col_final = f"{player_name} Time"
-
-                    for round_num in range(1, 6):
-                        round_data = date_rows[date_rows["Timeguessr Round"] == round_num]
-                        
-                        if len(round_data) > 0:
-                            geo_score = round_data.iloc[0].get(geo_score_col_final, None)
-                            time_score = round_data.iloc[0].get(time_score_col_final, None)
-                            geo_pattern = round_data.iloc[0].get(geo_pattern_col_final, None)
-                            time_pattern = round_data.iloc[0].get(time_pattern_col_final, None)
-                            country_name = round_data.iloc[0].get("Country", None)
-                        else:
-                            geo_score = time_score = geo_pattern = time_pattern = country_name = None
-
-                        # --- CHECK IF ALL PLAYERS HAVE SCORES (UN Flag Logic) ---
-                        round_fully_revealed = True
-                        if len(round_data) > 0:
-                            for p in players:
-                                p_check_col = f"{p} Geography Score"
-                                p_score = round_data.iloc[0].get(p_check_col, None)
-                                if pd.isna(p_score):
-                                    round_fully_revealed = False
-                                    break
-                        else:
-                            round_fully_revealed = False
-
-                        if round_fully_revealed:
-                            flag = get_flag_emoji(country_name)
-                        else:
-                            flag = get_flag_emoji("United Nations")
-                        # -------------------------------------------------------
-
-                        if pd.isna(geo_score):
-                            if geo_pattern in GEOGRAPHY_RANGES:
-                                min_val, max_val = GEOGRAPHY_RANGES[geo_pattern]
-                                geo_text = f"{min_val:,}-{max_val:,}/5,000"
-                            else:
-                                geo_text = "???/5,000"
-                        else:
-                            geo_text = f"{int(geo_score):,}/5,000"
-
-                        if pd.isna(time_score):
-                            if time_pattern in TIME_RANGES:
-                                min_val, max_val = TIME_RANGES[time_pattern]
-                                time_text = f"{min_val:,}-{max_val:,}/5,000"
-                            else:
-                                time_text = "???/5,000"
-                        else:
-                            time_text = f"{int(time_score):,}/5,000"
-
-                        geo_html = half_bar_html(geo_score, pattern=geo_pattern if pd.isna(geo_score) else None)
-                        time_html = half_bar_html(time_score, pattern=time_pattern if pd.isna(time_score) else None)
-
-                        html_parts.append(f'''
-                        <div class="tg-round">
-                            <div class="tg-row">
-                                <div class="tg-half">
-                                    <div class="tg-score-note">{flag} <small>{geo_text}</small></div>
-                                    {geo_html}
-                                </div>
-                                <div class="tg-half">
-                                    <div class="tg-score-note">📅 <small>{time_text}</small></div>
-                                    {time_html}
-                                </div>
-                            </div>
-                        </div>
-                        ''')
-
-                    html_parts.append('</div>')
-                    html_parts.append('</div>')
-                    return "\n".join(html_parts)
-
-                # Generate HTML for both players
-                player1_html = generate_player_html(players[0], highlight=(name == players[0]))
-                player2_html = generate_player_html(players[1], highlight=(name == players[1]))
-
-                # Combine both in a side-by-side layout
-                combined_html = f'''
-                <style>
-                .dual-container {{
-                    display: flex;
-                    gap: 20px;
-                    justify-content: center;
-                }}
-                </style>
-                <div class="dual-container">
-                    <div style="flex: 1;">
-                        {player1_html}
-                    </div>
-                    <div style="flex: 1;">
-                        {player2_html}
-                    </div>
-                </div>
-                '''
-
-                components_html(combined_html, height=520, scrolling=False)
-
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            st.error(f"Error loading score data: {e}")
-
-
-# Check if name and date are filled and valid
+# Load data at top level so it's available to all columns
+df = None
+date_rows = pd.DataFrame()
 if date:
-    # Convert date to Timeguessr Day
+    df = load_data("./Data/Timeguessr_Stats.csv")
+    if df is not None:
+        date_rows = df[df["Date"] == date]
+
+# Render Scoreboard & Custom Bar Chart
+if not date_rows.empty:
+    # 1. Custom Stacked Bars in input_col (Below Date)
+    with input_col:
+        # Prepare Data
+        m_total_scores = []
+        s_total_scores = []
+        m_geo_scores = []
+        s_geo_scores = []
+        m_time_scores = []
+        s_time_scores = []
+        
+        for r in range(1, 6):
+            r_data = date_rows[date_rows["Timeguessr Round"] == r]
+            mg, mt, sg, s_time = 0, 0, 0, 0
+            if len(r_data) > 0:
+                row = r_data.iloc[0]
+                mg_val = row.get("Michael Geography Score", 0)
+                mt_val = row.get("Michael Time Score", 0)
+                sg_val = row.get("Sarah Geography Score", 0)
+                st_val = row.get("Sarah Time Score", 0)
+                
+                if pd.notna(mg_val): mg = mg_val
+                if pd.notna(mt_val): mt = mt_val
+                if pd.notna(sg_val): sg = sg_val
+                if pd.notna(st_val): s_time = st_val
+            
+            m_total_scores.append(mg + mt)
+            s_total_scores.append(sg + s_time)
+            m_geo_scores.append(mg)
+            s_geo_scores.append(sg)
+            m_time_scores.append(mt)
+            s_time_scores.append(s_time)
+
+        # Generate HTML for Vertical Stacked Bars
+        def get_bar_segments(scores, opponent_scores, max_score):
+            bar_html = ""
+            bright_palette = ["#db5049", "#fd7e14", "#fcc419", "#40c057", "#228be6"]
+            pale_palette = ["#eba5a2", "#fecba6", "#ffe7a3", "#a7e0b0", "#9ccbf2"]
+            for i, score in enumerate(scores):
+                pct = (score / max_score) * 100
+                if pct > 0:
+                    color = bright_palette[i] if score >= opponent_scores[i] else pale_palette[i]
+                    bar_html += f'<div style="height:{pct}%; width:100%; background-color:{color}; box-sizing: border-box;" title="Round {i+1}: {int(score)}"></div>'
+            return bar_html
+
+        m_tot_seg = get_bar_segments(m_total_scores, s_total_scores, 50000)
+        s_tot_seg = get_bar_segments(s_total_scores, m_total_scores, 50000)
+        m_geo_seg = get_bar_segments(m_geo_scores, s_geo_scores, 25000)
+        s_geo_seg = get_bar_segments(s_geo_scores, m_geo_scores, 25000)
+        m_time_seg = get_bar_segments(m_time_scores, s_time_scores, 25000)
+        s_time_seg = get_bar_segments(s_time_scores, m_time_scores, 25000)
+
+        bars_html = f"""
+        <style>
+            .vs-container {{
+                display: flex;
+                justify-content: space-between;
+                gap: 20px; /* Fixed gap between categories */
+                height: 315px;
+                align-items: flex-end;
+                margin-top: 15px;
+                width: 100%;
+            }}
+            .group-wrapper {{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 5px;
+                height: 100%;
+                justify-content: flex-end;
+                flex: 1; /* Groups expand to fill space */
+                min-width: 0; /* Allows shrinking on small screens */
+            }}
+            .bars-row {{
+                display: flex;
+                gap: 5px; /* Fixed gap between Michael and Sarah */
+                height: 100%;
+                align-items: flex-end;
+                justify-content: center;
+                width: 100%;
+            }}
+            .bar-col {{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                height: 100%;
+                justify-content: flex-end;
+                flex: 1; /* Columns expand to fill group space */
+                width: 100%;
+            }}
+            .bar-track {{
+                width: 100%; /* Bars expand to fill column */
+                height: 100%;
+                background-color: #b0afaa;
+                border-radius: 6px;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column-reverse;
+                justify-content: flex-start;
+            }}
+            .group-title {{
+                font-weight: 700;
+                font-size: 0.9rem;
+                margin-bottom: 5px;
+                color: #555;
+                white-space: nowrap;
+            }}
+            .bar-lbl {{
+                font-weight: 700;
+                font-size: 0.8rem;
+                margin-top: 2px;
+            }}
+        </style>
+        <div class="vs-container">
+            <div class="group-wrapper"><div class="bars-row">
+            <div class="bar-col"><div class="bar-track">{m_tot_seg}</div><div class="bar-lbl" style="color: #221e8f;">M</div></div>
+            <div class="bar-col"><div class="bar-track">{s_tot_seg}</div><div class="bar-lbl" style="color: #8a005c;">S</div></div>
+            </div><div class="group-title">Total</div></div>
+            <div class="group-wrapper"><div class="bars-row">
+            <div class="bar-col"><div class="bar-track">{m_geo_seg}</div><div class="bar-lbl" style="color: #221e8f;">M</div></div>
+            <div class="bar-col"><div class="bar-track">{s_geo_seg}</div><div class="bar-lbl" style="color: #8a005c;">S</div></div>
+            </div><div class="group-title">Geo</div></div>
+            <div class="group-wrapper"><div class="bars-row">
+            <div class="bar-col"><div class="bar-track">{m_time_seg}</div><div class="bar-lbl" style="color: #221e8f;">M</div></div>
+            <div class="bar-col"><div class="bar-track">{s_time_seg}</div><div class="bar-lbl" style="color: #8a005c;">S</div></div>
+            </div><div class="group-title">Time</div></div>
+        </div>
+        """
+        st.markdown(bars_html, unsafe_allow_html=True)
+
+    with score_col:
+        row_0 = date_rows.iloc[0]
+        m_total = row_0.get("Michael Total Score", 0)
+        s_total = row_0.get("Sarah Total Score", 0)
+        m_val = 0 if pd.isna(m_total) else m_total
+        s_val = 0 if pd.isna(s_total) else s_total
+        players = ["Michael", "Sarah"]
+        
+        p1_html = generate_player_html(players[0], date_rows, players, highlight=(m_val > s_val))
+        p2_html = generate_player_html(players[1], date_rows, players, highlight=(s_val > m_val))
+        
+        component_css = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+.tg-container { position: relative; padding: 10px 12px; box-sizing: border-box; width: 100%; border-radius: 12px; margin-bottom: 0; }
+.tg-header { font-weight:700; font-size:30px; margin:0 0 5px 0; line-height:1.1; }
+.tg-total { color:#222; font-size:24px; font-weight:600; margin:0 0 7px 0; line-height:1.1; }
+.tg-sub { font-size:20px; margin:0 0 7px 0; line-height:1.1; color:#333; }
+.tg-rounds-wrapper { margin-top:7px; }
+.tg-round { margin:7px 0; }
+.tg-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; }
+.tg-half { width: 50%; flex: 1; }
+.tg-bar-bg { background:#b0afaa; border-radius:10px; height:10px; overflow:hidden; width: 100%; position: relative; }
+.tg-bar-fill { height:10px; border-radius:10px; background:#db5049; }
+.tg-score-note { font-size:20px; margin:0 0 7px 0; white-space: nowrap; }
+.tg-score-note small { color:#444; }
+.dual-container { display: flex; gap: 20px; justify-content: center; width: 100%; }
+</style>
+"""
+        combined_html = f'{component_css}<div class="dual-container"><div style="flex: 1;">{p1_html}</div><div style="flex: 1;">{p2_html}</div></div>'
+        components_html(combined_html, height=520, scrolling=False)
+
+elif df is None:
+    with score_col:
+        st.error("Data file not found.")
+else:
+    with score_col:
+        st.info("No data found for this date.")
+
+# --- 5. Consolidated Column Logic ---
+def render_guess_column(container, player_name, opponent_name, timeguessr_day, date_obj, actual_rounds_data):
+    """Handles the UI and logic for Michael or Sarah's data entry."""
+    with container:
+        # Load Data
+        csv_path = f"./Data/Timeguessr_{player_name}_Parsed.csv"
+        opp_csv_path = f"./Data/Timeguessr_{opponent_name}_Parsed.csv"
+        
+        player_df = pd.DataFrame()
+        if os.path.exists(csv_path): player_df = pd.read_csv(csv_path)
+        
+        opp_df = pd.DataFrame()
+        if os.path.exists(opp_csv_path): opp_df = pd.read_csv(opp_csv_path)
+        
+        current_data = player_df[player_df['Timeguessr Day'] == timeguessr_day] if not player_df.empty else pd.DataFrame()
+        has_guesses = not current_data.empty
+        
+        opp_data = opp_df[opp_df['Timeguessr Day'] == timeguessr_day] if not opp_df.empty else pd.DataFrame()
+        opp_has_guesses = not opp_data.empty
+
+        # Hidden Logic
+        reveal_key = f"{player_name.lower()}_reveal_confirmed_{timeguessr_day}"
+        if st.session_state.get("last_viewed_timeguessr_day") != timeguessr_day: st.session_state[reveal_key] = False
+        if reveal_key not in st.session_state: st.session_state[reveal_key] = False
+        
+        is_hidden = has_guesses and not opp_has_guesses and not st.session_state[reveal_key]
+        
+        if is_hidden:
+            st.subheader(f"{player_name}'s Guesses")
+            st.warning(f"⚠️ {player_name} has submitted guesses. Hidden until {opponent_name} submits.")
+            if st.button(f"Reveal {player_name}", key=f"btn_rev_{player_name}_{date_obj}"):
+                st.session_state[f"popup_{player_name}_{timeguessr_day}"] = True
+            
+            if st.session_state.get(f"popup_{player_name}_{timeguessr_day}", False):
+                st.info("Are you sure?")
+                c1, c2 = st.columns(2)
+                if c1.button("Yes", key=f"y_{player_name}_{date_obj}"):
+                    st.session_state[reveal_key] = True
+                    st.session_state[f"popup_{player_name}_{timeguessr_day}"] = False
+                    st.rerun()
+                if c2.button("No", key=f"n_{player_name}_{date_obj}"):
+                    st.session_state[f"popup_{player_name}_{timeguessr_day}"] = False
+                    st.rerun()
+            return
+
+        # Header Row with Integrated Toggle
+        if has_guesses:
+            h1, h2 = st.columns([3, 1])
+            with h1:
+                st.subheader(f"{player_name}'s Guesses")
+            with h2:
+                # Spacer to align toggle visually with text
+                st.markdown('<div style="margin-top: 5px;"></div>', unsafe_allow_html=True)
+                edit_mode = st.toggle("Edit", value=False, key=f"edit_{player_name}_{date_obj}")
+        else:
+            st.subheader(f"{player_name}'s Guesses")
+            edit_mode = False
+        
+        # Total Score Text Area (Defaults)
+        default_text = ""
+        if has_guesses:
+            total_score = current_data.iloc[0].get(f'{player_name} Total Score')
+            fmt_score = f"{int(total_score):,}/50,000" if pd.notna(total_score) else "_____/50,000"
+            default_text = f"TimeGuessr #{timeguessr_day} {fmt_score}\n"
+            
+            def map_emoji(pattern):
+                if pd.isna(pattern): return "⬛️⬛️⬛️"
+                return pattern.replace('O', '🟩').replace('%', '🟨').replace('X', '⬛️')
+            
+            for r in range(1, 6):
+                r_row = current_data[current_data['Timeguessr Round'] == r]
+                if not r_row.empty:
+                    g = r_row.iloc[0].get(f'{player_name} Geography', '')
+                    t = r_row.iloc[0].get(f'{player_name} Time', '')
+                    default_text += f"🌎{map_emoji(g)} 📅{map_emoji(t)}\n"
+            default_text = default_text.strip()
+
+        # Inputs Loop
+        input_data = {}
+        computed_total_score = 0
+        
+        for r in range(1, 6):
+            # State calc for KM/M
+            d_dist, d_km, d_year = "", False, ""
+            
+            if has_guesses:
+                r_row = current_data[current_data['Timeguessr Round'] == r]
+                if not r_row.empty:
+                    row = r_row.iloc[0]
+                    dist_raw = row.get(f'{player_name} Geography Distance')
+                    if pd.notna(dist_raw):
+                        val = float(dist_raw)
+                        if val >= 1000: d_dist, d_km = str(val/1000), True
+                        else: d_dist, d_km = str(val), False
+                    
+                    time_raw = row.get(f'{player_name} Time Guessed')
+                    if pd.notna(time_raw): d_year = str(int(time_raw))
+
+            ukey = f"u_{player_name}_{r}_{date_obj}"
+            if ukey not in st.session_state: st.session_state[ukey] = d_km
+            if has_guesses and not edit_mode: st.session_state[ukey] = d_km
+            is_km_current = st.session_state[ukey]
+
+            # --- HEADER ROW (Round Title + Unit Toggle) ---
+            rh1, rh2, rh3 = st.columns([0.35, 0.35, 1.3])
+            with rh1:
+                st.markdown(f"<div style='padding-top: 7px; font-weight: bold;'>Round {r}</div>", unsafe_allow_html=True)
+            with rh2:
+                toggle_label = "KM" if is_km_current else "M"
+                is_km = st.toggle(toggle_label, value=is_km_current, key=ukey, disabled=(has_guesses and not edit_mode))
+            
+            # Reduce gap between header and inputs to ALIGN with Actual Answers column
+            st.markdown('<div style="margin-top: -15px;"></div>', unsafe_allow_html=True)
+
+            # --- INPUT ROW ---
+            row_cols = st.columns(2)
+            
+            # 1. Geo Column
+            g_score_disp = None
+            d_meters_calc = 0
+            
+            d_key = f"d_{player_name}_{r}_{date_obj}"
+            current_dist_val = st.session_state.get(d_key, d_dist)
+            has_dist_val = bool(current_dist_val and str(current_dist_val).strip())
+            
+            if has_dist_val:
+                try:
+                    v = float(current_dist_val)
+                    if v >= 0:
+                        d_meters_calc = v * 1000 if is_km else v
+                        g_score_disp = geography_score(d_meters_calc)
+                        computed_total_score += g_score_disp
+                except: pass
+
+            with row_cols[0]:
+                dist_label = f"Dist ({'km' if is_km else 'm'})"
+                if has_dist_val and g_score_disp is not None:
+                    # Split column: Input (small) + Score (rest)
+                    sub_c = st.columns([0.4, 0.6])
+                    with sub_c[0]:
+                        dist_val = st.text_input(dist_label, value=d_dist, key=d_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
+                    with sub_c[1]:
+                         color = "#221e8f" if player_name == "Michael" else "#8a005c"
+                         bg = "#dde5eb" if player_name == "Michael" else "#edd3df"
+                         # Spacer for vertical alignment with input
+                         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                         st.markdown(f'<div class="score-box" style="background-color:{bg}; color:{color}; padding:0px 8px; border-left:5px solid {color}; border-radius:4px; font-size:0.85rem; line-height:1.2; margin-top: 0px;">🌎 {g_score_disp:.0f}</div>', unsafe_allow_html=True)
+                else:
+                    # Full width input
+                    dist_val = st.text_input(dist_label, value=d_dist, key=d_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
+
+            # 2. Time Column
+            t_score_disp = None
+            year_int = None
+            y_valid = False
+            
+            y_key = f"y_{player_name}_{r}_{date_obj}"
+            current_year_val = st.session_state.get(y_key, d_year)
+            has_year_val = bool(current_year_val and str(current_year_val).strip())
+
+            if has_year_val:
+                if current_year_val.isdigit() and len(current_year_val) == 4:
+                    y = int(current_year_val)
+                    if 1900 <= y <= date_obj.year:
+                        y_valid = True
+                        year_int = y
+                        act_y = None
+                        if r in actual_rounds_data and actual_rounds_data.get(r, {}).get('year_valid'):
+                            act_y = int(actual_rounds_data[r]['year'])
+                        if act_y:
+                             t_score_disp = calculate_time_score(y, act_y)
+                             computed_total_score += t_score_disp
+
+            with row_cols[1]:
+                if has_year_val and (t_score_disp is not None or y_valid):
+                    sub_c = st.columns([0.4, 0.6])
+                    with sub_c[0]:
+                        year_val = st.text_input("Year", value=d_year, key=y_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
+                    with sub_c[1]:
+                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        if t_score_disp is not None:
+                            color = "#221e8f" if player_name == "Michael" else "#8a005c"
+                            bg = "#dde5eb" if player_name == "Michael" else "#edd3df"
+                            st.markdown(f'<div class="score-box" style="background-color:{bg}; color:{color}; padding:0px 8px; border-left:5px solid {color}; border-radius:4px; font-size:0.85rem; line-height:1.2; margin-top: 0px;">📅 {t_score_disp:.0f}</div>', unsafe_allow_html=True)
+                        elif y_valid:
+                             st.markdown(f'<div class="score-box" style="background-color:#bcb0ff; color:#221e8f; padding:0px 8px; border-left:5px solid #221e8f; border-radius:4px; font-size:0.85rem; line-height:1.2; margin-top: 0px;" title="Submit actuals to see score">📅 ?</div>', unsafe_allow_html=True)
+                else:
+                    year_val = st.text_input("Year", value=d_year, key=y_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
+
+            input_data[r] = {
+                'dist': dist_val, 'dist_m': d_meters_calc, 'km': is_km, 
+                'year': year_val, 'year_int': year_int, 'y_valid': y_valid,
+                'g_score': g_score_disp
+            }
+
+        # Computed Score Section
+        st.markdown('<div style="margin-top: 15px;"></div>', unsafe_allow_html=True)
+        ct1, ct2 = st.columns([1, 1])
+        with ct1:
+            st.markdown(f"<div style='padding-top: 5px; font-weight: bold;'>Computed Total</div>", unsafe_allow_html=True)
+        with ct2:
+            color = "#221e8f" if player_name == "Michael" else "#8a005c"
+            bg = "#dde5eb" if player_name == "Michael" else "#edd3df"
+            st.markdown(f'<div class="score-box" style="background-color:{bg}; color:{color}; padding:0px 8px; border-left:5px solid {color}; border-radius:4px; font-size:1rem; line-height:1.2; margin-top: 0px;">{int(computed_total_score):,}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top: 15px;"></div>', unsafe_allow_html=True)
+
+        total_input = st.text_area("Total Score", value=default_text, key=f"ta_{player_name}_{date_obj}", height=180, disabled=(has_guesses and not edit_mode))
+
+        # Save Logic
+        if not has_guesses or (has_guesses and edit_mode):
+            if st.button(f"Submit {player_name}'s Guesses", key=f"sub_{player_name}_{date_obj}"):
+                # 1. Parse Total Score
+                valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
+                if not total_input.strip(): st.error("Missing Total Score"); return
+                
+                lines = total_input.strip().split('\n')[:7]
+                if len(lines) < 6 or not lines[0].startswith('TimeGuessr #'): st.error("Invalid format"); return
+                
+                try:
+                    ts_val = int(lines[0].split()[-1].split('/')[0].replace(',', ''))
+                except: st.error("Cannot parse total score number"); return
+
+                # CHECK COMPUTED SCORE
+                if abs(ts_val - computed_total_score) > 10:
+                    st.error(f"Computed total ({int(computed_total_score):,}) differs from Total Score ({ts_val:,}) by more than 10 points.")
+                    return
+
+                geo_pats, time_pats = [], []
+                format_ok = True
+                for i, line in enumerate(lines[1:6], 1):
+                    if not line.startswith('🌎') or '📅' not in line: st.error(f"Round {i} format error"); format_ok=False; break
+                    parts = line.split('📅')
+                    g_part = parts[0].replace('🌎', '').strip()
+                    t_part = parts[1].strip()
+                    
+                    if g_part not in valid_combos: st.error(f"Round {i} invalid geo emoji"); format_ok=False; break
+                    if t_part not in valid_combos: st.error(f"Round {i} invalid time emoji"); format_ok=False; break
+                    
+                    conv = lambda s: s.replace('🟩','O').replace('🟨','%').replace('⬛️','X').replace('⬛','X')
+                    geo_pats.append(conv(g_part))
+                    time_pats.append(conv(t_part))
+                
+                if not format_ok: return
+
+                # 2. Validate Inputs & Build Rows
+                new_rows = []
+                for r in range(1, 6):
+                    d = input_data[r]
+                    if not d['dist'] or not d['year']: st.error(f"Round {r} incomplete"); return
+                    if not d['y_valid']: st.error(f"Round {r} invalid year"); return
+                    if float(d['dist']) < 0: st.error(f"Round {r} negative distance"); return
+                    
+                    ok, msg = validate_distance_pattern(d['dist_m'], geo_pats[r-1], r, d['km'])
+                    if not ok: st.error(msg); return
+                    
+                    new_rows.append({
+                        "Timeguessr Day": int(timeguessr_day),
+                        "Timeguessr Round": int(r),
+                        f"{player_name} Total Score": ts_val,
+                        f"{player_name} Round Score": np.nan,
+                        f"{player_name} Geography": geo_pats[r-1],
+                        f"{player_name} Time": time_pats[r-1],
+                        f"{player_name} Geography Distance": int(d['dist_m']),
+                        f"{player_name} Time Guessed": int(d['year_int']),
+                        f"{player_name} Time Distance": np.nan,
+                        f"{player_name} Geography Score": d['g_score'],
+                        f"{player_name} Geography Score (Min)": d['g_score'],
+                        f"{player_name} Geography Score (Max)": d['g_score'],
+                        f"{player_name} Time Score": np.nan,
+                        f"{player_name} Time Score (Min)": np.nan,
+                        f"{player_name} Time Score (Max)": np.nan,
+                    })
+
+                # 3. Save
+                try:
+                    df_out = player_df[player_df['Timeguessr Day'] != timeguessr_day]
+                    df_out = pd.concat([df_out, pd.DataFrame(new_rows)], ignore_index=True)
+                    df_out.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(csv_path, index=False)
+                    st.success("Saved!"); st.rerun()
+                except Exception as e: st.error(f"Save failed: {e}")
+
+# --- 7. Execution: Bottom Section (Inputs) ---
+if date:
+    # Calculate Day
     reference_date = datetime.date(2025, 10, 28)
     timeguessr_day = 880 + (date - reference_date).days
     
+    if "last_viewed_timeguessr_day" not in st.session_state:
+        st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
+    
     st.divider()
     
-    # Load existing data for all rounds
-    try:
-        actuals_df = pd.read_csv("./Data/Timeguessr_Actuals_Parsed.csv")
-    except FileNotFoundError:
-        actuals_df = pd.DataFrame()
-    
-    try:
-        michael_guess_df = pd.read_csv(f"./Data/Timeguessr_Michael_Parsed.csv")
-    except FileNotFoundError:
-        michael_guess_df = pd.DataFrame()
+    # Gap reduction
+    st.markdown('<div style="margin-top: -20px;"></div>', unsafe_allow_html=True)
 
-    try:
-        sarah_guess_df = pd.read_csv(f"./Data/Timeguessr_Sarah_Parsed.csv")
-    except FileNotFoundError:
-        sarah_guess_df = pd.DataFrame()
-    
-    # Create two columns
+    # Define Bottom Columns
     col1, col2, col3 = st.columns([1.25, 1, 1])
     
-    # Left column - Actual Answers (all 5 rounds)
+    # Initialize actual_rounds_data
+    actual_rounds_data = {}
+
+    # Col 1: Actuals
     with col1:
-        st.subheader("Actual Answers")
+        act_path = "./Data/Timeguessr_Actuals_Parsed.csv"
+        act_df = pd.DataFrame()
+        if os.path.exists(act_path): act_df = pd.read_csv(act_path)
         
-        # --- 1. Initialize the dictionary early to prevent NameError ---
-        actual_rounds_data = {} 
-
-        # --- 2. Check if Actuals Exist ---
-        any_actual_exists = False
-        if not actuals_df.empty:
-            for round_num in range(1, 6):
-                existing = actuals_df[(actuals_df['Timeguessr Day'] == timeguessr_day) & 
-                                      (actuals_df['Timeguessr Round'] == round_num)]
-                if len(existing) > 0:
-                    any_actual_exists = True
-                    break
+        curr_act = act_df[(act_df['Timeguessr Day'] == timeguessr_day)]
+        act_exists = not curr_act.empty
         
-        # --- 3. Check if Guesses Exist (Michael and Sarah separately) ---
-        any_michael_guess_exists = False
-        any_sarah_guess_exists = False
+        m_path = "./Data/Timeguessr_Michael_Parsed.csv"
+        s_path = "./Data/Timeguessr_Sarah_Parsed.csv"
+        m_has = not pd.read_csv(m_path)[pd.read_csv(m_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(m_path) else False
+        s_has = not pd.read_csv(s_path)[pd.read_csv(s_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(s_path) else False
         
-        if not michael_guess_df.empty:
-            for round_num in range(1, 6):
-                michael_existing = michael_guess_df[(michael_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                   (michael_guess_df['Timeguessr Round'] == round_num)]
-                if len(michael_existing) > 0:
-                    any_michael_guess_exists = True
-                    break
+        rev_key = f"reveal_act_{timeguessr_day}"
+        if st.session_state["last_viewed_timeguessr_day"] != timeguessr_day: st.session_state[rev_key] = False
+        if rev_key not in st.session_state: st.session_state[rev_key] = False
+        st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
         
-        if not sarah_guess_df.empty:
-            for round_num in range(1, 6):
-                sarah_existing = sarah_guess_df[(sarah_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                   (sarah_guess_df['Timeguessr Round'] == round_num)]
-                if len(sarah_existing) > 0:
-                    any_sarah_guess_exists = True
-                    break
-        
-        # Both guesses exist only if BOTH Michael AND Sarah have guesses
-        any_guess_exists = any_michael_guess_exists and any_sarah_guess_exists
-
-        # --- 4. Session State Logic for Revealing (With Reset on Date Change) ---
-        
-        # A. Track the last viewed day to detect changes
-        if "last_viewed_timeguessr_day" not in st.session_state:
-            st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
-
-        reveal_state_key = f"reveal_confirmed_{timeguessr_day}"
-
-        # B. Check if date changed since last run
-        if st.session_state["last_viewed_timeguessr_day"] != timeguessr_day:
-            # Date changed! Reset the reveal state for the current day to False (Hidden)
-            st.session_state[reveal_state_key] = False
-            # Update the tracker
-            st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
-
-        # C. Initialize key if not present
-        if reveal_state_key not in st.session_state:
-            st.session_state[reveal_state_key] = False
-            
-        # --- 5. The Logic Condition ---
-        # Hidden if: Actuals exist AND (Michael OR Sarah guesses missing) AND Not yet manually revealed
-        is_hidden = any_actual_exists and not any_guess_exists and not st.session_state[reveal_state_key]
-
-        if is_hidden:
-            st.warning("⚠️ You should not view the actual answers as they have already been filled in.")
-            
-            # Button to trigger the "popup"
-            if st.button("Reveal Actual Answers", key=f"btn_req_reveal_{date}"):
-                st.session_state[f"show_confirm_popup_{timeguessr_day}"] = True
-            
-            # The "Popup" (Confirmation Area)
-            if st.session_state.get(f"show_confirm_popup_{timeguessr_day}", False):
-                st.info("Are you sure you want to view actual answers?")
-                col_yes, col_no = st.columns(2)
-                
-                with col_yes:
-                    if st.button("Yes, View Answers", key=f"btn_yes_reveal_{date}"):
-                        st.session_state[reveal_state_key] = True
-                        st.session_state[f"show_confirm_popup_{timeguessr_day}"] = False
-                        st.rerun()
-                
-                with col_no:
-                    if st.button("No, Keep Hidden", key=f"btn_no_reveal_{date}"):
-                        st.session_state[f"show_confirm_popup_{timeguessr_day}"] = False
-                        st.rerun()
-
+        if act_exists and not (m_has and s_has) and not st.session_state[rev_key]:
+            st.subheader("Actual Answers")
+            st.warning("Hidden until both played.")
+            if st.button("Reveal Actuals", key=f"rev_act_{date}"): st.session_state[rev_key] = True
         else:
-            # ============================================================
-            # EXISTING FORM RENDER LOGIC
-            # ============================================================
-            if any_actual_exists:
-                edit_mode_actual = st.toggle("Edit Mode", value=False, key=f"edit_mode_actual_{date}")
+            if act_exists:
+                h1, h2 = st.columns([3, 1])
+                with h1: st.subheader("Actual Answers")
+                with h2:
+                    st.markdown('<div style="margin-top: 5px;"></div>', unsafe_allow_html=True)
+                    edit_act = st.toggle("Edit", key=f"edit_act_{date}")
             else:
-                edit_mode_actual = False
+                st.subheader("Actual Answers")
+                edit_act = True
+
+            all_valid_act = True
+            save_rows = []
             
-            for round_num in range(1, 6):
-                st.markdown(f"**Round {round_num}**")
+            for r in range(1, 6):
+                h_col, _ = st.columns([1, 4])
+                with h_col: st.markdown(f"<div style='padding-top: 7px; font-weight: bold;'>Round {r}</div>", unsafe_allow_html=True)
+                st.markdown('<div style="margin-top: -15px;"></div>', unsafe_allow_html=True)
+
+                row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
                 
-                # Get existing data for this round
-                default_year = ""
-                default_country = ""
-                default_subdivision = ""
-                default_city = ""
-                actual_exists = False
+                rc = st.columns(4)
+                y = rc[0].text_input("Year", value=str(int(row['Year'])) if 'Year' in row else "", key=f"ay_{r}_{date}", disabled=not edit_act, label_visibility="visible")
                 
-                if not actuals_df.empty:
-                    existing = actuals_df[(actuals_df['Timeguessr Day'] == timeguessr_day) & 
-                                          (actuals_df['Timeguessr Round'] == round_num)]
-                    if len(existing) > 0:
-                        actual_exists = True
-                        existing_data = existing.iloc[0]
-                        default_year = str(int(existing_data['Year']))
-                        default_country = existing_data['Country']
-                        default_subdivision = existing_data.get('Subdivision', '')
-                        default_city = existing_data['City']
+                opts = [""] + list(config.get('countries', {}).keys())
+                c_def = row['Country'] if 'Country' in row and row['Country'] in opts else opts[0]
+                c_idx = opts.index(c_def) if c_def in opts else 0
+                cou = rc[1].selectbox("Country", opts, index=c_idx, key=f"ac_{r}_{date}", disabled=not edit_act, label_visibility="visible")
                 
-                # Create 4 columns for Year, Country, Subdivision, City
-                r_cols = st.columns(4)
+                subs = [""]
+                if cou:
+                    for k, v in config['countries'].get(cou, {}).items():
+                        subs.append(f"─ {k} ─"); subs.extend(v)
+                s_def = row.get('Subdivision', '')
+                s_idx = subs.index(s_def) if s_def in subs else 0
+                sub = rc[2].selectbox("Sub", subs, index=s_idx, key=f"as_{r}_{date}", disabled=not edit_act, label_visibility="visible")
                 
-                with r_cols[0]:
-                    year = st.text_input("Year", key=f"actual_year_r{round_num}_{date}", 
-                                        value=default_year, 
-                                        disabled=(actual_exists and not edit_mode_actual),
-                                        label_visibility="visible")
-                
-                with r_cols[1]:
-                    country_options = [""] + list(config.get('countries', {}).keys())
+                with rc[3]:
+                    cities = []
+                    if cou and not act_df.empty and 'Country' in act_df.columns and 'City' in act_df.columns:
+                        cities = sorted(act_df[act_df['Country'] == cou]['City'].dropna().unique().tolist())
                     
-                    if default_country and default_country in country_options:
-                        default_index = country_options.index(default_country)
-                    else:
-                        default_index = 0
+                    c_opts = [""] + cities + ["Other"]
+                    c_val = row.get('City', '')
+                    if c_val in cities: cit_idx = c_opts.index(c_val)
+                    elif c_val: cit_idx = c_opts.index("Other")
+                    else: cit_idx = 0
                     
-                    country = st.selectbox("Country", 
-                                            options=country_options,
-                                            index=default_index,
-                                            key=f"actual_country_r{round_num}_{date}",
-                                            disabled=(actual_exists and not edit_mode_actual),
-                                            label_visibility="visible")
-                
-                with r_cols[2]:
-                    subdivision_display = [""]
-                    subdivision_actual = [""]
-
-                    if country and country in config.get('countries', {}):
-                        country_data = config['countries'][country]
-                        for category, subs in country_data.items():
-                            header = f"─ {category.replace('_', ' ').title()} ─"
-                            subdivision_display.append(header)
-                            subdivision_actual.append(None)
-                            subdivision_display.extend(subs)
-                            subdivision_actual.extend(subs)
-
-                    display_to_actual = dict(zip(subdivision_display, subdivision_actual))
-
-                    if default_subdivision in subdivision_actual:
-                        default_index = subdivision_actual.index(default_subdivision)
-                    else:
-                        default_index = 0
-
-                    subdivision_display_value = st.selectbox(
-                        "Subdivision",
-                        options=subdivision_display,
-                        index=default_index,
-                        key=f"actual_subdivision_r{round_num}_{date}",
-                        disabled=(actual_exists and not edit_mode_actual),
-                        label_visibility="visible"
-                    )
-
-                    subdivision = display_to_actual.get(subdivision_display_value, "")
-                    if subdivision is None:
-                        subdivision = ""
-                
-                with r_cols[3]:
-                    city = st.text_input("City", key=f"actual_city_r{round_num}_{date}", 
-                                        value=default_city,
-                                        disabled=(actual_exists and not edit_mode_actual),
-                                        label_visibility="visible")
-                
-                # Validate year
-                year_valid = True
-                if year and (not actual_exists or edit_mode_actual):
-                    if not year.isdigit() or len(year) != 4:
-                        st.error(f"Round {round_num}: Year must be a 4-digit number")
-                        year_valid = False
-                    elif not (1900 <= int(year) <= date.year):
-                        st.error(f"Round {round_num}: Year must be between 1900 and {date.year}")
-                        year_valid = False
-                
-                # Populate dictionary
-                actual_rounds_data[round_num] = {
-                    'year': year,
-                    'city': city,
-                    'subdivision': subdivision,
-                    'country': country,
-                    'year_valid': year_valid,
-                    'exists': actual_exists
-                }
-            
-            # Save/Submit buttons
-            if any_actual_exists and edit_mode_actual:
-                if st.button("Save All Changes", key="save_all_actual"):
-                    try:
-                        actuals_path = "./Data/Timeguessr_Actuals_Parsed.csv"
-                        actuals_df = pd.read_csv(actuals_path)
-                        
-                        all_valid = True
-                        for round_num, data in actual_rounds_data.items():
-                            if data['exists'] and data['year'] and data['country'] and data['city'] and data['year_valid']:
-                                mask = (actuals_df['Timeguessr Day'] == timeguessr_day) & (actuals_df['Timeguessr Round'] == round_num)
-                                actuals_df.loc[mask, 'Year'] = int(data['year'])
-                                actuals_df.loc[mask, 'Country'] = data['country']
-                                actuals_df.loc[mask, 'Subdivision'] = data['subdivision']
-                                actuals_df.loc[mask, 'City'] = data['city']
-                            elif data['exists']:
-                                all_valid = False
-                        
-                        if all_valid:
-                            actuals_df = actuals_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                            actuals_df.to_csv(actuals_path, index=False)
-                            st.success("All changes saved successfully!")
-                            st.rerun()
-                        else:
-                            st.error("Please fill in all required fields correctly for all rounds.")
-                    except Exception as e:
-                        st.error(f"Error saving changes: {e}")
-            
-            elif not any_actual_exists:
-                if st.button("Submit All Actual Answers", key="submit_all_actual"):
-                    try:
-                        reference_date = datetime.date(2025, 10, 24)
-                        reference_day_number = 876
-                        delta_days = (date - reference_date).days
-                        computed_timeguessr_day = reference_day_number + delta_days
-                        
-                        all_valid = True
-                        new_rows = []
-                        
-                        for round_num, data in actual_rounds_data.items():
-                            if not data['year'] or not data['country']:
-                                st.error(f"Round {round_num}: Year and Country are required fields.")
-                                all_valid = False
-                                break
-                            
-                            if not data['year_valid']:
-                                st.error(f"Round {round_num}: Please enter a valid year.")
-                                all_valid = False
-                                break
-                            
-                            if data['year'] and data['country'] and data['year_valid']:
-                                new_rows.append({
-                                    "Timeguessr Day": int(computed_timeguessr_day),
-                                    "Timeguessr Round": int(round_num),
-                                    "City": data['city'],
-                                    "Subdivision": data['subdivision'],
-                                    "Country": data['country'],
-                                    "Year": int(data['year'])
-                                })
-                            else:
-                                all_valid = False
-                                break
-                        
-                        if all_valid and len(new_rows) == 5:
-                            parsed_path = "./Data/Timeguessr_Actuals_Parsed.csv"
-                            
-                            if os.path.exists(parsed_path):
-                                parsed_df = pd.read_csv(parsed_path)
-                                parsed_df = parsed_df[~(pd.to_numeric(parsed_df.get("Timeguessr Day"), errors="coerce") == computed_timeguessr_day)]
-                                parsed_df = pd.concat([parsed_df, pd.DataFrame(new_rows)], ignore_index=True)
-                            else:
-                                parsed_df = pd.DataFrame(new_rows)
-                            
-                            parsed_df = parsed_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                            parsed_df.to_csv(parsed_path, index=False)
-                            st.success("All actual answers submitted successfully!")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error submitting actual answers: {e}")
-    
-    # Middle column - Guesses (all 5 rounds)
-    with col2:
-        st.subheader(f"Michael's Guesses")
-        
-        # Check if Michael guess exists for this day
-        any_michael_guess_exists_col2 = False
-        if not michael_guess_df.empty:
-            for round_num in range(1, 6):
-                existing = michael_guess_df[(michael_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                   (michael_guess_df['Timeguessr Round'] == round_num)]
-                if len(existing) > 0:
-                    any_michael_guess_exists_col2 = True
-                    break
-        
-        # Check if Sarah guess exists for this day
-        any_sarah_guess_exists_col2 = False
-        if not sarah_guess_df.empty:
-            for round_num in range(1, 6):
-                existing = sarah_guess_df[(sarah_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                   (sarah_guess_df['Timeguessr Round'] == round_num)]
-                if len(existing) > 0:
-                    any_sarah_guess_exists_col2 = True
-                    break
-        
-        # --- Session State Logic for Revealing Michael's Guesses ---
-        michael_reveal_state_key = f"michael_reveal_confirmed_{timeguessr_day}"
-        
-        # Reset on date change
-        if st.session_state.get("last_viewed_timeguessr_day") != timeguessr_day:
-            st.session_state[michael_reveal_state_key] = False
-        
-        # Initialize key if not present
-        if michael_reveal_state_key not in st.session_state:
-            st.session_state[michael_reveal_state_key] = False
-        
-        # Hidden if: Sarah has guesses AND Michael doesn't AND Not yet manually revealed
-        michael_is_hidden = any_michael_guess_exists_col2 and not any_sarah_guess_exists_col2 and not st.session_state[michael_reveal_state_key]
-
-        if michael_is_hidden:
-            st.warning("⚠️ Michael has already submitted guesses for this day. You should submit Sarah's guesses without viewing his.")
-            
-            # Button to trigger the "popup"
-            if st.button("Reveal Michael's Guesses", key=f"btn_req_reveal_michael_{date}"):
-                st.session_state[f"show_confirm_popup_michael_{timeguessr_day}"] = True
-            
-            # The "Popup" (Confirmation Area)
-            if st.session_state.get(f"show_confirm_popup_michael_{timeguessr_day}", False):
-                st.info("Are you sure you want to proceed? This will reveal Michael's guesses.")
-                col_yes, col_no = st.columns(2)
-                
-                with col_yes:
-                    if st.button("Yes, Proceed", key=f"btn_yes_reveal_michael_{date}"):
-                        st.session_state[michael_reveal_state_key] = True
-                        st.session_state[f"show_confirm_popup_michael_{timeguessr_day}"] = False
-                        st.rerun()
-                
-                with col_no:
-                    if st.button("No, Keep Hidden", key=f"btn_no_reveal_michael_{date}"):
-                        st.session_state[f"show_confirm_popup_michael_{timeguessr_day}"] = False
-                        st.rerun()
-        else:
-            # ============================================================
-            # EXISTING MICHAEL GUESSES FORM RENDER LOGIC
-            # ============================================================
-            if any_michael_guess_exists_col2:
-                edit_mode_guess = st.toggle("Edit Mode", value=False, key=f"michael_edit_mode_guess_{date}")
-            else:
-                edit_mode_guess = False
-        
-            # Store all guess data
-            guess_rounds_data = {}
-            
-            # Build formatted total score text
-            default_total_score = ""
-            if not michael_guess_df.empty:
-                existing = michael_guess_df[michael_guess_df['Timeguessr Day'] == timeguessr_day]
-                if len(existing) > 0:
-                    # Get total score from first row (should be same for all rounds of that day)
-                    total_score_val = existing.iloc[0].get(f'Michael Total Score')
-                    if pd.notna(total_score_val) and total_score_val != '':
-                        total_score_formatted = f"{int(total_score_val):,}/50,000"
-                    else:
-                        total_score_formatted = "_____/50,000"
+                    sel_c = st.selectbox("City", c_opts, index=cit_idx, key=f"acs_{r}_{date}", disabled=not edit_act, label_visibility="visible")
                     
-                    # Build the formatted string
-                    default_total_score = f"TimeGuessr #{timeguessr_day} {total_score_formatted}\n"
-                    
-                    # Convert O/X/% to emojis
-                    def convert_to_emoji(s):
-                        if pd.isna(s) or s == "":
-                            return "⬛️⬛️⬛️"
-                        result = ""
-                        for char in s:
-                            if char == "O":
-                                result += "🟩"
-                            elif char == "%":
-                                result += "🟨"
-                            elif char == "X":
-                                result += "⬛️"
-                        return result
-                    
-                    # Add each round
-                    for round_num in range(1, 6):
-                        round_data = existing[existing['Timeguessr Round'] == round_num]
-                        if len(round_data) > 0:
-                            geo_string = round_data.iloc[0].get(f'Michael Geography', '')
-                            time_string = round_data.iloc[0].get(f'Michael Time', '')
-                            geo_display = convert_to_emoji(geo_string)
-                            time_display = convert_to_emoji(time_string)
-                        else:
-                            geo_display = "⬛️⬛️⬛️"
-                            time_display = "⬛️⬛️⬛️"
-                        
-                        default_total_score += f"🌎{geo_display} 📅{time_display}\n"
-                    
-                    # Remove trailing newline
-                    default_total_score = default_total_score.rstrip('\n')
-
-            
-            
-            for round_num in range(1, 6):
-                st.markdown(f"**Round {round_num}**")
+                    if sel_c == "Other":
+                        def_txt = c_val if c_val not in cities else ""
+                        cit = st.text_input("New City", value=def_txt, key=f"aci_{r}_{date}", disabled=not edit_act, label_visibility="collapsed", placeholder="City Name")
+                    else: cit = sel_c
                 
-                # Get existing data for this round
-                default_distance = ""
-                default_distance_km = False
-                default_year_guessed = ""
-                guess_exists = False
+                valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=date.year
+                actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
                 
-                if not michael_guess_df.empty:
-                    existing = michael_guess_df[(michael_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                    (michael_guess_df['Timeguessr Round'] == round_num)]
-                    if len(existing) > 0:
-                        guess_exists = True
-                        guess_data = existing.iloc[0]
-                        
-                        if pd.notna(guess_data.get(f'Michael Geography Distance')) and guess_data.get(f'Michael Geography Distance') != '':
-                            dist_meters = float(guess_data[f'Michael Geography Distance'])
-                            if dist_meters >= 1000:
-                                default_distance = str(dist_meters / 1000)
-                                default_distance_km = True
-                            else:
-                                default_distance = str(dist_meters)
-                                default_distance_km = False
-                        
-                        if pd.notna(guess_data.get(f'Michael Time Guessed')) and guess_data.get(f'Michael Time Guessed') != '':
-                            default_year_guessed = str(int(guess_data[f'Michael Time Guessed']))
-                
-                # Get actual year for this round if available
-                actual_year_for_round = None
-                if round_num in actual_rounds_data:
-                    if actual_rounds_data[round_num]['year_valid'] and actual_rounds_data[round_num]['year']:
-                        actual_year_for_round = int(actual_rounds_data[round_num]['year'])
-                
-                # --- LAYOUT CHANGE: 5 Columns [Unit Button, Distance, Geo Score, Year, Time Score] ---
-                g_cols = st.columns([0.15, 1, 0.5, 1, 0.5])
-                
-                # Calculate scores first
-                geo_score = None
-                time_score = None
-                
-                # --- 1. Unit Toggle (Button Style) ---
-                with g_cols[0]:
-                    # Add spacer to align button with the text inputs (which have labels)
-                    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                    
-                    michael_toggle_key = f'michael_distance_unit_r{round_num}_{date}'
-                    
-                    # Initialize session state for this round's unit if not present
-                    if michael_toggle_key not in st.session_state:
-                        st.session_state[michael_toggle_key] = default_distance_km
-                        
-                    # If guess exists (read-only), just show the unit text
-                    if guess_exists and not edit_mode_guess:
-                        is_km = default_distance_km
-                        # # Visual indicator: Green/Success for KM, Blue/Info for M
-                        # if is_km:
-                        #     st.success("KM") 
-                        # else:
-                        #     st.info("M")
-                    else:
-                        # Button logic: Label shows current state, clicking toggles it
-                        current_state = st.session_state[michael_toggle_key]
-                        current_label = "KM" if current_state else "M"
-                        
-                        # Toggle button color: Primary (Filled) for KM, Secondary (Outline) for M
-                        btn_type = "primary" if current_state else "secondary"
-                        
-                        if st.button(current_label, key=f"michael_btn_unit_{round_num}_{date}", type=btn_type, use_container_width=True):
-                            st.session_state[michael_toggle_key] = not st.session_state[michael_toggle_key]
-                            st.rerun()
-                        
-                        is_km = st.session_state[michael_toggle_key]
+                if edit_act:
+                    if not (y and cou and cit and valid_y): all_valid_act = False
+                    save_rows.append({"Timeguessr Day": timeguessr_day, "Timeguessr Round": r, "Year": int(y) if valid_y else 0, "Country": cou, "Subdivision": sub, "City": cit})
 
-                # --- 2. Distance Input ---
-                with g_cols[1]:
-                    unit_label = "km" if is_km else "m"
-                    
-                    distance = st.text_input(f"Dist ({unit_label})", 
-                                            key=f"michael_distance_r{round_num}_{date}",
-                                            value=default_distance,
-                                            disabled=(guess_exists and not edit_mode_guess),
-                                            label_visibility="visible")
-                    
-                    # Calculate geography score
-                    if distance:
-                        try:
-                            dist_input = float(distance)
-                            if dist_input >= 0:
-                                dist = dist_input * 1000 if is_km else dist_input
-                                
-                                conditions = [
-                                    (dist <= 50),
-                                    (dist > 50) & (dist <= 1000),
-                                    (dist > 1000) & (dist <= 5000),
-                                    (dist > 5000) & (dist <= 100000),
-                                    (dist > 100000) & (dist <= 1000000),
-                                    (dist > 1000000) & (dist <= 2000000),
-                                    (dist > 2000000) & (dist <= 3000000),
-                                    (dist > 3000000) & (dist <= 6000000),
-                                    (dist > 6000000)
-                                ]
-                                
-                                scores = [
-                                    5000,
-                                    5000 - (dist * 0.02),
-                                    4980 - (dist * 0.016),
-                                    4900 - (dist * 0.004),
-                                    4500 - (dist * 0.001),
-                                    3500 - (dist * 0.0005),
-                                    2500 - (dist * 0.0003333),
-                                    1500 - (dist * 0.0002),
-                                    12
-                                ]
-                                
-                                for condition, score in zip(conditions, scores):
-                                    if condition:
-                                        geo_score = score
-                                        break
-                        except:
-                            pass
+            if edit_act:
+                if st.button("Submit Actuals", key=f"sub_act_{date}"):
+                    if all_valid_act:
+                        f_df = act_df[act_df['Timeguessr Day'] != timeguessr_day]
+                        f_df = pd.concat([f_df, pd.DataFrame(save_rows)], ignore_index=True)
+                        f_df.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(act_path, index=False)
+                        st.success("Saved!"); st.rerun()
+                    else: st.error("Invalid actuals")
 
-                # --- 3. Geo Score Display ---
-                with g_cols[2]:
-                    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
-                    if geo_score is not None:
-                        st.markdown(
-                            f"""
-                            <div style="
-                                background-color: #dde5eb;
-                                color: #221e8f;
-                                padding: 4px 8px;
-                                border-left: 7px solid #221e8f;
-                                border-radius: 4px;
-                                font-size: 1rem;
-                                line-height: 1.9;
-                            ">
-                                🌎 {geo_score:.0f}
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.markdown("")
-
-                # --- 4. Year Input ---
-                with g_cols[3]:
-                    year_guessed = st.text_input("Year", 
-                                                key=f"michael_year_guessed_r{round_num}_{date}",
-                                                value=default_year_guessed,
-                                                disabled=(guess_exists and not edit_mode_guess),
-                                                label_visibility="visible")
-                    
-                    # Validate and calculate time score
-                    year_guessed_valid = False
-                    if year_guessed:
-                        if not year_guessed.isdigit() or len(year_guessed) != 4:
-                            st.error("4 digits")
-                        elif not (1900 <= int(year_guessed) <= date.year):
-                            st.error(f"1900-{date.year}")
-                        else:
-                            year_guessed_valid = True
-                            
-                            if actual_year_for_round is not None:
-                                years_off = abs(int(year_guessed) - actual_year_for_round)
-                                
-                                if years_off == 0:
-                                    time_score = 5000
-                                elif years_off == 1:
-                                    time_score = 4950
-                                elif years_off == 2:
-                                    time_score = 4800
-                                elif years_off == 3:
-                                    time_score = 4600
-                                elif years_off == 4:
-                                    time_score = 4300
-                                elif years_off == 5:
-                                    time_score = 3900
-                                elif years_off in [6, 7]:
-                                    time_score = 3400
-                                elif years_off in [8, 9, 10]:
-                                    time_score = 2500
-                                elif 10 < years_off < 16:
-                                    time_score = 2000
-                                elif 15 < years_off < 21:
-                                    time_score = 1000
-                                else:
-                                    time_score = 0
-
-                # --- 5. Time Score Display ---
-                with g_cols[4]:
-                    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
-                    if time_score is not None:
-                        st.markdown(
-                            f"""
-                            <div style="
-                                background-color: #dde5eb;
-                                color: #221e8f;
-                                padding: 4px 8px;
-                                border-left: 7px solid #221e8f;
-                                border-radius: 4px;
-                                font-size: 1rem;
-                                line-height: 1.9;
-                            ">
-                                📅 {time_score:.0f}
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    elif year_guessed_valid and actual_year_for_round is None:
-                        # Show help text with year ranges
-                        guessed = int(year_guessed)
-                        def clamp(year):
-                            return max(1900, min(year, date.year))
-                        
-                        help_text = f"""5000: {clamp(guessed)}  
-                                        4950: {clamp(guessed-1)}/{clamp(guessed+1)}   
-                                        4800: {clamp(guessed-2)}/{clamp(guessed+2)}    
-                                        4600: {clamp(guessed-3)}/{clamp(guessed+3)}     
-                                        4300: {clamp(guessed-4)}/{clamp(guessed+4)}     
-                                        3900: {clamp(guessed-5)}/{clamp(guessed+5)}     
-                                        3400: {clamp(guessed-7)}-{clamp(guessed-6)}/{clamp(guessed+6)}-{clamp(guessed+7)}      
-                                        2500: {clamp(guessed-10)}-{clamp(guessed-8)}/{clamp(guessed+8)}-{clamp(guessed+10)}    
-                                        2000: {clamp(guessed-15)}-{clamp(guessed-11)}/{clamp(guessed+11)}-{clamp(guessed+15)}  
-                                        1000: {clamp(guessed-20)}-{clamp(guessed-16)}/{clamp(guessed+16)}-{clamp(guessed+20)}  
-                                        0: {clamp(1900)}-{clamp(guessed-21)}/{clamp(guessed+21)}-{clamp(date.year)}"""
-                        
-                        st.markdown(
-                            f"""
-                            <div title="{help_text}"
-                                style="
-                                    background-color: #bcb0ff;
-                                    color: #221e8f;
-                                    padding: 4px 8px;
-                                    border-left: 7px solid #221e8f;
-                                    border-radius: 4px;
-                                    font-size: 1rem;
-                                    line-height: 1.9;
-                                    display: inline-block;
-                                ">
-                                📅 ?
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.markdown("")
-                
-                guess_rounds_data[round_num] = {
-                    'distance': distance,
-                    'is_km': is_km,
-                    'year_guessed': year_guessed,
-                    'year_valid': year_guessed_valid,
-                    'exists': guess_exists
-                }
-
-            # Add Total Score input before rounds
-            total_score_input = st.text_area("Total Score", 
-                        value=default_total_score, 
-                        key=f"michael_total_score_text_{date}",
-                        help="Share Your Results from TimeGuessr!",
-                        height=180,
-                        disabled=(any_guess_exists and not edit_mode_guess))
-            
-            # Save/Submit buttons for guesses
-            if any_guess_exists and edit_mode_guess:
-                if st.button("Save All Guess Changes", key="michael_save_all_guess"):
-                    try:
-                        # Validate Total Score format even when editing
-                        valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-                        
-                        if not total_score_input or not total_score_input.strip():
-                            st.error("Please enter the Total Score from TimeGuessr.")
-                        else:
-                            lines = total_score_input.strip().split('\n')[:7]
-                            
-                            if len(lines) < 6:
-                                st.error("Total Score format is incorrect. Must have at least 6 lines.")
-                            else:
-                                
-                                # Extract geography patterns from Total Score
-                                geo_patterns_edit = []
-                                format_valid = True
-                                
-                                for i, line in enumerate(lines[1:6], 1):
-                                    if not line.startswith('🌎') or '📅' not in line:
-                                        st.error(f"Round {i} format is incorrect in Total Score box")
-                                        format_valid = False
-                                        break
-                                    
-                                    parts = line.split('📅')
-                                    geo_part = parts[0].replace('🌎', '').strip()
-                                    time_part = parts[1].strip()
-                                    
-                                    if geo_part not in valid_combos:
-                                        st.error(f"Round {i} geography emoji combination is invalid: {geo_part}")
-                                        format_valid = False
-                                        break
-                                    
-                                    if time_part not in valid_combos:
-                                        st.error(f"Round {i} time emoji combination is invalid: {time_part}")
-                                        format_valid = False
-                                        break
-                                    
-                                    # Convert emojis to O/X/% format
-                                    def emoji_to_pattern(emoji_str):
-                                        return emoji_str.replace('🟩', 'O').replace('🟨', '%').replace('⬛️', 'X').replace('⬛', 'X')
-                                    
-                                    geo_patterns_edit.append(emoji_to_pattern(geo_part))
-                                
-                                if format_valid:
-                                    guess_path = f"./Data/Timeguessr_Michael_Parsed.csv"
-                                    michael_guess_df = pd.read_csv(guess_path)
-                                    
-                                    all_valid = True
-                                    for round_num, data in guess_rounds_data.items():
-                                        if not data['distance'] or not data['year_guessed']:
-                                            st.error(f"Round {round_num}: Distance and Year are required fields.")
-                                            all_valid = False
-                                            break
-                                        
-                                        if not data['year_valid']:
-                                            st.error(f"Round {round_num}: Please enter a valid year.")
-                                            all_valid = False
-                                            break
-                                        
-                                        if data['exists'] and data['distance'] and data['year_valid']:
-                                            try:
-                                                dist_val = float(data['distance'])
-                                                if dist_val < 0:
-                                                    st.error(f"Round {round_num}: Distance cannot be negative.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                dist_meters = int(dist_val * 1000) if data['is_km'] else int(dist_val)
-                                                
-                                                # Get the geography pattern from Total Score input  
-                                                geo_pattern_from_input = geo_patterns_edit[round_num - 1]
-                                                
-                                                # Validate distance matches the geography pattern (no time validation)
-                                                validation_result = validate_distance_pattern(dist_meters, geo_pattern_from_input, round_num, data['is_km'])
-                                                
-                                                if not validation_result[0]:
-                                                    st.error(validation_result[1])
-                                                    all_valid = False
-                                                    break
-                                                
-                                                mask = (michael_guess_df['Timeguessr Day'] == timeguessr_day) & (michael_guess_df['Timeguessr Round'] == round_num)
-                                                michael_guess_df.loc[mask, f'Michael Geography Distance'] = int(dist_meters)
-                                                michael_guess_df.loc[mask, f'Michael Time Guessed'] = int(data['year_guessed'])
-                                            except ValueError:
-                                                st.error(f"Round {round_num}: Invalid distance value.")
-                                                all_valid = False
-                                                break
-                                        elif data['exists']:
-                                            all_valid = False
-                                    
-                                    if all_valid:
-                                        michael_guess_df = michael_guess_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                                        michael_guess_df.to_csv(guess_path, index=False)
-                                        st.success("All guess changes saved successfully!")
-                                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error saving guess changes: {e}")
-            
-            elif not any_guess_exists:
-                if st.button("Submit All Guesses", key="michael_submit_all_guess"):
-                    # Validate Total Score format
-                    valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-                    
-                    if not total_score_input or not total_score_input.strip():
-                        st.error("Please enter the Total Score from TimeGuessr.")
-                    else:
-                        lines = total_score_input.strip().split('\n')[:7]  # Only keep first 7 lines
-                        
-                        if len(lines) < 6:
-                            st.error("Total Score format is incorrect. Must have at least 6 lines.")
-                        else:
-                            # Validate first line format: TimeGuessr #XXX XX,XXX/50,000
-                            first_line = lines[0]
-                            if not first_line.startswith('TimeGuessr #'):
-                                st.error("First line must start with 'TimeGuessr #'")
-                            else:
-                                # Extract total score from first line
-                                try:
-                                    score_part = first_line.split()[-1]  # Get last part
-                                    total_score_str = score_part.split('/')[0].replace(',', '')
-                                    extracted_total_score = int(total_score_str)
-                                    if not (0 <= extracted_total_score <= 50000):
-                                        st.error("Total score must be between 0 and 50,000")
-                                        extracted_total_score = None
-                                except:
-                                    st.error("Could not extract total score from first line. Expected format: 'TimeGuessr #XXX XX,XXX/50,000'")
-                                    extracted_total_score = None
-                                
-                                if extracted_total_score is not None:
-                                    # Validate next 5 lines (rounds)
-                                    geo_patterns = []
-                                    time_patterns = []
-                                    format_valid = True
-                                    
-                                    for i, line in enumerate(lines[1:6], 1):
-                                        # Check format: 🌎XXX 📅XXX
-                                        if not line.startswith('🌎'):
-                                            st.error(f"Round {i} line must start with 🌎")
-                                            format_valid = False
-                                            break
-                                        
-                                        if '📅' not in line:
-                                            st.error(f"Round {i} line must contain 📅")
-                                            format_valid = False
-                                            break
-                                        
-                                        parts = line.split('📅')
-                                        if len(parts) != 2:
-                                            st.error(f"Round {i} format is incorrect")
-                                            format_valid = False
-                                            break
-                                        
-                                        geo_part = parts[0].replace('🌎', '').strip()
-                                        time_part = parts[1].strip()
-                                        
-                                        if geo_part not in valid_combos:
-                                            st.error(f"Round {i} geography emoji combination is invalid: {geo_part}")
-                                            format_valid = False
-                                            break
-                                        
-                                        if time_part not in valid_combos:
-                                            st.error(f"Round {i} time emoji combination is invalid: {time_part}")
-                                            format_valid = False
-                                            break
-                                        
-                                        # Convert emojis to O/X/% format
-                                        def emoji_to_pattern(emoji_str):
-                                            return emoji_str.replace('🟩', 'O').replace('🟨', '%').replace('⬛️', 'X').replace('⬛', 'X')
-                                        
-                                        geo_patterns.append(emoji_to_pattern(geo_part))
-                                        time_patterns.append(emoji_to_pattern(time_part))
-                                    
-                                    if format_valid:
-                                        try:
-                                            reference_date = datetime.date(2025, 10, 24)
-                                            reference_day_number = 876
-                                            delta_days = (date - reference_date).days
-                                            computed_timeguessr_day = reference_day_number + delta_days
-                                            
-                                            all_valid = True
-                                            new_rows = []
-                                            
-                                            def geography_score(x):
-                                                if x <= 50:
-                                                    return 5000
-                                                elif x <= 1000:
-                                                    return 5000 - (x * 0.02)
-                                                elif x <= 5000:
-                                                    return 4980 - (x * 0.016)
-                                                elif x <= 100000:
-                                                    return 4900 - (x * 0.004)
-                                                elif x <= 1000000:
-                                                    return 4500 - (x * 0.001)
-                                                elif x <= 2000000:
-                                                    return 3500 - (x * 0.0005)
-                                                elif x <= 3000000:
-                                                    return 2500 - (x * 0.0003333)
-                                                elif x <= 6000000:
-                                                    return 1500 - (x * 0.0002)
-                                                else:
-                                                    return 12
-                                            
-                                            def geography_pattern(x):
-                                                if x == 5000:
-                                                    return "OOO"
-                                                elif 4750 <= x <= 4999:
-                                                    return "OO%"
-                                                elif 4500 <= x < 4750:
-                                                    return "OOX"
-                                                elif 4250 <= x < 4500:
-                                                    return "O%X"
-                                                elif 3500 <= x < 4250:
-                                                    return "OXX"
-                                                elif 2500 <= x < 3500:
-                                                    return "%XX"
-                                                elif 12 <= x < 2500:
-                                                    return "XXX"
-                                                else:
-                                                    return None
-                                            
-                                            for round_num, data in guess_rounds_data.items():
-                                                # Require distance and year for all rounds
-                                                if not data['distance'] or not data['year_guessed']:
-                                                    st.error(f"Round {round_num}: Distance and Year are required fields.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                if not data['year_valid']:
-                                                    st.error(f"Round {round_num}: Please enter a valid year.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                if data['distance'] and data['year_valid']:
-                                                    try:
-                                                        dist_val = float(data['distance'])
-                                                        if dist_val < 0:
-                                                            st.error(f"Round {round_num}: Distance cannot be negative.")
-                                                            all_valid = False
-                                                            break
-                                                        
-                                                        dist_meters = int(dist_val * 1000) if data['is_km'] else int(dist_val)
-                                                        year_val = int(data['year_guessed'])
-                                                        
-                                                        # Get the geography pattern from Total Score input
-                                                        geo_pattern_from_input = geo_patterns[round_num - 1]
-                                                        time_pattern_from_input = time_patterns[round_num - 1]
-                                                        
-                                                        # Validate distance matches the geography pattern (no time validation)
-                                                        validation_result = validate_distance_pattern(dist_meters, geo_pattern_from_input, round_num, data['is_km'])
-                                                        
-                                                        if not validation_result[0]:
-                                                            st.error(validation_result[1])
-                                                            all_valid = False
-                                                            break
-                                                        
-                                                        geo_score = geography_score(dist_meters)
-                                                        
-                                                        new_rows.append({
-                                                            "Timeguessr Day": int(computed_timeguessr_day),
-                                                            "Timeguessr Round": int(round_num),
-                                                            f"Michael Total Score": extracted_total_score,
-                                                            f"Michael Round Score": np.nan,
-                                                            f"Michael Geography": geo_pattern_from_input,
-                                                            f"Michael Time": time_pattern_from_input,
-                                                            f"Michael Geography Distance": dist_meters,
-                                                            f"Michael Time Guessed": year_val,
-                                                            f"Michael Time Distance": np.nan,
-                                                            f"Michael Geography Score": geo_score,
-                                                            f"Michael Geography Score (Min)": geo_score,
-                                                            f"Michael Geography Score (Max)": geo_score,
-                                                            f"Michael Time Score": np.nan,
-                                                            f"Michael Time Score (Min)": np.nan,
-                                                            f"Michael Time Score (Max)": np.nan,
-                                                        })
-                                                    except ValueError:
-                                                        st.error(f"Round {round_num}: Invalid distance value.")
-                                                        all_valid = False
-                                                        break
-                                                else:
-                                                    all_valid = False
-                                                    break
-                                            
-                                            if all_valid and len(new_rows) == 5:
-                                                parsed_path = f"./Data/Timeguessr_Michael_Parsed.csv"
-                                                
-                                                if os.path.exists(parsed_path):
-                                                    parsed_df = pd.read_csv(parsed_path)
-                                                    # Remove any existing entries for this day
-                                                    parsed_df = parsed_df[~(pd.to_numeric(parsed_df.get("Timeguessr Day"), errors="coerce") == computed_timeguessr_day)]
-                                                    parsed_df = pd.concat([parsed_df, pd.DataFrame(new_rows)], ignore_index=True)
-                                                else:
-                                                    parsed_df = pd.DataFrame(new_rows)
-                                                
-                                                parsed_df = parsed_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                                                parsed_df.to_csv(parsed_path, index=False)
-                                                st.success(f"All guesses submitted successfully!")
-                                                st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Error submitting guesses: {e}")
-
-    # Right column - Guesses (all 5 rounds)
-    with col3:
-        st.subheader(f"Sarah's Guesses")
-
-        # --- Check if Sarah guess exists for this day ---
-        any_sarah_guess_exists_col3 = False
-        if not sarah_guess_df.empty:
-            for round_num in range(1, 6):
-                existing = sarah_guess_df[
-                    (sarah_guess_df['Timeguessr Day'] == timeguessr_day) &
-                    (sarah_guess_df['Timeguessr Round'] == round_num)
-                ]
-                if len(existing) > 0:
-                    any_sarah_guess_exists_col3 = True
-                    break
-
-        # --- Check if Michael guess exists for this day ---
-        any_michael_guess_exists_col3 = False
-        if not michael_guess_df.empty:
-            for round_num in range(1, 6):
-                existing = michael_guess_df[
-                    (michael_guess_df['Timeguessr Day'] == timeguessr_day) &
-                    (michael_guess_df['Timeguessr Round'] == round_num)
-                ]
-                if len(existing) > 0:
-                    any_michael_guess_exists_col3 = True
-                    break
-
-        # --- Session State Logic for Revealing Sarah's Guesses ---
-        sarah_reveal_state_key = f"sarah_reveal_confirmed_{timeguessr_day}"
-
-        # Reset on date change
-        if st.session_state.get("last_viewed_timeguessr_day") != timeguessr_day:
-            st.session_state[sarah_reveal_state_key] = False
-
-        # Initialize if not present
-        if sarah_reveal_state_key not in st.session_state:
-            st.session_state[sarah_reveal_state_key] = False
-
-        # HIDE Sarah if:
-        #   Sarah has guesses
-        #   AND Michael does NOT
-        #   AND she has not manually revealed
-        sarah_is_hidden = (
-            any_sarah_guess_exists_col3 and
-            not any_michael_guess_exists_col3 and
-            not st.session_state[sarah_reveal_state_key]
-        )
-
-        if sarah_is_hidden:
-            st.warning("⚠️ Sarah has already submitted guesses for this day. Michael should submit his guesses without viewing hers.")
-
-            # Trigger popup
-            if st.button("Reveal Sarah's Guesses", key=f"btn_req_reveal_sarah_{date}"):
-                st.session_state[f"show_confirm_popup_sarah_{timeguessr_day}"] = True
-
-            # Confirmation popup
-            if st.session_state.get(f"show_confirm_popup_sarah_{timeguessr_day}", False):
-                st.info("Are you sure? This will reveal Sarah's guesses.")
-                col_yes, col_no = st.columns(2)
-
-                with col_yes:
-                    if st.button("Yes, Reveal", key=f"btn_yes_reveal_sarah_{date}"):
-                        st.session_state[sarah_reveal_state_key] = True
-                        st.session_state[f"show_confirm_popup_sarah_{timeguessr_day}"] = False
-                        st.rerun()
-
-                with col_no:
-                    if st.button("No, Keep Hidden", key=f"btn_no_reveal_sarah_{date}"):
-                        st.session_state[f"show_confirm_popup_sarah_{timeguessr_day}"] = False
-                        st.rerun()
-        else:
-            # ============================================================
-            # EXISTING SARAH GUESSES FORM RENDER LOGIC
-            # ============================================================
-            if any_guess_exists:
-                edit_mode_guess = st.toggle("Edit Mode", value=False, key=f"sarah_edit_mode_guess_{date}")
-            else:
-                edit_mode_guess = False
-
-            # Store all guess data
-            guess_rounds_data = {}
-            
-            # Build formatted total score text
-            default_total_score = ""
-            if not sarah_guess_df.empty:
-                existing = sarah_guess_df[sarah_guess_df['Timeguessr Day'] == timeguessr_day]
-                if len(existing) > 0:
-                    # Get total score from first row (should be same for all rounds of that day)
-                    total_score_val = existing.iloc[0].get(f'Sarah Total Score')
-                    if pd.notna(total_score_val) and total_score_val != '':
-                        total_score_formatted = f"{int(total_score_val):,}/50,000"
-                    else:
-                        total_score_formatted = "_____/50,000"
-                    
-                    # Build the formatted string
-                    default_total_score = f"TimeGuessr #{timeguessr_day} {total_score_formatted}\n"
-                    
-                    # Convert O/X/% to emojis
-                    def convert_to_emoji(s):
-                        if pd.isna(s) or s == "":
-                            return "⬛️⬛️⬛️"
-                        result = ""
-                        for char in s:
-                            if char == "O":
-                                result += "🟩"
-                            elif char == "%":
-                                result += "🟨"
-                            elif char == "X":
-                                result += "⬛️"
-                        return result
-                    
-                    # Add each round
-                    for round_num in range(1, 6):
-                        round_data = existing[existing['Timeguessr Round'] == round_num]
-                        if len(round_data) > 0:
-                            geo_string = round_data.iloc[0].get(f'Sarah Geography', '')
-                            time_string = round_data.iloc[0].get(f'Sarah Time', '')
-                            geo_display = convert_to_emoji(geo_string)
-                            time_display = convert_to_emoji(time_string)
-                        else:
-                            geo_display = "⬛️⬛️⬛️"
-                            time_display = "⬛️⬛️⬛️"
-                        
-                        default_total_score += f"🌎{geo_display} 📅{time_display}\n"
-                    
-                    # Remove trailing newline
-                    default_total_score = default_total_score.rstrip('\n')
-
-            for round_num in range(1, 6):
-                st.markdown(f"**Round {round_num}**")
-                
-                # Get existing data for this round
-                default_distance = ""
-                default_distance_km = False
-                default_year_guessed = ""
-                guess_exists = False
-                
-                if not sarah_guess_df.empty:
-                    existing = sarah_guess_df[(sarah_guess_df['Timeguessr Day'] == timeguessr_day) & 
-                                    (sarah_guess_df['Timeguessr Round'] == round_num)]
-                    if len(existing) > 0:
-                        guess_exists = True
-                        guess_data = existing.iloc[0]
-                        
-                        if pd.notna(guess_data.get(f'Sarah Geography Distance')) and guess_data.get(f'Sarah Geography Distance') != '':
-                            dist_meters = float(guess_data[f'Sarah Geography Distance'])
-                            if dist_meters >= 1000:
-                                default_distance = str(dist_meters / 1000)
-                                default_distance_km = True
-                            else:
-                                default_distance = str(dist_meters)
-                                default_distance_km = False
-                        
-                        if pd.notna(guess_data.get(f'Sarah Time Guessed')) and guess_data.get(f'Sarah Time Guessed') != '':
-                            default_year_guessed = str(int(guess_data[f'Sarah Time Guessed']))
-                
-                # Get actual year for this round if available
-                actual_year_for_round = None
-                if round_num in actual_rounds_data:
-                    if actual_rounds_data[round_num]['year_valid'] and actual_rounds_data[round_num]['year']:
-                        actual_year_for_round = int(actual_rounds_data[round_num]['year'])
-                
-                # --- LAYOUT CHANGE: 5 Columns [Unit Button, Distance, Geo Score, Year, Time Score] ---
-                g_cols = st.columns([0.15, 1, 0.5, 1, 0.5])
-                
-                # Calculate scores first
-                geo_score = None
-                time_score = None
-                
-                # --- 1. Unit Toggle (Button Style) ---
-                with g_cols[0]:
-                    # Add spacer to align button with the text inputs (which have labels)
-                    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                    
-                    sarah_toggle_key = f'sarah_distance_unit_r{round_num}_{date}'
-                    
-                    # Initialize session state for this round's unit if not present
-                    if sarah_toggle_key not in st.session_state:
-                        st.session_state[sarah_toggle_key] = default_distance_km
-                        
-                    # If guess exists (read-only), just show the unit text
-                    if guess_exists and not edit_mode_guess:
-                        is_km = default_distance_km
-                        # # Visual indicator: Green/Success for KM, Blue/Info for M
-                        # if is_km:
-                        #     st.success("KM") 
-                        # else:
-                        #     st.info("M")
-                    else:
-                        # Button logic: Label shows current state, clicking toggles it
-                        current_state = st.session_state[sarah_toggle_key]
-                        current_label = "KM" if current_state else "M"
-                        
-                        # Toggle button color: Primary (Filled) for KM, Secondary (Outline) for M
-                        btn_type = "primary" if current_state else "secondary"
-                        
-                        if st.button(current_label, key=f"sarah_btn_unit_{round_num}_{date}", type=btn_type, use_container_width=True):
-                            st.session_state[sarah_toggle_key] = not st.session_state[sarah_toggle_key]
-                            st.rerun()
-                        
-                        is_km = st.session_state[sarah_toggle_key]
-                
-                with g_cols[1]:
-                    unit_label = "km" if is_km else "m"
-                    
-                    distance = st.text_input(f"Dist ({unit_label})", 
-                                            key=f"sarah_distance_r{round_num}_{date}",
-                                            value=default_distance,
-                                            disabled=(guess_exists and not edit_mode_guess),
-                                            label_visibility="visible")
-                    
-                    # Calculate geography score
-                    if distance:
-                        try:
-                            dist_input = float(distance)
-                            if dist_input >= 0:
-                                dist = dist_input * 1000 if is_km else dist_input
-                                
-                                conditions = [
-                                    (dist <= 50),
-                                    (dist > 50) & (dist <= 1000),
-                                    (dist > 1000) & (dist <= 5000),
-                                    (dist > 5000) & (dist <= 100000),
-                                    (dist > 100000) & (dist <= 1000000),
-                                    (dist > 1000000) & (dist <= 2000000),
-                                    (dist > 2000000) & (dist <= 3000000),
-                                    (dist > 3000000) & (dist <= 6000000),
-                                    (dist > 6000000)
-                                ]
-                                
-                                scores = [
-                                    5000,
-                                    5000 - (dist * 0.02),
-                                    4980 - (dist * 0.016),
-                                    4900 - (dist * 0.004),
-                                    4500 - (dist * 0.001),
-                                    3500 - (dist * 0.0005),
-                                    2500 - (dist * 0.0003333),
-                                    1500 - (dist * 0.0002),
-                                    12
-                                ]
-                                
-                                for condition, score in zip(conditions, scores):
-                                    if condition:
-                                        geo_score = score
-                                        break
-                        except:
-                            pass
-                
-                with g_cols[2]:
-                    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
-                    if geo_score is not None:
-                        st.markdown(
-                            f"""
-                            <div style="
-                                background-color: #edd3df;
-                                color: #8a005c;
-                                padding: 4px 8px;
-                                border-left: 7px solid #8a005c;
-                                border-radius: 4px;
-                                font-size: 1rem;
-                                line-height: 1.9;
-                            ">
-                                🌎 {geo_score:.0f}
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.markdown("")
-                
-                with g_cols[3]:
-                    year_guessed = st.text_input("Year", 
-                                                key=f"sarah_year_guessed_r{round_num}_{date}",
-                                                value=default_year_guessed,
-                                                disabled=(guess_exists and not edit_mode_guess),
-                                                label_visibility="visible")
-                    
-                    # Validate and calculate time score
-                    year_guessed_valid = False
-                    if year_guessed:
-                        if not year_guessed.isdigit() or len(year_guessed) != 4:
-                            st.error("4 digits")
-                        elif not (1900 <= int(year_guessed) <= date.year):
-                            st.error(f"1900-{date.year}")
-                        else:
-                            year_guessed_valid = True
-                            
-                            if actual_year_for_round is not None:
-                                years_off = abs(int(year_guessed) - actual_year_for_round)
-                                
-                                if years_off == 0:
-                                    time_score = 5000
-                                elif years_off == 1:
-                                    time_score = 4950
-                                elif years_off == 2:
-                                    time_score = 4800
-                                elif years_off == 3:
-                                    time_score = 4600
-                                elif years_off == 4:
-                                    time_score = 4300
-                                elif years_off == 5:
-                                    time_score = 3900
-                                elif years_off in [6, 7]:
-                                    time_score = 3400
-                                elif years_off in [8, 9, 10]:
-                                    time_score = 2500
-                                elif 10 < years_off < 16:
-                                    time_score = 2000
-                                elif 15 < years_off < 21:
-                                    time_score = 1000
-                                else:
-                                    time_score = 0
-                
-                with g_cols[4]:
-                    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
-                    if time_score is not None:
-                        st.markdown(
-                            f"""
-                            <div style="
-                                background-color: #edd3df;
-                                color: #8a005c;
-                                padding: 4px 8px;
-                                border-left: 7px solid #8a005c;
-                                border-radius: 4px;
-                                font-size: 1rem;
-                                line-height: 1.9;
-                            ">
-                                📅 {time_score:.0f}
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    elif year_guessed_valid and actual_year_for_round is None:
-                        # Show help text with year ranges
-                        guessed = int(year_guessed)
-                        def clamp(year):
-                            return max(1900, min(year, date.year))
-                        
-                        help_text = f"""5000: {clamp(guessed)}  
-                                        4950: {clamp(guessed-1)}/{clamp(guessed+1)}   
-                                        4800: {clamp(guessed-2)}/{clamp(guessed+2)}    
-                                        4600: {clamp(guessed-3)}/{clamp(guessed+3)}     
-                                        4300: {clamp(guessed-4)}/{clamp(guessed+4)}     
-                                        3900: {clamp(guessed-5)}/{clamp(guessed+5)}     
-                                        3400: {clamp(guessed-7)}-{clamp(guessed-6)}/{clamp(guessed+6)}-{clamp(guessed+7)}      
-                                        2500: {clamp(guessed-10)}-{clamp(guessed-8)}/{clamp(guessed+8)}-{clamp(guessed+10)}    
-                                        2000: {clamp(guessed-15)}-{clamp(guessed-11)}/{clamp(guessed+11)}-{clamp(guessed+15)}  
-                                        1000: {clamp(guessed-20)}-{clamp(guessed-16)}/{clamp(guessed+16)}-{clamp(guessed+20)}  
-                                        0: {clamp(1900)}-{clamp(guessed-21)}/{clamp(guessed+21)}-{clamp(date.year)}"""
-                        
-                        st.markdown(
-                            f"""
-                            <div title="{help_text}"
-                                style="
-                                    background-color: #bcb0ff;
-                                    color: #221e8f;
-                                    padding: 4px 8px;
-                                    border-left: 7px solid #221e8f;
-                                    border-radius: 4px;
-                                    font-size: 1rem;
-                                    line-height: 1.9;
-                                    display: inline-block;
-                                ">
-                                📅 ?
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.markdown("")
-                
-                guess_rounds_data[round_num] = {
-                    'distance': distance,
-                    'is_km': is_km,
-                    'year_guessed': year_guessed,
-                    'year_valid': year_guessed_valid,
-                    'exists': guess_exists
-                }
-
-            # Add Total Score input before rounds
-            total_score_input = st.text_area("Total Score", 
-                        value=default_total_score, 
-                        key=f"sarah_total_score_text_{date}",
-                        help="Share Your Results from TimeGuessr!",
-                        height=180,
-                        disabled=(any_guess_exists and not edit_mode_guess))
-            
-            # Save/Submit buttons for guesses
-            if any_guess_exists and edit_mode_guess:
-                if st.button("Save All Guess Changes", key="sarah_save_all_guess"):
-                    try:
-                        # Validate Total Score format even when editing
-                        valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-                        
-                        if not total_score_input or not total_score_input.strip():
-                            st.error("Please enter the Total Score from TimeGuessr.")
-                        else:
-                            lines = total_score_input.strip().split('\n')[:7]
-                            
-                            if len(lines) < 6:
-                                st.error("Total Score format is incorrect. Must have at least 6 lines.")
-                            else:
-                                
-                                # Extract geography patterns from Total Score
-                                geo_patterns_edit = []
-                                format_valid = True
-                                
-                                for i, line in enumerate(lines[1:6], 1):
-                                    if not line.startswith('🌎') or '📅' not in line:
-                                        st.error(f"Round {i} format is incorrect in Total Score box")
-                                        format_valid = False
-                                        break
-                                    
-                                    parts = line.split('📅')
-                                    geo_part = parts[0].replace('🌎', '').strip()
-                                    time_part = parts[1].strip()
-                                    
-                                    if geo_part not in valid_combos:
-                                        st.error(f"Round {i} geography emoji combination is invalid: {geo_part}")
-                                        format_valid = False
-                                        break
-                                    
-                                    if time_part not in valid_combos:
-                                        st.error(f"Round {i} time emoji combination is invalid: {time_part}")
-                                        format_valid = False
-                                        break
-                                    
-                                    # Convert emojis to O/X/% format
-                                    def emoji_to_pattern(emoji_str):
-                                        return emoji_str.replace('🟩', 'O').replace('🟨', '%').replace('⬛️', 'X').replace('⬛', 'X')
-                                    
-                                    geo_patterns_edit.append(emoji_to_pattern(geo_part))
-                                
-                                if format_valid:
-                                    guess_path = f"./Data/Timeguessr_Sarah_Parsed.csv"
-                                    sarah_guess_df = pd.read_csv(guess_path)
-                                    
-                                    all_valid = True
-                                    for round_num, data in guess_rounds_data.items():
-                                        if not data['distance'] or not data['year_guessed']:
-                                            st.error(f"Round {round_num}: Distance and Year are required fields.")
-                                            all_valid = False
-                                            break
-                                        
-                                        if not data['year_valid']:
-                                            st.error(f"Round {round_num}: Please enter a valid year.")
-                                            all_valid = False
-                                            break
-                                        
-                                        if data['exists'] and data['distance'] and data['year_valid']:
-                                            try:
-                                                dist_val = float(data['distance'])
-                                                if dist_val < 0:
-                                                    st.error(f"Round {round_num}: Distance cannot be negative.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                dist_meters = int(dist_val * 1000) if data['is_km'] else int(dist_val)
-                                                
-                                                # Get the geography pattern from Total Score input  
-                                                geo_pattern_from_input = geo_patterns_edit[round_num - 1]
-                                                
-                                                # Validate distance matches the geography pattern (no time validation)
-                                                validation_result = validate_distance_pattern(dist_meters, geo_pattern_from_input, round_num, data['is_km'])
-                                                
-                                                if not validation_result[0]:
-                                                    st.error(validation_result[1])
-                                                    all_valid = False
-                                                    break
-                                                
-                                                mask = (sarah_guess_df['Timeguessr Day'] == timeguessr_day) & (sarah_guess_df['Timeguessr Round'] == round_num)
-                                                sarah_guess_df.loc[mask, f'Sarah Geography Distance'] = int(dist_meters)
-                                                sarah_guess_df.loc[mask, f'Sarah Time Guessed'] = int(data['year_guessed'])
-                                            except ValueError:
-                                                st.error(f"Round {round_num}: Invalid distance value.")
-                                                all_valid = False
-                                                break
-                                        elif data['exists']:
-                                            all_valid = False
-                                    
-                                    if all_valid:
-                                        sarah_guess_df = sarah_guess_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                                        sarah_guess_df.to_csv(guess_path, index=False)
-                                        st.success("All guess changes saved successfully!")
-                                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error saving guess changes: {e}")
-            
-            elif not any_guess_exists:
-                if st.button("Submit All Guesses", key="sarah_submit_all_guess"):
-                    # Validate Total Score format
-                    valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-                    
-                    if not total_score_input or not total_score_input.strip():
-                        st.error("Please enter the Total Score from TimeGuessr.")
-                    else:
-                        lines = total_score_input.strip().split('\n')[:7]  # Only keep first 7 lines
-                        
-                        if len(lines) < 6:
-                            st.error("Total Score format is incorrect. Must have at least 6 lines.")
-                        else:
-                            # Validate first line format: TimeGuessr #XXX XX,XXX/50,000
-                            first_line = lines[0]
-                            if not first_line.startswith('TimeGuessr #'):
-                                st.error("First line must start with 'TimeGuessr #'")
-                            else:
-                                # Extract total score from first line
-                                try:
-                                    score_part = first_line.split()[-1]  # Get last part
-                                    total_score_str = score_part.split('/')[0].replace(',', '')
-                                    extracted_total_score = int(total_score_str)
-                                    if not (0 <= extracted_total_score <= 50000):
-                                        st.error("Total score must be between 0 and 50,000")
-                                        extracted_total_score = None
-                                except:
-                                    st.error("Could not extract total score from first line. Expected format: 'TimeGuessr #XXX XX,XXX/50,000'")
-                                    extracted_total_score = None
-                                
-                                if extracted_total_score is not None:
-                                    # Validate next 5 lines (rounds)
-                                    geo_patterns = []
-                                    time_patterns = []
-                                    format_valid = True
-                                    
-                                    for i, line in enumerate(lines[1:6], 1):
-                                        # Check format: 🌎XXX 📅XXX
-                                        if not line.startswith('🌎'):
-                                            st.error(f"Round {i} line must start with 🌎")
-                                            format_valid = False
-                                            break
-                                        
-                                        if '📅' not in line:
-                                            st.error(f"Round {i} line must contain 📅")
-                                            format_valid = False
-                                            break
-                                        
-                                        parts = line.split('📅')
-                                        if len(parts) != 2:
-                                            st.error(f"Round {i} format is incorrect")
-                                            format_valid = False
-                                            break
-                                        
-                                        geo_part = parts[0].replace('🌎', '').strip()
-                                        time_part = parts[1].strip()
-                                        
-                                        if geo_part not in valid_combos:
-                                            st.error(f"Round {i} geography emoji combination is invalid: {geo_part}")
-                                            format_valid = False
-                                            break
-                                        
-                                        if time_part not in valid_combos:
-                                            st.error(f"Round {i} time emoji combination is invalid: {time_part}")
-                                            format_valid = False
-                                            break
-                                        
-                                        # Convert emojis to O/X/% format
-                                        def emoji_to_pattern(emoji_str):
-                                            return emoji_str.replace('🟩', 'O').replace('🟨', '%').replace('⬛️', 'X').replace('⬛', 'X')
-                                        
-                                        geo_patterns.append(emoji_to_pattern(geo_part))
-                                        time_patterns.append(emoji_to_pattern(time_part))
-                                    
-                                    if format_valid:
-                                        try:
-                                            reference_date = datetime.date(2025, 10, 24)
-                                            reference_day_number = 876
-                                            delta_days = (date - reference_date).days
-                                            computed_timeguessr_day = reference_day_number + delta_days
-                                            
-                                            all_valid = True
-                                            new_rows = []
-                                            
-                                            def geography_score(x):
-                                                if x <= 50:
-                                                    return 5000
-                                                elif x <= 1000:
-                                                    return 5000 - (x * 0.02)
-                                                elif x <= 5000:
-                                                    return 4980 - (x * 0.016)
-                                                elif x <= 100000:
-                                                    return 4900 - (x * 0.004)
-                                                elif x <= 1000000:
-                                                    return 4500 - (x * 0.001)
-                                                elif x <= 2000000:
-                                                    return 3500 - (x * 0.0005)
-                                                elif x <= 3000000:
-                                                    return 2500 - (x * 0.0003333)
-                                                elif x <= 6000000:
-                                                    return 1500 - (x * 0.0002)
-                                                else:
-                                                    return 12
-                                            
-                                            def geography_pattern(x):
-                                                if x == 5000:
-                                                    return "OOO"
-                                                elif 4750 <= x <= 4999:
-                                                    return "OO%"
-                                                elif 4500 <= x < 4750:
-                                                    return "OOX"
-                                                elif 4250 <= x < 4500:
-                                                    return "O%X"
-                                                elif 3500 <= x < 4250:
-                                                    return "OXX"
-                                                elif 2500 <= x < 3500:
-                                                    return "%XX"
-                                                elif 12 <= x < 2500:
-                                                    return "XXX"
-                                                else:
-                                                    return None
-                                            
-                                            for round_num, data in guess_rounds_data.items():
-                                                # Require distance and year for all rounds
-                                                if not data['distance'] or not data['year_guessed']:
-                                                    st.error(f"Round {round_num}: Distance and Year are required fields.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                if not data['year_valid']:
-                                                    st.error(f"Round {round_num}: Please enter a valid year.")
-                                                    all_valid = False
-                                                    break
-                                                
-                                                if data['distance'] and data['year_valid']:
-                                                    try:
-                                                        dist_val = float(data['distance'])
-                                                        if dist_val < 0:
-                                                            st.error(f"Round {round_num}: Distance cannot be negative.")
-                                                            all_valid = False
-                                                            break
-                                                        
-                                                        dist_meters = int(dist_val * 1000) if data['is_km'] else int(dist_val)
-                                                        year_val = int(data['year_guessed'])
-                                                        
-                                                        # Get the geography pattern from Total Score input
-                                                        geo_pattern_from_input = geo_patterns[round_num - 1]
-                                                        time_pattern_from_input = time_patterns[round_num - 1]
-                                                        
-                                                        # Validate distance matches the geography pattern (no time validation)
-                                                        validation_result = validate_distance_pattern(dist_meters, geo_pattern_from_input, round_num, data['is_km'])
-                                                        
-                                                        if not validation_result[0]:
-                                                            st.error(validation_result[1])
-                                                            all_valid = False
-                                                            break
-                                                        
-                                                        geo_score = geography_score(dist_meters)
-                                                        
-                                                        new_rows.append({
-                                                            "Timeguessr Day": int(computed_timeguessr_day),
-                                                            "Timeguessr Round": int(round_num),
-                                                            f"Sarah Total Score": extracted_total_score,
-                                                            f"Sarah Round Score": np.nan,
-                                                            f"Sarah Geography": geo_pattern_from_input,
-                                                            f"Sarah Time": time_pattern_from_input,
-                                                            f"Sarah Geography Distance": dist_meters,
-                                                            f"Sarah Time Guessed": year_val,
-                                                            f"Sarah Time Distance": np.nan,
-                                                            f"Sarah Geography Score": geo_score,
-                                                            f"Sarah Geography Score (Min)": geo_score,
-                                                            f"Sarah Geography Score (Max)": geo_score,
-                                                            f"Sarah Time Score": np.nan,
-                                                            f"Sarah Time Score (Min)": np.nan,
-                                                            f"Sarah Time Score (Max)": np.nan,
-                                                        })
-                                                    except ValueError:
-                                                        st.error(f"Round {round_num}: Invalid distance value.")
-                                                        all_valid = False
-                                                        break
-                                                else:
-                                                    all_valid = False
-                                                    break
-                                            
-                                            if all_valid and len(new_rows) == 5:
-                                                parsed_path = f"./Data/Timeguessr_Sarah_Parsed.csv"
-                                                
-                                                if os.path.exists(parsed_path):
-                                                    parsed_df = pd.read_csv(parsed_path)
-                                                    # Remove any existing entries for this day
-                                                    parsed_df = parsed_df[~(pd.to_numeric(parsed_df.get("Timeguessr Day"), errors="coerce") == computed_timeguessr_day)]
-                                                    parsed_df = pd.concat([parsed_df, pd.DataFrame(new_rows)], ignore_index=True)
-                                                else:
-                                                    parsed_df = pd.DataFrame(new_rows)
-                                                
-                                                parsed_df = parsed_df.sort_values(by=['Timeguessr Day', 'Timeguessr Round'])
-                                                parsed_df.to_csv(parsed_path, index=False)
-                                                st.success(f"All guesses submitted successfully!")
-                                                st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Error submitting guesses: {e}")
+    # Col 2 & 3: Players (Consolidated)
+    render_guess_column(col2, "Michael", "Sarah", timeguessr_day, date, actual_rounds_data)
+    render_guess_column(col3, "Sarah", "Michael", timeguessr_day, date, actual_rounds_data)
