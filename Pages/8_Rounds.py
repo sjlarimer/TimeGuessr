@@ -137,6 +137,8 @@ if df is not None:
     # Toggle to filter out single-player rounds
     st.markdown("### Filters")
     both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
+    show_perfect_geo = st.checkbox("Show only perfect Geography scores (5,000)", value=False)
+    show_perfect_time = st.checkbox("Show only perfect Time scores (5,000)", value=False)
     
     # Country filter - get countries ordered by frequency
     country_counts = df["Country"].value_counts()
@@ -178,6 +180,25 @@ if df is not None:
             (df_filtered["Sarah Geography"].notna() | df_filtered["Sarah Geography Score"].notna())
         ]
     
+    # Define conditions for perfect scores
+    m_geo_perf = (df_filtered["Michael Geography Score"] == 5000) | (df_filtered["Michael Geography"] == "OOO")
+    s_geo_perf = (df_filtered["Sarah Geography Score"] == 5000) | (df_filtered["Sarah Geography"] == "OOO")
+    m_time_perf = (df_filtered["Michael Time Score"] == 5000) | (df_filtered["Michael Time"] == "OOO")
+    s_time_perf = (df_filtered["Sarah Time Score"] == 5000) | (df_filtered["Sarah Time"] == "OOO")
+
+    # Apply filters based on selection
+    if show_perfect_geo and show_perfect_time:
+        # STRICT FILTER: One player must have BOTH perfect Geo and perfect Time in the same round
+        cond_m_both = m_geo_perf & m_time_perf
+        cond_s_both = s_geo_perf & s_time_perf
+        df_filtered = df_filtered[cond_m_both | cond_s_both]
+    elif show_perfect_geo:
+        # Filter where ANY player got 5000 Geo
+        df_filtered = df_filtered[m_geo_perf | s_geo_perf]
+    elif show_perfect_time:
+        # Filter where ANY player got 5000 Time
+        df_filtered = df_filtered[m_time_perf | s_time_perf]
+    
     if df_filtered.empty:
         st.warning("No data available for the selected filters.")
         st.stop()
@@ -186,51 +207,41 @@ if df is not None:
     df = df_filtered
     
     # 1. Calculate Grand Totals
-    unique_days = df["Timeguessr Day"].unique()
-    num_days = len(unique_days)
-    total_rounds = len(df)
-    
-    totals = {"Michael": {"Total": 0, "Geo": 0, "Time": 0, "Days": 0, "Rounds": 0}, 
-              "Sarah": {"Total": 0, "Geo": 0, "Time": 0, "Days": 0, "Rounds": 0}}
-    
-    # Calculate Total Score Sums (One total score per day if player participated)
-    for day in unique_days:
-        day_rows = df[df["Timeguessr Day"] == day]
-        if day_rows.empty: continue
-        row0 = day_rows.iloc[0]
-        
+    # We maintain sets for Days to count unique days in the filtered subset
+    totals = {
+        "Michael": {"Total": 0, "Geo": 0, "Time": 0, "Days": set(), "Rounds": 0}, 
+        "Sarah": {"Total": 0, "Geo": 0, "Time": 0, "Days": set(), "Rounds": 0}
+    }
+
+    # Iterate through the filtered rows and sum up scores directly
+    for _, row in df.iterrows():
+        day_num = row["Timeguessr Day"]
         for p in ["Michael", "Sarah"]:
-            # Check if player participated this day (any round has their data)
-            player_participated = any(
-                pd.notna(day_rows[f"{p} Geography Score"].values) | 
-                pd.notna(day_rows[f"{p} Geography"].values)
+            # Check for participation (explicit score or pattern)
+            has_data = (
+                pd.notna(row.get(f"{p} Geography Score")) or 
+                pd.notna(row.get(f"{p} Geography")) or
+                pd.notna(row.get(f"{p} Time Score")) or 
+                pd.notna(row.get(f"{p} Time"))
             )
             
-            if not player_participated:
-                continue
+            if has_data:
+                g_score = get_midpoint_score(row, p, "Geography")
+                t_score = get_midpoint_score(row, p, "Time")
                 
-            totals[p]["Days"] += 1
-            
-            t_score = row0.get(f"{p} Total Score")
-            if pd.notna(t_score):
-                totals[p]["Total"] += t_score
-            else:
-                day_sum = 0
-                for _, r in day_rows.iterrows():
-                    day_sum += get_midpoint_score(r, p, "Geography") + get_midpoint_score(r, p, "Time")
-                totals[p]["Total"] += day_sum
-
-    # Calculate Geo/Time Sums (Only rounds where player participated)
-    for _, row in df.iterrows():
-        for p in ["Michael", "Sarah"]:
-            # Check if player participated in this round
-            has_geo = pd.notna(row.get(f"{p} Geography Score")) or pd.notna(row.get(f"{p} Geography"))
-            has_time = pd.notna(row.get(f"{p} Time Score")) or pd.notna(row.get(f"{p} Time"))
-            
-            if has_geo or has_time:
                 totals[p]["Rounds"] += 1
-                totals[p]["Geo"] += get_midpoint_score(row, p, "Geography")
-                totals[p]["Time"] += get_midpoint_score(row, p, "Time")
+                totals[p]["Days"].add(day_num)
+                totals[p]["Geo"] += g_score
+                totals[p]["Time"] += t_score
+                totals[p]["Total"] += (g_score + t_score)
+
+    # Convert sets to counts
+    totals["Michael"]["Days"] = len(totals["Michael"]["Days"])
+    totals["Sarah"]["Days"] = len(totals["Sarah"]["Days"])
+    
+    total_rounds = len(df)
+    unique_days = df["Timeguessr Day"].unique()
+    num_days = len(unique_days)
 
     # 2. Build HTML
     def build_player_column(player):
@@ -238,10 +249,12 @@ if df is not None:
         bg = "#dde5eb" if is_michael else "#edd3df"
         header_col = "#221e8f" if is_michael else "#8a005c"
         
-        # Header Stats (based on player's actual participation)
-        player_days = totals[player]["Days"]
+        # Header Stats (based on filtered data)
         player_rounds = totals[player]["Rounds"]
-        max_total = player_days * 50000
+        
+        # Max Total is now calculated based on Rounds * 10,000 (perfect score per round)
+        # instead of Days * 50,000, to accurately reflect the percentage of the subset.
+        max_total = player_rounds * 10000 
         max_sub = player_rounds * 5000
         
         t_val = int(totals[player]["Total"])
@@ -253,13 +266,12 @@ if df is not None:
         geo_pct = (g_val / max_sub * 100) if max_sub > 0 else 0
         time_pct = (tm_val / max_sub * 100) if max_sub > 0 else 0
         
-        # NOTE: Explicitly setting text color in header section to ensure visibility
         html = f"""
         <div class="tg-container" style="background-color: {bg};">
             <div class="tg-header" style="color: {header_col};">{player}</div>
-            <div class="tg-total" style="font-size: 1.5rem; color: #333;">All-Time Total: {total_pct:.2f}%   -   {t_val:,} / {max_total:,}</div>
-            <div class="tg-sub" style="color: #444;">🌎 All-Time Geo: {geo_pct:.2f}%   -   <b>{g_val:,}</b> / {max_sub:,}</div>
-            <div class="tg-sub" style="color: #444;">📅 All-Time Time: {time_pct:.2f}%   -   <b>{tm_val:,}</b> / {max_sub:,}</div>
+            <div class="tg-total" style="font-size: 1.5rem; color: #333;">All-Time Total: {total_pct:.2f}%   -   {t_val:,} / {max_total:,}</div>
+            <div class="tg-sub" style="color: #444;">🌎 All-Time Geo: {geo_pct:.2f}%   -   <b>{g_val:,}</b> / {max_sub:,}</div>
+            <div class="tg-sub" style="color: #444;">📅 All-Time Time: {time_pct:.2f}%   -   <b>{tm_val:,}</b> / {max_sub:,}</div>
             <div style="margin-top: 20px;"></div>
         """
         
@@ -279,6 +291,14 @@ if df is not None:
                 
             r_num = row["Timeguessr Round"]
             country = row["Country"]
+            
+            # Check if Subdivision exists and is populated
+            subdivision = row.get("Subdivision")
+            if pd.notna(subdivision) and str(subdivision).strip() != "":
+                location_display = f"{subdivision}, {country}"
+            else:
+                location_display = country
+
             flag = get_flag_img(country)
             
             # Scores & Patterns
@@ -299,7 +319,7 @@ if df is not None:
             # Increased visibility for the score text in the HTML component by changing the small color to black
             html += f"""
             <div class="tg-round">
-                <div style="font-size: 0.85rem; font-weight: 600; color: #db5049; margin-bottom: 2px;">Round {r_num} - {country}</div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: #db5049; margin-bottom: 2px;">Round {r_num} - {location_display}</div>
                 <div class="tg-row">
                     <div class="tg-half">
                         <div class="tg-score-note">{flag} <small style="color: #000000;">{g_txt}</small></div>
