@@ -284,3 +284,17 @@ TimeGuessr #929
 3. Milwaukee (Wisconsin), United States, 1939
 4. Budapest, Hungary, 1981
 5. Brussels, Belgium, 1958
+
+TimeGuessr #930
+1. New York (New York), United States, 2025
+2. Ballygawley (Northern Ireland), United Kingdom, 1900
+3. Copenhagen, Denmark, 1967
+4. Istanbul, Türkiye, 1983
+5. Vancouver (British Columbia), Canada, 2015
+
+TimeGuessr #931
+1. Dardghaya, Lebanon, 2024
+2. Paris (Ile-de-France), France, 1925
+3. Houston (Texas), United States, 1943
+4. Mexico City, Mexico, 1955
+5. Helsinki, Finland, 1984
