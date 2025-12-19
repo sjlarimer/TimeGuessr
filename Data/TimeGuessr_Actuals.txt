@@ -298,3 +298,10 @@ TimeGuessr #931
 3. Houston (Texas), United States, 1943
 4. Mexico City, Mexico, 1955
 5. Helsinki, Finland, 1984
+
+TimeGuessr #932
+1. Amsterdam, Netherlands, 1973
+2. Accra, Ghana, 2023
+3. Rome, Italy, 1984
+4. New Delhi (Delhi), India, 1961
+5. Washington DC (Washington DC), United States, 2025
