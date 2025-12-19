@@ -988,6 +988,127 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
 
     return fig
 
+def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str, ceiling: int) -> str:
+    """Generate HTML for stacked momentum bars with a performance-based color gradient."""
+    
+    # --- 1. Helper: Color Interpolation ---
+    def hex_to_rgb(hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def rgb_to_hex(rgb):
+        return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]), int(rgb[1]), int(rgb[2]))
+
+    def interpolate_color(color_start, color_end, factor):
+        """
+        Blends two hex colors. 
+        Factor 0.0 = color_start (Light/Worst)
+        Factor 1.0 = color_end (Dark/Best)
+        """
+        c1 = hex_to_rgb(color_start)
+        c2 = hex_to_rgb(color_end)
+        
+        r = c1[0] + (c2[0] - c1[0]) * factor
+        g = c1[1] + (c2[1] - c1[1]) * factor
+        b = c1[2] + (c2[2] - c1[2]) * factor
+        
+        return rgb_to_hex((r, g, b))
+
+    # --- 2. Prepare Data ---
+    n_days = window_length * 4
+    recent_data = data.tail(n_days).reset_index(drop=True)
+    
+    if len(recent_data) == 0:
+        return ""
+
+    if score_type == "total":
+        m_col, s_col = "Michael Total Score", "Sarah Total Score"
+    elif score_type == "time":
+        m_col, s_col = "Michael Time Midpoint", "Sarah Time Midpoint"
+    else:
+        m_col, s_col = "Michael Geography Midpoint", "Sarah Geography Midpoint"
+
+    max_score = n_days * ceiling
+    m_total = recent_data[m_col].sum()
+    s_total = recent_data[s_col].sum()
+
+    # Define Dark (Best) and Light (Worst) colors
+    colors = {
+        'michael_dark': '#221e8f',  'michael_light': '#bcb0ff',
+        'sarah_dark': '#8a005c',    'sarah_light': '#ff94bd',
+        'bg': '#b0afaa',            'text_sub': '#696761',
+        'michael_header': '#221e8f', 'sarah_header': '#8a005c'
+    }
+
+    def generate_stacked_bar(player_prefix, col_name):
+        # Filter for actual scores > 0 to find the min/max range for the gradient
+        valid_scores = recent_data[col_name].dropna()
+        valid_scores = valid_scores[valid_scores > 0]
+        
+        if len(valid_scores) > 0:
+            min_val = valid_scores.min()
+            max_val = valid_scores.max()
+        else:
+            min_val, max_val = 0, 1
+
+        segments = []
+        accumulated_pct = 0
+        
+        for i, row in recent_data.iterrows():
+            score = np.nan_to_num(row[col_name])
+            if score > 0:
+                pct = (score / max_score) * 100
+                date_str = row['Date'].strftime('%b %d')
+                
+                # --- Calculate Gradient ---
+                # Normalize score to 0.0 - 1.0 range
+                if max_val == min_val:
+                    factor = 1.0 # If all scores are equal, use best color
+                else:
+                    factor = (score - min_val) / (max_val - min_val)
+                
+                # Interpolate: 0.0 = Light, 1.0 = Dark
+                c_light = colors[f"{player_prefix}_light"]
+                c_dark = colors[f"{player_prefix}_dark"]
+                segment_color = interpolate_color(c_light, c_dark, factor)
+                
+                # Create HTML segment
+                segment_html = f'<div style="width: {pct}%; background-color: {segment_color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.4); box-sizing: border-box;" title="{date_str}: {score:,.0f}"></div>'
+                segments.append(segment_html)
+                accumulated_pct += pct
+
+        remaining_width = max(0, 100 - accumulated_pct)
+        
+        return f'<div style="background-color: {colors["bg"]}; width: 100%; height: 16px; border-radius: 8px; overflow: hidden; display: flex;">{"".join(segments)}<div style="width: {remaining_width}%; background-color: transparent;"></div></div>'
+
+    m_bar = generate_stacked_bar('michael', m_col)
+    s_bar = generate_stacked_bar('sarah', s_col)
+
+    m_weight = "800" if m_total >= s_total else "400"
+    s_weight = "800" if s_total > m_total else "400"
+
+    return f"""
+    <div style="font-family: 'Poppins', sans-serif; margin-top: 20px; padding: 15px; background-color: #eae8dc; border-radius: 12px; border: 1px solid #d9d7cc;">
+        <h4 style="margin: 0 0 15px 0; color: {colors['text_sub']}; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
+            Momentum <span style="font-size: 12px; text-transform: none; opacity: 0.8;">(Last {n_days} Games)</span>
+        </h4>
+        <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: {colors['michael_header']};">
+                <span style="font-weight: 600;">Michael</span>
+                <span style="font-weight: {m_weight};">{m_total:,.0f} <span style="font-weight: 400; font-size: 0.9em; opacity: 0.7;">/ {max_score:,.0f}</span></span>
+            </div>
+            {m_bar}
+        </div>
+        <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: {colors['sarah_header']};">
+                <span style="font-weight: 600;">Sarah</span>
+                <span style="font-weight: {s_weight};">{s_total:,.0f} <span style="font-weight: 400; font-size: 0.9em; opacity: 0.7;">/ {max_score:,.0f}</span></span>
+            </div>
+            {s_bar}
+        </div>
+    </div>
+    """
+
 def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series, 
                     bin_size: int, ceiling: int) -> go.Figure:
     """Create histogram figure."""
@@ -1224,6 +1345,9 @@ mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_t
 fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type, 
                           show_single_player_days=include_single_player_days)
 st.plotly_chart(fig, use_container_width=True, key="main_chart")
+
+momentum_html = create_momentum_html(mask_filtered, window_length, score_type, ceiling)
+st.markdown(momentum_html, unsafe_allow_html=True)
 
 # Statistics section
 st.markdown("---")

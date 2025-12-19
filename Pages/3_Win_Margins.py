@@ -465,6 +465,79 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     
     return fig
 
+def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
+    """
+    Generates a single horizontal bar representing the last (window_length * 4) games.
+    """
+    # 1. Calculate dynamic range
+    n_games = window_length * 4
+    recent_data = data.tail(n_games).reset_index(drop=True)
+    
+    if len(recent_data) == 0:
+        return ""
+
+    # 2. Colors
+    colors = {
+        'michael': '#221e8f', # Dark Blue
+        'sarah': '#8a005c',   # Dark Magenta
+        'tie': '#8f8d85',     # Gray
+        'text_sub': '#696761'
+    }
+
+    # 3. Build Segments
+    segments = []
+    width_pct = 100 / len(recent_data)
+
+    for i, row in recent_data.iterrows():
+        diff = row['Score Diff']
+        date_str = row['Date'].strftime('%b %d')
+        
+        if diff > 0:
+            color = colors['michael']
+            winner_text = "Michael"
+        elif diff < 0:
+            color = colors['sarah']
+            winner_text = "Sarah"
+        else:
+            color = colors['tie']
+            winner_text = "Tie"
+            
+        title_text = f"{date_str}: {winner_text} ({abs(diff):,.0f})"
+
+        segment_html = f'<div style="width: {width_pct}%; background-color: {color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.3); box-sizing: border-box;" title="{title_text}"></div>'
+        segments.append(segment_html)
+
+    # 4. Summary Stats
+    m_wins = len(recent_data[recent_data['Score Diff'] > 0])
+    s_wins = len(recent_data[recent_data['Score Diff'] < 0])
+    start_date = recent_data.iloc[0]['Date'].strftime('%b %d')
+    end_date = recent_data.iloc[-1]['Date'].strftime('%b %d')
+    bar_segments = "".join(segments)
+    
+    # 5. Return HTML (Flush left to prevent code block rendering)
+    html = f"""
+<div style="font-family: 'Poppins', sans-serif; margin-top: 20px; padding: 15px; background-color: #eae8dc; border-radius: 12px; border: 1px solid #d9d7cc;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+<h4 style="margin: 0; color: {colors['text_sub']}; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
+Momentum <span style="font-size: 12px; text-transform: none; opacity: 0.8;">(Last {n_games} Games)</span>
+</h4>
+<div style="font-size: 12px; font-weight: 600;">
+<span style="color: {colors['michael']};">Michael: {m_wins}</span> 
+<span style="color: #b0afaa; margin: 0 6px;">|</span>
+<span style="color: {colors['sarah']};">Sarah: {s_wins}</span>
+</div>
+</div>
+<div style="width: 100%; height: 24px; border-radius: 6px; overflow: hidden; display: flex; background-color: #d9d7cc;">
+{bar_segments}
+</div>
+<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #8f8d85; font-size: 10px;">
+<span>{start_date}</span>
+<span>{end_date}</span>
+</div>
+</div>
+"""
+    return html
+
 def get_win_stats(df: pd.DataFrame, lower: float, upper: float, is_michael: bool = True) -> Tuple[int, str]:
     """Calculate win counts and most recent date for a margin category."""
     if is_michael:
@@ -743,6 +816,10 @@ mask_filtered = add_zero_crossing_interpolation(mask_filtered, window_length)
 # Create and display figure
 fig = create_win_margins_figure(mask_filtered, window_length)
 st.plotly_chart(fig, use_container_width=True, key="win_margins_chart")
+
+mask_original = mask_filtered[mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()].copy()
+mask_original = mask_original.reset_index(drop=True)
+st.markdown(create_momentum_timeline(mask_original, window_length), unsafe_allow_html=True)
 
 # Create tables
 col1, col2 = st.columns(2)
