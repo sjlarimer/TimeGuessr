@@ -305,3 +305,10 @@ TimeGuessr #932
 3. Rome, Italy, 1984
 4. New Delhi (Delhi), India, 1961
 5. Washington DC (Washington DC), United States, 2025
+
+TimeGuessr #935
+1. Cibitoke, Burundi, 2025
+2. Atlanta (Georgia), United States, 1939
+3. Johannesburg, South Africa, 1951
+4. Vienna, Austria, 1975
+5. Luxembourg, Luxembourg, 2013
