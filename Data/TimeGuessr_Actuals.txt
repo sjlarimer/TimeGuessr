@@ -319,3 +319,10 @@ TimeGuessr #936
 3. Washington DC (Washington DC), United States, 1979
 4. Greymouth, New Zealand, 1904
 5. Salacgriva, Latvia, 1991
+
+TimeGuessr #937
+1. Amsterdam, Netherlands, 1961
+2. Washington DC (Washington DC), United States, 2025
+3. Buenos Aires, Argentina, 2006
+4. Kobe, Japan, 1971
+5. London (England), United Kingdom, 1947

@@ -85,14 +85,36 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import country_converter as coco
-with open("styles.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+import numpy as np
+from plotly.colors import sample_colorscale
 
-# ... (Previous Image code remains the same) ...
+# --- Styles ---
+try:
+    with open("styles.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    pass
+
+st.markdown("""
+<style>
+    .stRadio [role=radiogroup] {
+        align-items: center;
+        justify-content: center;
+    }
+    div[data-testid="stMetric"] {
+        background-color: #f0f2f6;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    div[data-testid="stDataFrame"] {
+        width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("## Locations")
 
-# --- 1. Global Controls (3 Columns) ---
+# --- 1. Global Controls ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -105,13 +127,18 @@ with col1:
     )
 
 with col2:
-    view_mode = st.radio(
-        "Select View Level:",
-        options=["Countries", "Continents", "UN Regions"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="view_mode_selector"
-    )
+    # Container for view controls
+    c2_1, c2_2 = st.columns([2, 1])
+    with c2_1:
+        view_mode = st.radio(
+            "Select View Level:",
+            options=["Countries", "Continents", "UN Regions"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="view_mode_selector"
+        )
+    with c2_2:
+        split_us = st.toggle("Split US", value=False)
 
 with col3:
     score_mode = st.radio(
@@ -126,84 +153,187 @@ with col3:
 try:
     data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 except FileNotFoundError:
-    st.error("Stats file not found.")
+    st.error("Stats file not found. Please ensure './Data/Timeguessr_Stats.csv' exists.")
     st.stop()
 
-# --- 2. Dynamic Data Prep based on Score Selection ---
+# --- Mappings ---
 cc = coco.CountryConverter()
 
-# A. Handle Score Selection Logic
-# we define 'max_points_per_game' to calculate percentages later (5000 for single cat, 10000 for total)
+# US State Mapping (Name -> Code)
+us_state_abbrev = {
+    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+    'District of Columbia': 'DC', 'Washington DC': 'DC', 'Washington, D.C.': 'DC', 'DC': 'DC', 'D.C.': 'DC'
+}
+
+# --- 2. Dynamic Data Prep ---
+
 if score_mode == "Total Score":
-    data["Michael Selected"] = data["Michael Geography Score"].fillna(0) + data["Michael Time Score"].fillna(0)
-    data["Sarah Selected"] = data["Sarah Geography Score"].fillna(0) + data["Sarah Time Score"].fillna(0)
+    req_cols = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
+    data = data.dropna(subset=req_cols).copy()
+    data["Michael Selected"] = data["Michael Geography Score"] + data["Michael Time Score"]
+    data["Sarah Selected"] = data["Sarah Geography Score"] + data["Sarah Time Score"]
     max_points_per_game = 10000
 elif score_mode == "Geography Score":
-    data["Michael Selected"] = data["Michael Geography Score"].fillna(0)
-    data["Sarah Selected"] = data["Sarah Geography Score"].fillna(0)
+    req_cols = ["Michael Geography Score", "Sarah Geography Score"]
+    data = data.dropna(subset=req_cols).copy()
+    data["Michael Selected"] = data["Michael Geography Score"]
+    data["Sarah Selected"] = data["Sarah Geography Score"]
     max_points_per_game = 5000
-else: # Time Score
-    data["Michael Selected"] = data["Michael Time Score"].fillna(0)
-    data["Sarah Selected"] = data["Sarah Time Score"].fillna(0)
+else:
+    req_cols = ["Michael Time Score", "Sarah Time Score"]
+    data = data.dropna(subset=req_cols).copy()
+    data["Michael Selected"] = data["Michael Time Score"]
+    data["Sarah Selected"] = data["Sarah Time Score"]
     max_points_per_game = 5000
 
-# B. Add Metadata
-data["ISO3"] = cc.convert(names=data["Country"].tolist(), to="ISO3", not_found=None)
-data["Continent"] = cc.convert(names=data["Country"].tolist(), to="continent")
-data["UN_Region"] = cc.convert(names=data["Country"].tolist(), to="UNregion")
+# Metadata Conversion
+unique_countries = data["Country"].unique()
+iso3_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="ISO3", not_found=None)))
+continent_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="continent")))
+un_region_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="UNregion")))
+
+data["ISO3"] = data["Country"].map(iso3_map)
+data["Continent"] = data["Country"].map(continent_map)
+data["UN_Region"] = data["Country"].map(un_region_map)
 
 # --- 3. Aggregation Function ---
-def get_aggregated_data(df, view_mode):
+def get_aggregated_data(df, view_mode, split_us_flag):
     """
-    Aggregates data based on view_mode, summing the dynamically created 'Michael Selected' 
-    and 'Sarah Selected' columns.
+    Aggregates data. 
+    - Handles US Splitting (Only in 'Countries' mode).
+    - Handles Full Continent Coloring (In 'Continents'/'UN Regions' mode).
     """
-    # 1. Group the data
+    df_working = df.copy()
+    df_working["Location_Mode"] = "ISO-3" # Default
+    
+    subdiv_col = "Subdivision"
+    
+    # --- Regional Split Logic ---
+    if split_us_flag and view_mode in ["Continents", "UN Regions"]:
+        target_col = "Continent" if view_mode == "Continents" else "UN_Region"
+        df_working.loc[df_working["ISO3"] == "USA", target_col] = "United States"
+
+    # --- Country Split Logic ---
+    if view_mode == "Countries" and subdiv_col in df_working.columns and split_us_flag:
+        is_us = df_working["ISO3"] == "USA"
+        df_working.loc[is_us, "Mapped_Code"] = df_working.loc[is_us, subdiv_col].map(us_state_abbrev)
+        
+        mask_us_valid = is_us & df_working["Mapped_Code"].notna()
+        df_working.loc[mask_us_valid, "Location_Mode"] = "USA-states"
+        df_working.loc[mask_us_valid, "Country"] = df_working.loc[mask_us_valid, subdiv_col]
+        df_working.loc[mask_us_valid, "ISO3"] = df_working.loc[mask_us_valid, "Mapped_Code"]
+
+    # --- Grouping ---
     if view_mode == "Countries":
-        grouped = df.groupby("Country").agg({
-            "Michael Selected": "sum",
-            "Sarah Selected": "sum",
-            "Country": "size"
-        }).rename(columns={"Country": "Count"}).reset_index()
-        
-        grouped["ISO3"] = cc.convert(names=grouped["Country"].tolist(), to="ISO3", not_found=None)
-        grouped["Hover_Name"] = grouped["Country"]
-        
-    else:
-        group_key = "Continent" if view_mode == "Continents" else "UN_Region"
-        
-        grouped_agg = df.groupby(group_key).agg({
+        group_col = "Country"
+        grouped = df_working.groupby(["Country", "ISO3", "Location_Mode"]).agg({
             "Michael Selected": "sum",
             "Sarah Selected": "sum",
             "Country": "count"
         }).rename(columns={"Country": "Count"}).reset_index()
         
-        base_map = df[["Country", "ISO3", group_key]].drop_duplicates()
-        grouped = pd.merge(base_map, grouped_agg, on=group_key, how="left")
-        grouped["Hover_Name"] = grouped[group_key]
+        grouped["Hover_Name"] = grouped["Country"]
+        
+    else:
+        # --- Regional Aggregation (Fill Holes) ---
+        group_key = "Continent" if view_mode == "Continents" else "UN_Region"
+        group_col = group_key
+        
+        # 1. Aggregate Stats by Region
+        grouped_agg = df_working.groupby(group_key).agg({
+            "Michael Selected": "sum",
+            "Sarah Selected": "sum",
+            "Country": "count"
+        }).rename(columns={"Country": "Count"}).reset_index()
+        
+        # 2. Build a Full Reference of ALL Countries to fill holes
+        try:
+            full_ref = cc.data[['ISO3', 'continent', 'UNregion', 'name_short']].copy()
+            full_ref = full_ref[full_ref['ISO3'].notna()].drop_duplicates(subset=['ISO3'])
+        except:
+            full_ref = df_working[["Country", "ISO3", "Continent", "UN_Region"]].drop_duplicates()
 
-    # 2. Calculate Comparison Ratios
+        # Map the reference columns to our group key
+        ref_key = 'continent' if view_mode == "Continents" else 'UNregion'
+        
+        # Apply US Split to Reference as well
+        if split_us_flag:
+            full_ref.loc[full_ref["ISO3"] == "USA", ref_key] = "United States"
+        
+        # Merge stats into the full reference based on the region name
+        grouped = pd.merge(full_ref, grouped_agg, left_on=ref_key, right_on=group_key, how="right")
+        
+        grouped["Hover_Name"] = grouped[group_key]
+        grouped["Location_Mode"] = "ISO-3"
+        grouped = grouped.rename(columns={'name_short': 'Country'})
+
+    # --- Calculations ---
+    grouped["Total Possible"] = grouped["Count"] * max_points_per_game
+    grouped["Michael Efficiency"] = grouped["Michael Selected"] / grouped["Total Possible"]
+    grouped["Sarah Efficiency"] = grouped["Sarah Selected"] / grouped["Total Possible"]
+    
     grouped["Combined Points"] = grouped["Michael Selected"] + grouped["Sarah Selected"]
+    grouped["Michael Share Ratio"] = grouped.apply(
+        lambda row: row["Michael Selected"] / row["Combined Points"] if row["Combined Points"] > 0 else 0.5, 
+        axis=1
+    )
     
-    # Filter out empty rows to avoid div/0
-    grouped = grouped[grouped["Combined Points"] > 0].copy()
+    # Formatting
+    grouped["Michael Eff %"] = (grouped["Michael Efficiency"] * 100).map('{:,.1f}%'.format)
+    grouped["Sarah Eff %"] = (grouped["Sarah Efficiency"] * 100).map('{:,.1f}%'.format)
+    grouped["Michael Share %"] = (grouped["Michael Share Ratio"] * 100).map('{:,.1f}%'.format)
+    grouped["Sarah Share %"] = ((1 - grouped["Michael Share Ratio"]) * 100).map('{:,.1f}%'.format)
     
-    grouped["Michael Ratio"] = grouped["Michael Selected"] / grouped["Combined Points"]
-    grouped["Michael %"] = (grouped["Michael Ratio"] * 100).map('{:,.1f}%'.format)
-    grouped["Sarah %"] = ((1 - grouped["Michael Ratio"]) * 100).map('{:,.1f}%'.format)
-    
-    return grouped
+    return grouped, group_col
 
 # --- 4. Get Data ---
-map_data = get_aggregated_data(data, view_mode)
+map_data, locality_col = get_aggregated_data(data, view_mode, split_us)
 
-# --- 5. Layout Settings ---
+# DEBUG: Check for unmapped US subdivisions
+if split_us and view_mode == "Countries":
+    us_subset = data[data["ISO3"] == "USA"]
+    if "Subdivision" in us_subset.columns:
+        unmapped_mask = ~us_subset["Subdivision"].isin(us_state_abbrev.keys())
+        unmapped_vals = us_subset.loc[unmapped_mask, "Subdivision"]
+        if not unmapped_vals.empty:
+            with st.expander("⚠️ Unmapped US Subdivisions Found", expanded=True):
+                st.write(unmapped_vals.value_counts())
+
+# Split data for plotting logic
+world_data = map_data[map_data["Location_Mode"] == "ISO-3"].copy()
+if split_us and view_mode == "Countries":
+    world_data = world_data[world_data["ISO3"] != "USA"]
+
+us_data = map_data[map_data["Location_Mode"] == "USA-states"].copy()
+
+# --- 5. Layout Settings & Helpers ---
+is_regional = view_mode in ["Continents", "UN Regions"]
+
 layout_settings = dict(
     geo=dict(
-        showframe=False, showcoastlines=False, bgcolor="#d9d7cc",
-        lakecolor="#d9d7cc", showcountries=True, countrycolor="white",
-        showland=True, landcolor="white",
+        showframe=False, 
+        bgcolor="#d9d7cc",
+        lakecolor="#d9d7cc",
+        showland=True, 
+        landcolor="white",
         projection=dict(type="robinson"),
+        scope="world",
+        # Regional Settings
+        # Hide internal country borders to make continents look like solid blobs
+        showcountries=not is_regional, 
+        countrycolor="white",
+        # Explicitly show coastlines in black so outer edges are visible against ocean
+        showcoastlines=True, 
+        coastlinecolor="black", 
     ),
     paper_bgcolor='rgba(0,0,0,0)',
     font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
@@ -211,522 +341,306 @@ layout_settings = dict(
     margin=dict(t=0, b=0, l=0, r=0)
 )
 
+# Helper to calculate fill color to use as border color (Color Dissolve)
+def add_calculated_colors(df, value_col, colorscale, min_val, max_val):
+    if df.empty: return df
+    
+    # 1. Force numeric and handle NaNs/Infs
+    # coerce errors to NaN, then fill with min_val (or 0) to avoid crashing sample_colorscale
+    vals = pd.to_numeric(df[value_col], errors='coerce').fillna(min_val)
+    
+    # 2. Normalize
+    denom = max_val - min_val
+    if denom == 0:
+        # Default to 0.0 (start of colorscale) if range is flat
+        norm_vals = pd.Series(0.0, index=vals.index)
+    else:
+        norm_vals = (vals - min_val) / denom
+    
+    # 3. Clip to [0, 1] to prevent values > 1.0 (which cause the TypeError)
+    norm_vals = norm_vals.clip(0, 1)
+    
+    # 4. Get colors
+    # Ensure numpy array of floats
+    sample_points = norm_vals.to_numpy(dtype=float)
+    
+    df['Calculated_Color'] = sample_colorscale(colorscale, sample_points)
+    return df
+
+# Helper for Microstates
 microstates = {
-    # # Europe
-    "Vatican City": {"lon": 12.4534, "lat": 41.9029},
-    "Monaco": {"lon": 7.4167, "lat": 43.7384},
-    "San Marino": {"lon": 12.4578, "lat": 43.9424},
-    "Liechtenstein": {"lon": 9.5215, "lat": 47.1410},
-    "Malta": {"lon": 14.5146, "lat": 35.8989},
-    "Andorra": {"lon": 1.5218, "lat": 42.5063},
-    "Luxembourg": {"lon": 6.133333, "lat": 49.816667},
-    
-    # # Caribbean
-    "Saint Kitts and Nevis": {"lon": -62.7830, "lat": 17.3578},
-    "Saint Vincent and the Grenadines": {"lon": -61.2872, "lat": 13.2528},
-    "Barbados": {"lon": -59.5432, "lat": 13.1939},
-    "Antigua and Barbuda": {"lon": -61.7965, "lat": 17.0608},
-    "Grenada": {"lon": -61.6790, "lat": 12.1165},
-    "Saint Lucia": {"lon": -60.9789, "lat": 13.9094},
-    "Dominica": {"lon": -61.3710, "lat": 15.4150},
-    
-    # # Pacific
-    "Tonga": {"lon": -175.2018, "lat": -21.1790},
-    "Kiribati": {"lon": -168.7340, "lat": 1.8709},
-    "Palau": {"lon": 134.5825, "lat": 7.5150},
-    "Nauru": {"lon": 166.9315, "lat": -0.5228},
-    "Tuvalu": {"lon": 179.1942, "lat": -7.1095},
-    "Marshall Islands": {"lon": 171.1845, "lat": 7.1315},
-    "Micronesia": {"lon": 158.1625, "lat": 6.9248},
-    "Samoa": {"lon": -172.1046, "lat": -13.7590},
-    
-    # # Asia/Middle East/Indian Ocean
-    "Singapore": {"lon": 103.8198, "lat": 1.3521},
-    "Bahrain": {"lon": 50.5577, "lat": 26.0667},
-    "Maldives": {"lon": 73.2207, "lat": 3.2028},
-    "Seychelles": {"lon": 55.4920, "lat": -4.6796},
-    "Mauritius": {"lon": 57.5522, "lat": -20.3484},
-    "Comoros": {"lon": 43.8722, "lat": -11.6455},
-    
-    # # Africa
-    "Sao Tome and Principe": {"lon": 6.6131, "lat": 0.1864},
-    "Cape Verde": {"lon": -24.0130, "lat": 16.5388},
-    
-    # # Territories (British)
-    "British Virgin Islands": {"lon": -64.6399, "lat": 18.4207},
-    "Anguilla": {"lon": -63.0686, "lat": 18.2206},
-    "Bermuda": {"lon": -64.7505, "lat": 32.3078},
-    "Cayman Islands": {"lon": -81.2546, "lat": 19.3133},
-    "Turks and Caicos Islands": {"lon": -71.7979, "lat": 21.6940},
-    "Montserrat": {"lon": -62.1874, "lat": 16.7425},
-    "Gibraltar": {"lon": -5.3536, "lat": 36.1408},
-    "Saint Helena": {"lon": -5.7089, "lat": -15.9650},
-    "Isle of Man": {"lon": -4.5481, "lat": 54.2361},
-    "Jersey": {"lon": -2.1358, "lat": 49.2144},
-    "Guernsey": {"lon": -2.5857, "lat": 49.4657},
-    
-    # # Territories (US)
-    "American Samoa": {"lon": -170.1322, "lat": -14.2710},
-    "Guam": {"lon": 144.7937, "lat": 13.4443},
-    "Northern Mariana Islands": {"lon": 145.6739, "lat": 15.0979},
-    "US Virgin Islands": {"lon": -64.8963, "lat": 18.3358},
-    
-    # # Territories (French)
-    "Saint Pierre and Miquelon": {"lon": -56.2711, "lat": 46.8852},
-    "Wallis and Futuna": {"lon": -176.1761, "lat": -13.7687},
-    "Saint Martin": {"lon": -63.0501, "lat": 18.0708},
-    "Saint Barthelemy": {"lon": -62.8334, "lat": 17.9000},
-    "French Polynesia": {"lon": -149.4068, "lat": -17.6797},
-    "Mayotte": {"lon": 45.1662, "lat": -12.8275},
-    "Reunion": {"lon": 55.5364, "lat": -21.1151},
-    "Martinique": {"lon": -61.0242, "lat": 14.6415},
-    "Guadeloupe": {"lon": -61.5510, "lat": 16.2650},
-    
-    # # Territories (Netherlands)
-    "Aruba": {"lon": -69.9683, "lat": 12.5211},
-    "Curacao": {"lon": -68.9335, "lat": 12.1696},
-    "Sint Maarten": {"lon": -63.0548, "lat": 18.0425},
-    "Bonaire": {"lon": -68.2624, "lat": 12.2019},
-    "Saba": {"lon": -63.2324, "lat": 17.6353},
-    "Sint Eustatius": {"lon": -62.9738, "lat": 17.4890},
-    
-    # # Territories (Other)
-    "Cook Islands": {"lon": -159.7777, "lat": -21.2367},
-    "Niue": {"lon": -169.8672, "lat": -19.0544},
-    "Tokelau": {"lon": -171.8554, "lat": -9.2002},
-    "Cocos Islands": {"lon": 96.828333, "lat": -12.186944},
-    "Christmas Island": {"lon": 105.6275, "lat": -10.49},
-    "Hong Kong": {"lon": 114.1095, "lat": 22.3964},
-    "Macau": {"lon": 113.5439, "lat": 22.1987},
-    "Faroe Islands": {"lon": -6.9118, "lat": 61.8926},
-    "Trinidad and Tobago": {"lon": -61.2225, "lat": 10.6918},
-    "Norfolk Island": {"lon": 167.95, "lat": -29.033333},
-    "Easter Island": {"lon": -109.35, "lat": -27.12},
-    "Aland": {"lon": 20.366667, "lat": 60.25},
+    "Vatican City": {"lon": 12.4534, "lat": 41.9029}, "Monaco": {"lon": 7.4167, "lat": 43.7384},
+    "San Marino": {"lon": 12.4578, "lat": 43.9424}, "Liechtenstein": {"lon": 9.5215, "lat": 47.1410},
+    "Malta": {"lon": 14.5146, "lat": 35.8989}, "Andorra": {"lon": 1.5218, "lat": 42.5063},
+    "Luxembourg": {"lon": 6.133333, "lat": 49.816667}, "Saint Kitts and Nevis": {"lon": -62.7830, "lat": 17.3578},
+    "Saint Vincent and the Grenadines": {"lon": -61.2872, "lat": 13.2528}, "Barbados": {"lon": -59.5432, "lat": 13.1939},
+    "Antigua and Barbuda": {"lon": -61.7965, "lat": 17.0608}, "Grenada": {"lon": -61.6790, "lat": 12.1165},
+    "Saint Lucia": {"lon": -60.9789, "lat": 13.9094}, "Dominica": {"lon": -61.3710, "lat": 15.4150},
+    "Tonga": {"lon": -175.2018, "lat": -21.1790}, "Kiribati": {"lon": -168.7340, "lat": 1.8709},
+    "Palau": {"lon": 134.5825, "lat": 7.5150}, "Nauru": {"lon": 166.9315, "lat": -0.5228},
+    "Tuvalu": {"lon": 179.1942, "lat": -7.1095}, "Marshall Islands": {"lon": 171.1845, "lat": 7.1315},
+    "Micronesia": {"lon": 158.1625, "lat": 6.9248}, "Samoa": {"lon": -172.1046, "lat": -13.7590},
+    "Singapore": {"lon": 103.8198, "lat": 1.3521}, "Bahrain": {"lon": 50.5577, "lat": 26.0667},
+    "Maldives": {"lon": 73.2207, "lat": 3.2028}, "Seychelles": {"lon": 55.4920, "lat": -4.6796},
+    "Mauritius": {"lon": 57.5522, "lat": -20.3484}, "Comoros": {"lon": 43.8722, "lat": -11.6455},
+    "Sao Tome and Principe": {"lon": 6.6131, "lat": 0.1864}, "Cape Verde": {"lon": -24.0130, "lat": 16.5388},
+    "British Virgin Islands": {"lon": -64.6399, "lat": 18.4207}, "Anguilla": {"lon": -63.0686, "lat": 18.2206},
+    "Bermuda": {"lon": -64.7505, "lat": 32.3078}, "Cayman Islands": {"lon": -81.2546, "lat": 19.3133},
+    "Turks and Caicos Islands": {"lon": -71.7979, "lat": 21.6940}, "Montserrat": {"lon": -62.1874, "lat": 16.7425},
+    "Gibraltar": {"lon": -5.3536, "lat": 36.1408}, "Saint Helena": {"lon": -5.7089, "lat": -15.9650},
+    "Isle of Man": {"lon": -4.5481, "lat": 54.2361}, "Jersey": {"lon": -2.1358, "lat": 49.2144},
+    "Guernsey": {"lon": -2.5857, "lat": 49.4657}, "American Samoa": {"lon": -170.1322, "lat": -14.2710},
+    "Guam": {"lon": 144.7937, "lat": 13.4443}, "Northern Mariana Islands": {"lon": 145.6739, "lat": 15.0979},
+    "US Virgin Islands": {"lon": -64.8963, "lat": 18.3358}, "Saint Pierre and Miquelon": {"lon": -56.2711, "lat": 46.8852},
+    "Wallis and Futuna": {"lon": -176.1761, "lat": -13.7687}, "Saint Martin": {"lon": -63.0501, "lat": 18.0708},
+    "Saint Barthelemy": {"lon": -62.8334, "lat": 17.9000}, "French Polynesia": {"lon": -149.4068, "lat": -17.6797},
+    "Mayotte": {"lon": 45.1662, "lat": -12.8275}, "Reunion": {"lon": 55.5364, "lat": -21.1151},
+    "Martinique": {"lon": -61.0242, "lat": 14.6415}, "Guadeloupe": {"lon": -61.5510, "lat": 16.2650},
+    "Aruba": {"lon": -69.9683, "lat": 12.5211}, "Curacao": {"lon": -68.9335, "lat": 12.1696},
+    "Sint Maarten": {"lon": -63.0548, "lat": 18.0425}, "Bonaire": {"lon": -68.2624, "lat": 12.2019},
+    "Saba": {"lon": -63.2324, "lat": 17.6353}, "Sint Eustatius": {"lon": -62.9738, "lat": 17.4890},
+    "Cook Islands": {"lon": -159.7777, "lat": -21.2367}, "Niue": {"lon": -169.8672, "lat": -19.0544},
+    "Tokelau": {"lon": -171.8554, "lat": -9.2002}, "Cocos Islands": {"lon": 96.828333, "lat": -12.186944},
+    "Christmas Island": {"lon": 105.6275, "lat": -10.49}, "Hong Kong": {"lon": 114.1095, "lat": 22.3964},
+    "Macau": {"lon": 113.5439, "lat": 22.1987}, "Faroe Islands": {"lon": -6.9118, "lat": 61.8926},
+    "Trinidad and Tobago": {"lon": -61.2225, "lat": 10.6918}, "Norfolk Island": {"lon": 167.95, "lat": -29.033333},
+    "Easter Island": {"lon": -109.35, "lat": -27.12}, "Aland": {"lon": 20.366667, "lat": 60.25},
 }
 
-# --- 5. Visualization Logic ---
-if map_metric == "Count":
-    # ------------------------------------------------------------------
-    # VIEW: COUNT (Unaffected by score type, basically)
-    # ------------------------------------------------------------------
-    count_scale = [(0.0, "#fee6e6"), (1.0, "#db5049")]
+def get_microstate_trace(base_df, value_col, colorscale, zmin, zmax, hover_template, custom_data_cols, line_color_logic=False):
+    micro_df = base_df[base_df["Country"].isin(microstates.keys())].copy()
+    if micro_df.empty: return None
+    micro_df["lat"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lat"))
+    micro_df["lon"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lon"))
+    
+    marker_line_color = "black" 
+    if line_color_logic: 
+         micro_df["BorderColor"] = micro_df[value_col].apply(
+             lambda ratio: "#221e8f" if ratio > 0.5 else ("#8a005c" if ratio < 0.5 else "#666666")
+         )
+         marker_line_color = micro_df["BorderColor"]
 
-    fig = px.choropleth(
-        map_data,
-        locations="ISO3",
-        locationmode="ISO-3",
-        color="Count",
-        color_continuous_scale=count_scale,
-        hover_name="Hover_Name",
-        hover_data={"ISO3": False, "Count": True, "Michael Selected": False}
+    return go.Scattergeo(
+        lon=micro_df["lon"], lat=micro_df["lat"], mode="markers",
+        marker=dict(
+            size=8, color=micro_df[value_col], colorscale=colorscale,
+            cmin=zmin, cmax=zmax, line=dict(width=1, color=marker_line_color), showscale=False
+        ),
+        text=micro_df["Hover_Name"], customdata=micro_df[custom_data_cols], hovertemplate=hover_template
     )
 
-    # Microstates (Only in 'Countries' view)
-    if view_mode == "Countries":
-        # (Placeholder: Insert your existing microstates dict/loop here)
-        pass 
+def add_us_subdivision_trace(fig, df_sub, color_col, colorscale, zmin, zmax, hover_template, custom_data_cols, marker_line_logic=None):
+    if df_sub.empty: return
+    trace_kwargs = dict(
+        z=df_sub[color_col],
+        colorscale=colorscale,
+        zmin=zmin, zmax=zmax,
+        text=df_sub['Hover_Name'],
+        customdata=df_sub[custom_data_cols],
+        hovertemplate=hover_template,
+        showscale=False,
+        locations=df_sub['ISO3'], 
+        locationmode='USA-states'
+    )
+    if marker_line_logic:
+        trace_kwargs['marker_line_color'] = df_sub[marker_line_logic]
+        trace_kwargs['marker_line_width'] = 1.5
+    else:
+        trace_kwargs['marker_line_color'] = 'black'
+        trace_kwargs['marker_line_width'] = 0.5 
+
+    fig.add_trace(go.Choropleth(**trace_kwargs))
+
+
+# --- 6. Visualization Logic ---
+
+if map_metric == "Count":
+    count_scale = [[0.0, "#fee6e6"], [1.0, "#db5049"]]
+    max_count = map_data["Count"].max() if not map_data.empty else 1
+    
+    # Calculate colors for regional "Dissolve" effect
+    if is_regional:
+        world_data = add_calculated_colors(world_data, "Count", count_scale, 0, max_count)
+        border_color = world_data['Calculated_Color']
+        border_width = 1.0 
+    else:
+        border_color = "black"
+        border_width = 0.5
+
+    fig = px.choropleth(
+        world_data, locations="ISO3", locationmode="ISO-3", color="Count",
+        color_continuous_scale=count_scale, range_color=[0, max_count],
+        hover_name="Hover_Name", hover_data={"ISO3": False, "Count": True, "Michael Selected": False, "Sarah Selected": False}
+    )
+    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
+    
+    add_us_subdivision_trace(
+        fig, us_data, "Count", count_scale, 0, max_count, 
+        "<b>%{text}</b><br>Count: %{z}<extra></extra>", ["Count"]
+    )
+    ms_trace = get_microstate_trace(
+        world_data, "Count", count_scale, 0, max_count, 
+        "<b>%{text}</b><br>Count: %{customdata[0]}<extra></extra>", ["Count"]
+    )
+    if ms_trace: fig.add_trace(ms_trace)
 
     fig.update_layout(**layout_settings)
     st.plotly_chart(fig, use_container_width=True)
 
 elif map_metric == "Comparison":
-    # ------------------------------------------------------------------
-    # VIEW: COMPARISON (Uses "Michael Selected" vs "Sarah Selected")
-    # ------------------------------------------------------------------
-    
-    # 1. Determine Outline Color
+    comparison_scale = [[0.0, "#8a005c"], [0.5, "#f2f2f2"], [1.0, "#221e8f"]]
+
     def get_border_color(ratio):
-        if ratio > 0.5: return "#221e8f"  # Michael
-        elif ratio < 0.5: return "#8a005c"  # Sarah
+        if ratio > 0.5: return "#221e8f"
+        elif ratio < 0.5: return "#8a005c"
         else: return "#666666"
 
-    map_data["BorderColor"] = map_data["Michael Ratio"].apply(get_border_color)
+    # For Comparison, we dissolve borders if regional
+    if is_regional:
+        world_data = add_calculated_colors(world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6)
+        world_data["BorderColor"] = world_data["Calculated_Color"]
+        border_width = 1.0
+    else:
+        world_data["BorderColor"] = world_data["Michael Share Ratio"].apply(get_border_color)
+        border_width = 1.5
 
-    # 2. Scale
-    comparison_scale = [[0.0, "#ff94bd"], [1.0, "#bcb0ff"]]
+    if not us_data.empty: 
+        us_data["BorderColor"] = us_data["Michael Share Ratio"].apply(get_border_color)
 
-    # 3. Figure
-    fig = go.Figure(go.Choropleth(
-        locations=map_data['ISO3'],
-        z=map_data['Michael Ratio'],
-        locationmode='ISO-3',
-        colorscale=comparison_scale,
-        zmin=0.40, zmax=0.60,
-        marker_line_color=map_data['BorderColor'], 
-        marker_line_width=1.5,
-        text=map_data['Hover_Name'],
-        customdata=map_data[['Michael Selected', 'Sarah Selected', 'Michael %', 'Sarah %']],
-        hovertemplate=(
-            "<b>%{text}</b><br>" +
-            "Michael Ratio: %{z:.2f}<br>" +
-            f"Michael ({score_mode}): %{{customdata[0]:,.0f}}<br>" +
-            f"Sarah ({score_mode}): %{{customdata[1]:,.0f}}<br>" +
-            "Michael %: %{customdata[2]}<br>" +
-            "Sarah %: %{customdata[3]}<extra></extra>"
-        ),
-        showscale=False
+    hover_template = (
+        "<b>%{text}</b><br>" + f"Michael ({score_mode}): %{{customdata[0]:,.0f}}<br>" +
+        f"Sarah ({score_mode}): %{{customdata[1]:,.0f}}<br>" + "Share: %{customdata[2]} vs %{customdata[3]}<extra></extra>"
+    )
+    custom_cols = ['Michael Selected', 'Sarah Selected', 'Michael Share %', 'Sarah Share %']
+
+    fig = go.Figure()
+    fig.add_trace(go.Choropleth(
+        locations=world_data['ISO3'], z=world_data['Michael Share Ratio'], locationmode='ISO-3',
+        colorscale=comparison_scale, zmin=0.4, zmax=0.6,
+        marker_line_color=world_data['BorderColor'], 
+        marker_line_width=border_width,
+        text=world_data['Hover_Name'], customdata=world_data[custom_cols], hovertemplate=hover_template, showscale=False
     ))
     
+    add_us_subdivision_trace(
+        fig, us_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
+        hover_template, custom_cols, marker_line_logic="BorderColor"
+    )
+    ms_trace = get_microstate_trace(
+        world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
+        hover_template, custom_cols, line_color_logic=True
+    )
+    if ms_trace: fig.add_trace(ms_trace)
+    
     fig.update_layout(**layout_settings)
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown(
-        f"""
+    st.markdown(f"""
         <div style="text-align: center; font-weight: bold; margin-top: -10px;">
             <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
-                <span style="color: #ff94bd;">← Sarah Fill</span>
+                <span style="color: #ff94bd;">← Sarah Dominant</span>
                 <span style="background: linear-gradient(90deg, #ff94bd, #bcb0ff); width: 200px; height: 10px; display: inline-block; border-radius: 5px;"></span>
-                <span style="color: #bcb0ff;">Michael Fill →</span>
+                <span style="color: #bcb0ff;">Michael Dominant →</span>
             </div>
-            <div style="font-size: 0.9em;">
-                <span style="color: #8a005c; border: 2px solid #8a005c; padding: 2px 6px; border-radius: 4px;">Sarah Border</span>
-                &nbsp;&nbsp;
-                <span style="color: #221e8f; border: 2px solid #221e8f; padding: 2px 6px; border-radius: 4px;">Michael Border</span>
-            </div>
-            <div style="font-size: 0.8em; color: #555; margin-top: 5px;">*Comparing {score_mode}</div>
+            <div style="font-size: 0.8em; color: #555;">*Comparing {score_mode}</div>
         </div>
-        """, 
-        unsafe_allow_html=True
-    )
+        """, unsafe_allow_html=True)
 
 elif map_metric == "Michael":
-    # ------------------------------------------------------------------
-    # VIEW: MICHAEL (Dynamic Score Type)
-    # ------------------------------------------------------------------
+    michael_scale = [[0.0, "#e6e6ff"], [1.0, "#221e8f"]]
     
-    # 1. Calculate Performance based on selected mode
-    map_data["Possible Points"] = map_data["Count"] * max_points_per_game
-    map_data["Performance"] = map_data["Michael Selected"] / map_data["Possible Points"]
-    map_data["Perf %"] = (map_data["Performance"] * 100).map('{:,.1f}%'.format)
-    
-    michael_scale = [(0.0, "#e6e6ff"), (1.0, "#221e8f")]
+    if is_regional:
+        world_data = add_calculated_colors(world_data, "Michael Efficiency", michael_scale, 0.5, 1.0)
+        border_color = world_data['Calculated_Color']
+        border_width = 1.0
+    else:
+        border_color = "black"
+        border_width = 0.5
+
+    hover_template = "<b>%{text}</b><br>Michael Eff %: %{customdata[0]}<br>Score: %{customdata[1]}<br>Count: %{customdata[2]}<extra></extra>"
+    custom_cols = ["Michael Eff %", "Michael Selected", "Count"]
 
     fig = px.choropleth(
-        map_data,
-        locations="ISO3",
-        locationmode="ISO-3",
-        color="Performance",
-        color_continuous_scale=michael_scale,
-        range_color=[0.5, 1], # 50-100%
-        hover_name="Hover_Name",
-        hover_data={
-            "ISO3": False, "Performance": False, "Perf %": True,
-            "Michael Selected": True, "Possible Points": True, "Count": True
-        },
-        labels={"Michael Selected": f"Michael {score_mode}"}
+        world_data, locations="ISO3", locationmode="ISO-3", color="Michael Efficiency",
+        color_continuous_scale=michael_scale, range_color=[0.5, 1],
+        hover_name="Hover_Name", hover_data={"ISO3": False, "Michael Efficiency": False, "Michael Eff %": True, "Michael Selected": True, "Count": True}
     )
+    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
+    
+    add_us_subdivision_trace(
+        fig, us_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+    ms_trace = get_microstate_trace(
+        world_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+    if ms_trace: fig.add_trace(ms_trace)
     
     fig.update_layout(**layout_settings)
     st.plotly_chart(fig, use_container_width=True)
-    
-    st.caption(f"Showing Michael's **{score_mode} Accuracy** (Score / ({max_points_per_game} × Appearances)). Scale: 50%-100%.")
+    st.caption(f"Showing Michael's **Efficiency**. Scale: 50%-100%.")
 
 elif map_metric == "Sarah":
-    # ------------------------------------------------------------------
-    # VIEW: SARAH (Dynamic Score Type)
-    # ------------------------------------------------------------------
+    sarah_scale = [[0.0, "#ffe6f2"], [1.0, "#8a005c"]]
     
-    map_data["Possible Points"] = map_data["Count"] * max_points_per_game
-    map_data["Performance"] = map_data["Sarah Selected"] / map_data["Possible Points"]
-    map_data["Perf %"] = (map_data["Performance"] * 100).map('{:,.1f}%'.format)
-    
-    sarah_scale = [(0.0, "#ffe6f2"), (1.0, "#8a005c")]
+    if is_regional:
+        world_data = add_calculated_colors(world_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0)
+        border_color = world_data['Calculated_Color']
+        border_width = 1.0
+    else:
+        border_color = "black"
+        border_width = 0.5
+
+    hover_template = "<b>%{text}</b><br>Sarah Eff %: %{customdata[0]}<br>Score: %{customdata[1]}<br>Count: %{customdata[2]}<extra></extra>"
+    custom_cols = ["Sarah Eff %", "Sarah Selected", "Count"]
 
     fig = px.choropleth(
-        map_data,
-        locations="ISO3",
-        locationmode="ISO-3",
-        color="Performance",
-        color_continuous_scale=sarah_scale,
-        range_color=[0.5, 1], # 50-100%
-        hover_name="Hover_Name",
-        hover_data={
-            "ISO3": False, "Performance": False, "Perf %": True,
-            "Sarah Selected": True, "Possible Points": True, "Count": True
-        },
-        labels={"Sarah Selected": f"Sarah {score_mode}"}
+        world_data, locations="ISO3", locationmode="ISO-3", color="Sarah Efficiency",
+        color_continuous_scale=sarah_scale, range_color=[0.5, 1],
+        hover_name="Hover_Name", hover_data={"ISO3": False, "Sarah Efficiency": False, "Sarah Eff %": True, "Sarah Selected": True, "Count": True}
     )
+    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
+    
+    add_us_subdivision_trace(
+        fig, us_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+    ms_trace = get_microstate_trace(
+        world_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+    if ms_trace: fig.add_trace(ms_trace)
     
     fig.update_layout(**layout_settings)
     st.plotly_chart(fig, use_container_width=True)
-    
-    st.caption(f"Showing Sarah's **{score_mode} Accuracy** (Score / ({max_points_per_game} × Appearances)). Scale: 50%-100%.")
+    st.caption(f"Showing Sarah's **Efficiency**. Scale: 50%-100%.")
 
 
+# --- 7. Single Summary Table ---
+st.divider()
+st.subheader(f"Statistics by {view_mode}")
 
-# --- Filter to rows where both Michael and Sarah Geography Scores are populated ---
-subset = data.dropna(subset=["Michael Geography Score", "Sarah Geography Score"])
+table_cols = [locality_col, "Count", "Michael Selected", "Sarah Selected", "Total Possible"]
+table_df = map_data[table_cols].drop_duplicates()
+# Filter out "not found" values
+table_df = table_df[table_df[locality_col] != "not found"]
 
-# --- Count appearances per country ---
-country_counts = subset["Country"].value_counts().reset_index()
-country_counts.columns = ["Country", "Appearances"]
+table_df["Michael Efficiency"] = (table_df["Michael Selected"] / table_df["Total Possible"]) * 100
+table_df["Sarah Efficiency"] = (table_df["Sarah Selected"] / table_df["Total Possible"]) * 100
+table_df["% Better"] = table_df["Michael Efficiency"] - table_df["Sarah Efficiency"]
+table_df = table_df.sort_values("Count", ascending=False)
 
-# --- Sum Geography Scores per country ---
-country_sums = subset.groupby("Country", as_index=False)[["Michael Geography Score", "Sarah Geography Score"]].sum()
+display_df = table_df[[locality_col, "Count", "% Better", "Michael Efficiency", "Sarah Efficiency"]].copy()
+display_df.columns = ["Locality", "Count", "% Better", "Michael % Gathered", "Sarah % Gathered"]
 
-# --- Merge counts with sums ---
-country_stats = pd.merge(country_counts, country_sums, on="Country", how="left")
-
-# --- Determine which score is higher ---
-country_stats["Higher Score"] = country_stats.apply(
-    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
-    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
-    axis=1
-)
-
-# --- Calculate percent higher ---
-def percent_higher(m, s):
-    if m == s:
-        return 0
-    larger = max(m, s)
-    smaller = min(m, s)
-    return round((larger - smaller) / smaller * 100, 2) if smaller != 0 else None
-
-country_stats["Percent Higher"] = country_stats.apply(
-    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
-)
-
-# --- Determine continent automatically ---
-cc = coco.CountryConverter()
-country_stats["Continent"] = cc.convert(names=country_stats["Country"].tolist(), to="continent")
-
-# --- Define nicer colors ---
-continent_colors = {
-    "Europe": "#00012e",          # Soft yellow
-    "Asia": "#2e2200",            # Orange
-    "Americas": "#002e02",         # Blue
-    "Africa": "#2e0800",          # Red-orange
-    "Oceania": "#2e0026",         # Purple
-    "Antarctica": "#404040",      # Gray
-    "Unknown": "#000000",
-    "United States": "#002e29",             # Darker Blue
-    "Other Americas": "#002e02"   # Green
+column_config = {
+    "Locality": st.column_config.TextColumn("Location", width="medium"),
+    "Count": st.column_config.NumberColumn("Games", format="%d"),
+    "% Better": st.column_config.NumberColumn("% Better", format="%.1f%%"),
+    "Michael % Gathered": st.column_config.ProgressColumn("Michael Efficiency", format="%.1f%%", min_value=0, max_value=100),
+    "Sarah % Gathered": st.column_config.ProgressColumn("Sarah Efficiency", format="%.1f%%", min_value=0, max_value=100),
 }
 
-def color_by_continent(row):
-    return ['background-color: {}'.format(continent_colors.get(row.Continent, "#000000"))]*len(row)
-
-# --- Display table by country ---
-st.title("Geography Score Comparison by Country (Colored by Continent)")
-st.dataframe(
-    country_stats.style.apply(color_by_continent, axis=1).format({
-        "Appearances": "{:,.0f}",
-        "Michael Geography Score": "{:,.0f}",
-        "Sarah Geography Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
-
-# --- Continent aggregation including United States in Americas ---
-continent_incl_us = country_stats.copy()
-continent_incl_us["Continent_agg"] = continent_incl_us["Continent"].replace({"America": "Americas"})
-continent_stats_incl_us = continent_incl_us.groupby("Continent_agg", as_index=False).agg({
-    "Appearances": "sum",
-    "Michael Geography Score": "sum",
-    "Sarah Geography Score": "sum"
-})
-# Recalculate percent higher after aggregation
-continent_stats_incl_us["Percent Higher"] = continent_stats_incl_us.apply(
-    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
-)
-continent_stats_incl_us["Higher Score"] = continent_stats_incl_us.apply(
-    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
-    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
-    axis=1
-)
-
-st.title("Geography Score Comparison by Continent (Including United States in Americas)")
-st.dataframe(
-    continent_stats_incl_us.style.apply(
-        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
-        axis=1
-    ).format({
-        "Appearances": "{:,.0f}",
-        "Michael Geography Score": "{:,.0f}",
-        "Sarah Geography Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
-
-# --- Continent aggregation excluding United States ---
-def continent_split_americas(row):
-    if row["Country"] == "United States":
-        return "United States"
-    elif row["Continent"] == "America":
-        return "Other Americas"
-    else:
-        return row["Continent"]
-
-continent_excl_us = country_stats.copy()
-continent_excl_us["Continent_agg"] = continent_excl_us.apply(continent_split_americas, axis=1)
-continent_stats_excl_us = continent_excl_us.groupby("Continent_agg", as_index=False).agg({
-    "Appearances": "sum",
-    "Michael Geography Score": "sum",
-    "Sarah Geography Score": "sum"
-})
-# Recalculate percent higher after aggregation
-continent_stats_excl_us["Percent Higher"] = continent_stats_excl_us.apply(
-    lambda row: percent_higher(row["Michael Geography Score"], row["Sarah Geography Score"]), axis=1
-)
-continent_stats_excl_us["Higher Score"] = continent_stats_excl_us.apply(
-    lambda x: "Michael" if x["Michael Geography Score"] > x["Sarah Geography Score"]
-    else ("Sarah" if x["Sarah Geography Score"] > x["Michael Geography Score"] else "Equal"),
-    axis=1
-)
-
-st.title("Geography Score Comparison by Continent (Excluding United States from Americas)")
-st.dataframe(
-    continent_stats_excl_us.style.apply(
-        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
-        axis=1
-    ).format({
-        "Appearances": "{:,.0f}",
-        "Michael Geography Score": "{:,.0f}",
-        "Sarah Geography Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
-
-
-
-
-
-
-
-
-
-
-
-# --- Filter to rows where both Michael and Sarah Time Scores are populated ---
-subset = data.dropna(subset=["Michael Time Score", "Sarah Time Score"])
-
-# --- Count appearances per country ---
-country_counts = subset["Country"].value_counts().reset_index()
-country_counts.columns = ["Country", "Appearances"]
-
-# --- Sum Time Scores per country ---
-country_sums = subset.groupby("Country", as_index=False)[["Michael Time Score", "Sarah Time Score"]].sum()
-
-# --- Merge counts with sums ---
-country_stats = pd.merge(country_counts, country_sums, on="Country", how="left")
-
-# --- Determine which score is higher ---
-country_stats["Higher Score"] = country_stats.apply(
-    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
-    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
-    axis=1
-)
-
-# --- Calculate percent higher ---
-def percent_higher(m, s):
-    if m == s:
-        return 0
-    larger = max(m, s)
-    smaller = min(m, s)
-    return round((larger - smaller) / smaller * 100, 2) if smaller != 0 else None
-
-country_stats["Percent Higher"] = country_stats.apply(
-    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
-)
-
-# --- Determine continent automatically ---
-cc = coco.CountryConverter()
-country_stats["Continent"] = cc.convert(names=country_stats["Country"].tolist(), to="continent")
-
-# --- Define nicer colors ---
-continent_colors = {
-    "Europe": "#00012e",          # Soft yellow
-    "Asia": "#2e2200",            # Orange
-    "Americas": "#002e02",         # Blue
-    "Africa": "#2e0800",          # Red-orange
-    "Oceania": "#2e0026",         # Purple
-    "Antarctica": "#404040",      # Gray
-    "Unknown": "#000000",
-    "United States": "#002e29",             # Darker Blue
-    "Other Americas": "#002e02"   # Green
-}
-
-def color_by_continent(row):
-    return ['background-color: {}'.format(continent_colors.get(row.Continent, "#000000"))]*len(row)
-
-# --- Display table by country ---
-st.title("Time Score Comparison by Country (Colored by Continent)")
-st.dataframe(
-    country_stats.style.apply(color_by_continent, axis=1).format({
-        "Appearances": "{:,.0f}",
-        "Michael Time Score": "{:,.0f}",
-        "Sarah Time Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
-
-# --- Continent aggregation including United States in Americas ---
-continent_incl_us = country_stats.copy()
-continent_incl_us["Continent_agg"] = continent_incl_us["Continent"].replace({"America": "Americas"})
-continent_stats_incl_us = continent_incl_us.groupby("Continent_agg", as_index=False).agg({
-    "Appearances": "sum",
-    "Michael Time Score": "sum",
-    "Sarah Time Score": "sum"
-})
-# Recalculate percent higher after aggregation
-continent_stats_incl_us["Percent Higher"] = continent_stats_incl_us.apply(
-    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
-)
-continent_stats_incl_us["Higher Score"] = continent_stats_incl_us.apply(
-    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
-    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
-    axis=1
-)
-
-st.title("Time Score Comparison by Continent (Including United States in Americas)")
-st.dataframe(
-    continent_stats_incl_us.style.apply(
-        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
-        axis=1
-    ).format({
-        "Appearances": "{:,.0f}",
-        "Michael Time Score": "{:,.0f}",
-        "Sarah Time Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
-
-# --- Continent aggregation excluding United States ---
-def continent_split_americas(row):
-    if row["Country"] == "United States":
-        return "United States"
-    elif row["Continent"] == "America":
-        return "Other Americas"
-    else:
-        return row["Continent"]
-
-continent_excl_us = country_stats.copy()
-continent_excl_us["Continent_agg"] = continent_excl_us.apply(continent_split_americas, axis=1)
-continent_stats_excl_us = continent_excl_us.groupby("Continent_agg", as_index=False).agg({
-    "Appearances": "sum",
-    "Michael Time Score": "sum",
-    "Sarah Time Score": "sum"
-})
-# Recalculate percent higher after aggregation
-continent_stats_excl_us["Percent Higher"] = continent_stats_excl_us.apply(
-    lambda row: percent_higher(row["Michael Time Score"], row["Sarah Time Score"]), axis=1
-)
-continent_stats_excl_us["Higher Score"] = continent_stats_excl_us.apply(
-    lambda x: "Michael" if x["Michael Time Score"] > x["Sarah Time Score"]
-    else ("Sarah" if x["Sarah Time Score"] > x["Michael Time Score"] else "Equal"),
-    axis=1
-)
-
-st.title("Time Score Comparison by Continent (Excluding United States from Americas)")
-st.dataframe(
-    continent_stats_excl_us.style.apply(
-        lambda row: ['background-color: {}'.format(continent_colors.get(row.Continent_agg, "#FFFFFF"))]*len(row),
-        axis=1
-    ).format({
-        "Appearances": "{:,.0f}",
-        "Michael Time Score": "{:,.0f}",
-        "Sarah Time Score": "{:,.0f}",
-        "Percent Higher": "{:.2f}%"
-    })
-)
+height = (len(display_df) + 1) * 35 + 3
+st.dataframe(display_df, column_config=column_config, use_container_width=True, hide_index=True, height=height)
