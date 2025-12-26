@@ -87,6 +87,7 @@ import plotly.graph_objects as go
 import country_converter as coco
 import numpy as np
 from plotly.colors import sample_colorscale
+import datetime
 
 # --- Styles ---
 try:
@@ -98,8 +99,8 @@ except FileNotFoundError:
 st.markdown("""
 <style>
     .stRadio [role=radiogroup] {
-        align-items: center;
-        justify-content: center;
+        align-items: start;
+        justify-content: start;
     }
     div[data-testid="stMetric"] {
         background-color: #f0f2f6;
@@ -114,47 +115,92 @@ st.markdown("""
 
 st.markdown("## Locations")
 
-# --- 1. Global Controls ---
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    map_metric = st.radio(
-        "Select Metric:",
-        options=["Count", "Comparison", "Michael", "Sarah"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="map_metric_selector"
-    )
-
-with col2:
-    # Container for view controls
-    c2_1, c2_2 = st.columns([2, 1])
-    with c2_1:
-        view_mode = st.radio(
-            "Select View Level:",
-            options=["Countries", "Continents", "UN Regions"],
-            horizontal=True,
-            label_visibility="collapsed",
-            key="view_mode_selector"
-        )
-    with c2_2:
-        split_us = st.toggle("Split US", value=False)
-
-with col3:
-    score_mode = st.radio(
-        "Select Score Type:",
-        options=["Total Score", "Geography Score", "Time Score"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="score_mode_selector"
-    )
-
-# --- Load data ---
+# --- Load data (Moved to top for Date Slider) ---
 try:
     data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 except FileNotFoundError:
     st.error("Stats file not found. Please ensure './Data/Timeguessr_Stats.csv' exists.")
     st.stop()
+
+# Pre-process Date for Slider
+if "Date" in data.columns:
+    data["Date"] = pd.to_datetime(data["Date"], errors='coerce')
+    data = data.dropna(subset=["Date"])
+    
+    # Filter for valid location info (Country, Subdivision, City all present)
+    # Check which columns actually exist to avoid key errors
+    loc_cols = [c for c in ["Country", "Subdivision", "City"] if c in data.columns]
+    
+    if loc_cols:
+        valid_loc_data = data.dropna(subset=loc_cols)
+    else:
+        valid_loc_data = data
+
+    if not valid_loc_data.empty:
+        min_date = valid_loc_data["Date"].min().date()
+        max_date = valid_loc_data["Date"].max().date()
+    elif not data.empty:
+        # Fallback to general min/max if strict filter leaves nothing
+        min_date = data["Date"].min().date()
+        max_date = data["Date"].max().date()
+    else:
+        min_date = datetime.date.today()
+        max_date = datetime.date.today()
+else:
+    st.warning("Date column not found in data.")
+    min_date = datetime.date.today()
+    max_date = datetime.date.today()
+
+# --- 1. Global Controls (Sidebar) ---
+with st.sidebar:
+    st.header("Map Settings")
+    
+    # Date Slider
+    if "Date" in data.columns and not data.empty:
+        selected_dates = st.slider(
+            "Select Date Range:",
+            min_value=min_date,
+            max_value=max_date,
+            value=(min_date, max_date),
+            format="MM/DD/YY"
+        )
+        
+        # Filter Data based on Slider
+        mask = (data["Date"].dt.date >= selected_dates[0]) & (data["Date"].dt.date <= selected_dates[1])
+        data = data[mask]
+    
+    st.divider()
+    
+    map_metric = st.radio(
+        "Select Metric:",
+        options=["Count", "Comparison", "Michael", "Sarah"],
+        horizontal=False,
+        key="map_metric_selector"
+    )
+    
+    # Conditional Score Type - Hide if Metric is 'Count'
+    if map_metric != "Count":
+        st.divider()
+        score_mode = st.radio(
+            "Select Score Type:",
+            options=["Total Score", "Geography Score", "Time Score"],
+            horizontal=False,
+            key="score_mode_selector"
+        )
+    else:
+        # Default value if hidden
+        score_mode = "Total Score"
+
+    st.divider()
+
+    view_mode = st.radio(
+        "Select View Level:",
+        options=["Countries", "Continents", "UN Regions"],
+        horizontal=False,
+        key="view_mode_selector"
+    )
+    
+    split_us = st.toggle("Split US", value=False)
 
 # --- Mappings ---
 cc = coco.CountryConverter()
