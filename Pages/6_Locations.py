@@ -88,6 +88,7 @@ import country_converter as coco
 import numpy as np
 from plotly.colors import sample_colorscale
 import datetime
+import json
 
 # --- Styles ---
 try:
@@ -115,92 +116,12 @@ st.markdown("""
 
 st.markdown("## Locations")
 
-# --- Load data (Moved to top for Date Slider) ---
+# --- Load data ---
 try:
     data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 except FileNotFoundError:
     st.error("Stats file not found. Please ensure './Data/Timeguessr_Stats.csv' exists.")
     st.stop()
-
-# Pre-process Date for Slider
-if "Date" in data.columns:
-    data["Date"] = pd.to_datetime(data["Date"], errors='coerce')
-    data = data.dropna(subset=["Date"])
-    
-    # Filter for valid location info (Country, Subdivision, City all present)
-    # Check which columns actually exist to avoid key errors
-    loc_cols = [c for c in ["Country", "Subdivision", "City"] if c in data.columns]
-    
-    if loc_cols:
-        valid_loc_data = data.dropna(subset=loc_cols)
-    else:
-        valid_loc_data = data
-
-    if not valid_loc_data.empty:
-        min_date = valid_loc_data["Date"].min().date()
-        max_date = valid_loc_data["Date"].max().date()
-    elif not data.empty:
-        # Fallback to general min/max if strict filter leaves nothing
-        min_date = data["Date"].min().date()
-        max_date = data["Date"].max().date()
-    else:
-        min_date = datetime.date.today()
-        max_date = datetime.date.today()
-else:
-    st.warning("Date column not found in data.")
-    min_date = datetime.date.today()
-    max_date = datetime.date.today()
-
-# --- 1. Global Controls (Sidebar) ---
-with st.sidebar:
-    st.header("Map Settings")
-    
-    # Date Slider
-    if "Date" in data.columns and not data.empty:
-        selected_dates = st.slider(
-            "Select Date Range:",
-            min_value=min_date,
-            max_value=max_date,
-            value=(min_date, max_date),
-            format="MM/DD/YY"
-        )
-        
-        # Filter Data based on Slider
-        mask = (data["Date"].dt.date >= selected_dates[0]) & (data["Date"].dt.date <= selected_dates[1])
-        data = data[mask]
-    
-    st.divider()
-    
-    map_metric = st.radio(
-        "Select Metric:",
-        options=["Count", "Comparison", "Michael", "Sarah"],
-        horizontal=False,
-        key="map_metric_selector"
-    )
-    
-    # Conditional Score Type - Hide if Metric is 'Count'
-    if map_metric != "Count":
-        st.divider()
-        score_mode = st.radio(
-            "Select Score Type:",
-            options=["Total Score", "Geography Score", "Time Score"],
-            horizontal=False,
-            key="score_mode_selector"
-        )
-    else:
-        # Default value if hidden
-        score_mode = "Total Score"
-
-    st.divider()
-
-    view_mode = st.radio(
-        "Select View Level:",
-        options=["Countries", "Continents", "UN Regions"],
-        horizontal=False,
-        key="view_mode_selector"
-    )
-    
-    split_us = st.toggle("Split US", value=False)
 
 # --- Mappings ---
 cc = coco.CountryConverter()
@@ -220,42 +141,13 @@ us_state_abbrev = {
     'District of Columbia': 'DC', 'Washington DC': 'DC', 'Washington, D.C.': 'DC', 'DC': 'DC', 'D.C.': 'DC'
 }
 
-# --- 2. Dynamic Data Prep ---
+# --- Functions ---
 
-if score_mode == "Total Score":
-    req_cols = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
-    data = data.dropna(subset=req_cols).copy()
-    data["Michael Selected"] = data["Michael Geography Score"] + data["Michael Time Score"]
-    data["Sarah Selected"] = data["Sarah Geography Score"] + data["Sarah Time Score"]
-    max_points_per_game = 10000
-elif score_mode == "Geography Score":
-    req_cols = ["Michael Geography Score", "Sarah Geography Score"]
-    data = data.dropna(subset=req_cols).copy()
-    data["Michael Selected"] = data["Michael Geography Score"]
-    data["Sarah Selected"] = data["Sarah Geography Score"]
-    max_points_per_game = 5000
-else:
-    req_cols = ["Michael Time Score", "Sarah Time Score"]
-    data = data.dropna(subset=req_cols).copy()
-    data["Michael Selected"] = data["Michael Time Score"]
-    data["Sarah Selected"] = data["Sarah Time Score"]
-    max_points_per_game = 5000
-
-# Metadata Conversion
-unique_countries = data["Country"].unique()
-iso3_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="ISO3", not_found=None)))
-continent_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="continent")))
-un_region_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="UNregion")))
-
-data["ISO3"] = data["Country"].map(iso3_map)
-data["Continent"] = data["Country"].map(continent_map)
-data["UN_Region"] = data["Country"].map(un_region_map)
-
-# --- 3. Aggregation Function ---
-def get_aggregated_data(df, view_mode, split_us_flag):
+def get_aggregated_data(df, view_mode, split_us_flag, split_uk_flag, max_points_per_game):
     """
     Aggregates data. 
     - Handles US Splitting (Only in 'Countries' mode).
+    - Handles UK Splitting (Only in 'Countries' mode).
     - Handles Full Continent Coloring (In 'Continents'/'UN Regions' mode).
     """
     df_working = df.copy()
@@ -266,21 +158,37 @@ def get_aggregated_data(df, view_mode, split_us_flag):
     # --- Regional Split Logic ---
     if split_us_flag and view_mode in ["Continents", "UN Regions"]:
         target_col = "Continent" if view_mode == "Continents" else "UN_Region"
+        # Safely assign United States label
         df_working.loc[df_working["ISO3"] == "USA", target_col] = "United States"
 
     # --- Country Split Logic ---
-    if view_mode == "Countries" and subdiv_col in df_working.columns and split_us_flag:
-        is_us = df_working["ISO3"] == "USA"
-        df_working.loc[is_us, "Mapped_Code"] = df_working.loc[is_us, subdiv_col].map(us_state_abbrev)
+    if view_mode == "Countries" and subdiv_col in df_working.columns:
         
-        mask_us_valid = is_us & df_working["Mapped_Code"].notna()
-        df_working.loc[mask_us_valid, "Location_Mode"] = "USA-states"
-        df_working.loc[mask_us_valid, "Country"] = df_working.loc[mask_us_valid, subdiv_col]
-        df_working.loc[mask_us_valid, "ISO3"] = df_working.loc[mask_us_valid, "Mapped_Code"]
+        # 1. US Split
+        if split_us_flag:
+            is_us = df_working["ISO3"] == "USA"
+            df_working.loc[is_us, "Mapped_Code"] = df_working.loc[is_us, subdiv_col].map(us_state_abbrev)
+            
+            mask_us_valid = is_us & df_working["Mapped_Code"].notna()
+            df_working.loc[mask_us_valid, "Location_Mode"] = "USA-states"
+            df_working.loc[mask_us_valid, "Country"] = df_working.loc[mask_us_valid, subdiv_col]
+            df_working.loc[mask_us_valid, "ISO3"] = df_working.loc[mask_us_valid, "Mapped_Code"]
+
+        # 2. UK Split (GBR)
+        if split_uk_flag:
+            is_uk = df_working["ISO3"] == "GBR"
+            # Ensure we have a valid subdivision name (England, Scotland, etc.)
+            mask_uk_valid = is_uk & df_working[subdiv_col].notna()
+            
+            df_working.loc[mask_uk_valid, "Location_Mode"] = "UK-countries"
+            df_working.loc[mask_uk_valid, "Country"] = df_working.loc[mask_uk_valid, subdiv_col]
+            # Set ISO3 to a dummy value so it doesn't merge with main world map 'GBR'
+            df_working.loc[mask_uk_valid, "ISO3"] = "GBR-Split"
 
     # --- Grouping ---
     if view_mode == "Countries":
         group_col = "Country"
+        # Include Location_Mode in groupby to keep split countries separate
         grouped = df_working.groupby(["Country", "ISO3", "Location_Mode"]).agg({
             "Michael Selected": "sum",
             "Sarah Selected": "sum",
@@ -333,7 +241,11 @@ def get_aggregated_data(df, view_mode, split_us_flag):
         axis=1
     )
     
-    # Formatting
+    # Calculate Average Scores (Total / Count), rounded to nearest whole number
+    grouped["Michael Avg"] = (grouped["Michael Selected"] / grouped["Count"]).fillna(0).round().astype(int)
+    grouped["Sarah Avg"] = (grouped["Sarah Selected"] / grouped["Count"]).fillna(0).round().astype(int)
+    
+    # Formatting strings
     grouped["Michael Eff %"] = (grouped["Michael Efficiency"] * 100).map('{:,.1f}%'.format)
     grouped["Sarah Eff %"] = (grouped["Sarah Efficiency"] * 100).map('{:,.1f}%'.format)
     grouped["Michael Share %"] = (grouped["Michael Share Ratio"] * 100).map('{:,.1f}%'.format)
@@ -341,25 +253,281 @@ def get_aggregated_data(df, view_mode, split_us_flag):
     
     return grouped, group_col
 
-# --- 4. Get Data ---
-map_data, locality_col = get_aggregated_data(data, view_mode, split_us)
+def add_calculated_colors(df, value_col, colorscale, min_val, max_val):
+    if df.empty: return df
+    
+    # 1. Force numeric and handle NaNs/Infs
+    vals = pd.to_numeric(df[value_col], errors='coerce').fillna(min_val)
+    
+    # 2. Normalize
+    denom = max_val - min_val
+    if denom == 0:
+        norm_vals = pd.Series(0.0, index=vals.index)
+    else:
+        norm_vals = (vals - min_val) / denom
+    
+    # 3. Clip to [0, 1]
+    norm_vals = norm_vals.clip(0, 1)
+    
+    # 4. Get colors
+    sample_points = norm_vals.to_numpy(dtype=float)
+    
+    df['Calculated_Color'] = sample_colorscale(colorscale, sample_points)
+    return df
 
-# DEBUG: Check for unmapped US subdivisions
-if split_us and view_mode == "Countries":
-    us_subset = data[data["ISO3"] == "USA"]
-    if "Subdivision" in us_subset.columns:
-        unmapped_mask = ~us_subset["Subdivision"].isin(us_state_abbrev.keys())
-        unmapped_vals = us_subset.loc[unmapped_mask, "Subdivision"]
-        if not unmapped_vals.empty:
-            with st.expander("⚠️ Unmapped US Subdivisions Found", expanded=True):
-                st.write(unmapped_vals.value_counts())
+# --- 1. Global Controls & Data Filtering (Sidebar) ---
+with st.sidebar:
+    st.header("Map Settings")
+    
+    # -- Date Pre-processing --
+    if "Date" in data.columns:
+        data["Date"] = pd.to_datetime(data["Date"], errors='coerce')
+        # Drop rows with totally invalid dates
+        date_data = data.dropna(subset=["Date"])
+        
+        # Filter for valid location info for min/max determination
+        loc_cols = [c for c in ["Country", "Subdivision", "City"] if c in date_data.columns]
+        if loc_cols:
+            valid_loc_data = date_data.dropna(subset=loc_cols)
+        else:
+            valid_loc_data = date_data
 
-# Split data for plotting logic
+        if not valid_loc_data.empty:
+            min_date = valid_loc_data["Date"].min().date()
+            max_date = valid_loc_data["Date"].max().date()
+        elif not date_data.empty:
+            min_date = date_data["Date"].min().date()
+            max_date = date_data["Date"].max().date()
+        else:
+            min_date = datetime.date.today()
+            max_date = datetime.date.today()
+            
+        selected_dates = st.slider(
+            "Select Date Range:",
+            min_value=min_date,
+            max_value=max_date,
+            value=(min_date, max_date),
+            format="MM/DD/YY"
+        )
+        
+        # Filter Data based on Slider
+        mask = (data["Date"].dt.date >= selected_dates[0]) & (data["Date"].dt.date <= selected_dates[1])
+        filtered_data = data[mask]
+    else:
+        st.warning("Date column not found.")
+        filtered_data = data.copy()
+    
+    st.divider()
+    
+    map_metric = st.radio(
+        "Select Metric:",
+        options=["Count", "Comparison", "Michael", "Sarah"],
+        horizontal=False,
+        key="map_metric_selector"
+    )
+    
+    if map_metric != "Count":
+        st.divider()
+        score_mode = st.radio(
+            "Select Score Type:",
+            options=["Total Score", "Geography Score", "Time Score"],
+            horizontal=False,
+            key="score_mode_selector"
+        )
+    else:
+        score_mode = "Total Score"
+
+    st.divider()
+
+    view_mode = st.radio(
+        "Select View Level:",
+        options=["Countries", "Continents", "UN Regions"],
+        horizontal=False,
+        key="view_mode_selector"
+    )
+    
+    split_us = st.toggle("Split US", value=False)
+    split_uk = st.toggle("Split UK", value=False)
+
+    # -- Metadata Prep for Calculations --
+    if score_mode == "Total Score":
+        req_cols = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
+        filtered_data = filtered_data.dropna(subset=req_cols).copy()
+        filtered_data["Michael Selected"] = filtered_data["Michael Geography Score"] + filtered_data["Michael Time Score"]
+        filtered_data["Sarah Selected"] = filtered_data["Sarah Geography Score"] + filtered_data["Sarah Time Score"]
+        max_points_per_game = 10000
+    elif score_mode == "Geography Score":
+        req_cols = ["Michael Geography Score", "Sarah Geography Score"]
+        filtered_data = filtered_data.dropna(subset=req_cols).copy()
+        filtered_data["Michael Selected"] = filtered_data["Michael Geography Score"]
+        filtered_data["Sarah Selected"] = filtered_data["Sarah Geography Score"]
+        max_points_per_game = 5000
+    else:
+        req_cols = ["Michael Time Score", "Sarah Time Score"]
+        filtered_data = filtered_data.dropna(subset=req_cols).copy()
+        filtered_data["Michael Selected"] = filtered_data["Michael Time Score"]
+        filtered_data["Sarah Selected"] = filtered_data["Sarah Time Score"]
+        max_points_per_game = 5000
+
+    unique_countries = filtered_data["Country"].unique()
+    iso3_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="ISO3", not_found=None)))
+    continent_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="continent")))
+    un_region_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="UNregion")))
+
+    filtered_data["ISO3"] = filtered_data["Country"].map(iso3_map)
+    filtered_data["Continent"] = filtered_data["Country"].map(continent_map)
+    filtered_data["UN_Region"] = filtered_data["Country"].map(un_region_map)
+
+    # --- MANUAL FIXES ---
+    
+    # 1. Territory Merges (Svalbard -> Norway, Madeira -> Portugal, Canaries -> Spain)
+    # Merging logic ensures they are counted as part of the country stats.
+    
+    # Svalbard
+    mask_svalbard = filtered_data["ISO3"] == "SJM"
+    if mask_svalbard.any():
+        filtered_data.loc[mask_svalbard, "Country"] = "Norway"
+        filtered_data.loc[mask_svalbard, "ISO3"] = "NOR"
+        filtered_data.loc[mask_svalbard, "Continent"] = "Europe"
+        filtered_data.loc[mask_svalbard, "UN_Region"] = "Northern Europe"
+
+    # Madeira
+    mask_madeira = filtered_data["Country"].str.contains("Madeira", case=False, na=False)
+    if mask_madeira.any():
+        filtered_data.loc[mask_madeira, "Country"] = "Portugal"
+        filtered_data.loc[mask_madeira, "ISO3"] = "PRT"
+        filtered_data.loc[mask_madeira, "Continent"] = "Europe"
+        filtered_data.loc[mask_madeira, "UN_Region"] = "Southern Europe"
+
+    # Canary Islands
+    mask_canary = filtered_data["Country"].str.contains("Canary Islands", case=False, na=False)
+    if mask_canary.any():
+        filtered_data.loc[mask_canary, "Country"] = "Spain"
+        filtered_data.loc[mask_canary, "ISO3"] = "ESP"
+        filtered_data.loc[mask_canary, "Continent"] = "Europe"
+        filtered_data.loc[mask_canary, "UN_Region"] = "Southern Europe"
+
+    # -- Calculate Aggregates to find Max Count --
+    map_data, locality_col = get_aggregated_data(filtered_data, view_mode, split_us, split_uk, max_points_per_game)
+    
+    # --- POST-AGGREGATION VISUAL FIXES (Ghost Rows for Bubbles/Map) ---
+    if view_mode == "Countries":
+        # Svalbard (SJM) from Norway (NOR)
+        if "NOR" in map_data["ISO3"].values:
+            nor_stats = map_data[map_data["ISO3"] == "NOR"].iloc[0].copy()
+            nor_stats["ISO3"] = "SJM" # Assign to Svalbard geometry/key
+            nor_stats["Country"] = "Svalbard (Norway)" # Label for hover
+            map_data = pd.concat([map_data, pd.DataFrame([nor_stats])], ignore_index=True)
+
+    max_game_count = 1
+    if not map_data.empty:
+        max_game_count = map_data["Count"].max()
+        if pd.isna(max_game_count) or max_game_count == 0:
+            max_game_count = 1
+    
+    # -- Count Filter Slider --
+    if max_game_count > 1:
+        st.divider()
+        min_count_filter = st.slider(
+            "Minimum Games Played:", 
+            min_value=1, 
+            max_value=int(max_game_count), 
+            value=1
+        )
+    else:
+        min_count_filter = 1
+
+# --- Apply Count Filter to Map Data ---
+map_data = map_data[map_data["Count"] >= min_count_filter]
+
+# DEBUG: Check for unmapped subdivisions
+if view_mode == "Countries":
+    if split_us:
+        us_subset = filtered_data[filtered_data["ISO3"] == "USA"]
+        if "Subdivision" in us_subset.columns:
+            unmapped_mask = ~us_subset["Subdivision"].isin(us_state_abbrev.keys())
+            unmapped_vals = us_subset.loc[unmapped_mask, "Subdivision"]
+            if not unmapped_vals.empty:
+                 with st.expander("⚠️ Unmapped US Subdivisions", expanded=False):
+                    st.write(unmapped_vals.value_counts())
+
+# --- Split data for plotting logic ---
 world_data = map_data[map_data["Location_Mode"] == "ISO-3"].copy()
+
+# If splitting, remove the parent countries from the main world map so they don't overlap
 if split_us and view_mode == "Countries":
     world_data = world_data[world_data["ISO3"] != "USA"]
+if split_uk and view_mode == "Countries":
+    world_data = world_data[world_data["ISO3"] != "GBR"]
 
 us_data = map_data[map_data["Location_Mode"] == "USA-states"].copy()
+uk_data = map_data[map_data["Location_Mode"] == "UK-countries"].copy()
+
+# --- Helper: Simplify GeoJSON ---
+def simplify_geojson(geojson_data, step=1):
+    """
+    Naively reduces the number of points in a GeoJSON to make it 'polygonal'
+    and faster to render. 
+    step=1 means no change. step=10 means keep every 10th point.
+    """
+    if step <= 1: return geojson_data
+    
+    # Deep copy to avoid mutating cache if used elsewhere
+    simplified = json.loads(json.dumps(geojson_data))
+    
+    for feature in simplified.get("features", []):
+        geom = feature.get("geometry")
+        if not geom: continue
+        
+        g_type = geom.get("type")
+        raw_coords = geom.get("coordinates")
+        
+        if g_type == "Polygon":
+            new_rings = []
+            for ring in raw_coords:
+                # Keep every Nth point
+                new_ring = ring[::step]
+                # Ensure closure (last point == first point)
+                if new_ring and new_ring[-1] != new_ring[0]:
+                    new_ring.append(new_ring[0])
+                # Filter out degenerate rings (need at least 4 points for a closed polygon: A-B-C-A)
+                if len(new_ring) >= 4: 
+                    new_rings.append(new_ring)
+            feature["geometry"]["coordinates"] = new_rings
+            
+        elif g_type == "MultiPolygon":
+            new_polys = []
+            for poly in raw_coords:
+                new_rings = []
+                for ring in poly:
+                    new_ring = ring[::step]
+                    if new_ring and new_ring[-1] != new_ring[0]:
+                        new_ring.append(new_ring[0])
+                    if len(new_ring) >= 4:
+                        new_rings.append(new_ring)
+                if new_rings:
+                    new_polys.append(new_rings)
+            feature["geometry"]["coordinates"] = new_polys
+            
+    return simplified
+
+@st.cache_data
+def load_uk_geojson(filepath):
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        # Apply simplification (Step 25 makes it significantly polygonal)
+        return simplify_geojson(data, step=25) 
+    except Exception as e:
+        return None
+
+# --- Load UK GeoJSON if needed ---
+uk_geojson = None
+if split_uk and not uk_data.empty:
+    uk_geojson = load_uk_geojson("./Data/uk_countries.geojson")
+    if not uk_geojson:
+        st.error("File './Data/uk_countries.geojson' not found. UK splitting disabled.")
+
 
 # --- 5. Layout Settings & Helpers ---
 is_regional = view_mode in ["Continents", "UN Regions"]
@@ -373,11 +541,8 @@ layout_settings = dict(
         landcolor="white",
         projection=dict(type="robinson"),
         scope="world",
-        # Regional Settings
-        # Hide internal country borders to make continents look like solid blobs
         showcountries=not is_regional, 
         countrycolor="white",
-        # Explicitly show coastlines in black so outer edges are visible against ocean
         showcoastlines=True, 
         coastlinecolor="black", 
     ),
@@ -386,32 +551,6 @@ layout_settings = dict(
     width=1600, height=1200, coloraxis_showscale=False, showlegend=False,
     margin=dict(t=0, b=0, l=0, r=0)
 )
-
-# Helper to calculate fill color to use as border color (Color Dissolve)
-def add_calculated_colors(df, value_col, colorscale, min_val, max_val):
-    if df.empty: return df
-    
-    # 1. Force numeric and handle NaNs/Infs
-    # coerce errors to NaN, then fill with min_val (or 0) to avoid crashing sample_colorscale
-    vals = pd.to_numeric(df[value_col], errors='coerce').fillna(min_val)
-    
-    # 2. Normalize
-    denom = max_val - min_val
-    if denom == 0:
-        # Default to 0.0 (start of colorscale) if range is flat
-        norm_vals = pd.Series(0.0, index=vals.index)
-    else:
-        norm_vals = (vals - min_val) / denom
-    
-    # 3. Clip to [0, 1] to prevent values > 1.0 (which cause the TypeError)
-    norm_vals = norm_vals.clip(0, 1)
-    
-    # 4. Get colors
-    # Ensure numpy array of floats
-    sample_points = norm_vals.to_numpy(dtype=float)
-    
-    df['Calculated_Color'] = sample_colorscale(colorscale, sample_points)
-    return df
 
 # Helper for Microstates
 microstates = {
@@ -428,7 +567,8 @@ microstates = {
     "Micronesia": {"lon": 158.1625, "lat": 6.9248}, "Samoa": {"lon": -172.1046, "lat": -13.7590},
     "Singapore": {"lon": 103.8198, "lat": 1.3521}, "Bahrain": {"lon": 50.5577, "lat": 26.0667},
     "Maldives": {"lon": 73.2207, "lat": 3.2028}, "Seychelles": {"lon": 55.4920, "lat": -4.6796},
-    "Mauritius": {"lon": 57.5522, "lat": -20.3484}, "Comoros": {"lon": 43.8722, "lat": -11.6455},
+    "Mauritius": {"lon": 57.5522, "lat": -20.3484}, 
+    "Comoros": {"lon": 43.3333, "lat": -11.699}, # Moved to Grande Comore
     "Sao Tome and Principe": {"lon": 6.6131, "lat": 0.1864}, "Cape Verde": {"lon": -24.0130, "lat": 16.5388},
     "British Virgin Islands": {"lon": -64.6399, "lat": 18.4207}, "Anguilla": {"lon": -63.0686, "lat": 18.2206},
     "Bermuda": {"lon": -64.7505, "lat": 32.3078}, "Cayman Islands": {"lon": -81.2546, "lat": 19.3133},
@@ -440,7 +580,8 @@ microstates = {
     "US Virgin Islands": {"lon": -64.8963, "lat": 18.3358}, "Saint Pierre and Miquelon": {"lon": -56.2711, "lat": 46.8852},
     "Wallis and Futuna": {"lon": -176.1761, "lat": -13.7687}, "Saint Martin": {"lon": -63.0501, "lat": 18.0708},
     "Saint Barthelemy": {"lon": -62.8334, "lat": 17.9000}, "French Polynesia": {"lon": -149.4068, "lat": -17.6797},
-    "Mayotte": {"lon": 45.1662, "lat": -12.8275}, "Reunion": {"lon": 55.5364, "lat": -21.1151},
+    "Mayotte": {"lon": 45.1662, "lat": -12.8275}, 
+    "Reunion": {"lon": 55.5364, "lat": -21.1151}, "Réunion": {"lon": 55.5364, "lat": -21.1151},
     "Martinique": {"lon": -61.0242, "lat": 14.6415}, "Guadeloupe": {"lon": -61.5510, "lat": 16.2650},
     "Aruba": {"lon": -69.9683, "lat": 12.5211}, "Curacao": {"lon": -68.9335, "lat": 12.1696},
     "Sint Maarten": {"lon": -63.0548, "lat": 18.0425}, "Bonaire": {"lon": -68.2624, "lat": 12.2019},
@@ -451,16 +592,25 @@ microstates = {
     "Macau": {"lon": 113.5439, "lat": 22.1987}, "Faroe Islands": {"lon": -6.9118, "lat": 61.8926},
     "Trinidad and Tobago": {"lon": -61.2225, "lat": 10.6918}, "Norfolk Island": {"lon": 167.95, "lat": -29.033333},
     "Easter Island": {"lon": -109.35, "lat": -27.12}, "Aland": {"lon": 20.366667, "lat": 60.25},
+    "Puerto Rico": {"lon": -66.5901, "lat": 18.2208},
+    "New Caledonia": {"lon": 165.6180, "lat": -20.9043},
+    "Falkland Islands": {"lon": -59.5236, "lat": -51.7963},
 }
 
-def get_microstate_trace(base_df, value_col, colorscale, zmin, zmax, hover_template, custom_data_cols, line_color_logic=False):
+def get_microstate_trace(base_df, value_col, colorscale, zmin, zmax, hover_template, custom_data_cols, is_regional=False, line_color_logic=False):
     micro_df = base_df[base_df["Country"].isin(microstates.keys())].copy()
     if micro_df.empty: return None
     micro_df["lat"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lat"))
     micro_df["lon"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lon"))
     
     marker_line_color = "black" 
-    if line_color_logic: 
+    
+    if is_regional:
+        # If regional, check if Calculated_Color exists to match fill
+        if "Calculated_Color" in micro_df.columns:
+            marker_line_color = micro_df["Calculated_Color"]
+            
+    elif line_color_logic: 
          micro_df["BorderColor"] = micro_df[value_col].apply(
              lambda ratio: "#221e8f" if ratio > 0.5 else ("#8a005c" if ratio < 0.5 else "#666666")
          )
@@ -497,6 +647,34 @@ def add_us_subdivision_trace(fig, df_sub, color_col, colorscale, zmin, zmax, hov
 
     fig.add_trace(go.Choropleth(**trace_kwargs))
 
+def add_uk_subdivision_trace(fig, df_sub, geojson, color_col, colorscale, zmin, zmax, hover_template, custom_data_cols, marker_line_logic=None):
+    if df_sub.empty or not geojson: return
+    
+    trace_kwargs = dict(
+        geojson=geojson,
+        locations=df_sub['Country'], # Match the GeoJSON feature name (e.g., "England")
+        z=df_sub[color_col],
+        colorscale=colorscale,
+        zmin=zmin, zmax=zmax,
+        # 'CTRY21NM' is the standard ONS Key. If map is blank, check your json file properties!
+        featureidkey="properties.CTRY21NM", 
+        text=df_sub['Hover_Name'],
+        customdata=df_sub[custom_data_cols],
+        hovertemplate=hover_template,
+        showscale=False,
+    )
+    
+    if marker_line_logic:
+         if isinstance(marker_line_logic, str):
+             trace_kwargs['marker_line_color'] = df_sub[marker_line_logic]
+         else:
+             trace_kwargs['marker_line_color'] = marker_line_logic
+         trace_kwargs['marker_line_width'] = 1.5
+    else:
+         trace_kwargs['marker_line_color'] = 'black'
+         trace_kwargs['marker_line_width'] = 0.5
+
+    fig.add_trace(go.Choropleth(**trace_kwargs))
 
 # --- 6. Visualization Logic ---
 
@@ -504,7 +682,6 @@ if map_metric == "Count":
     count_scale = [[0.0, "#fee6e6"], [1.0, "#db5049"]]
     max_count = map_data["Count"].max() if not map_data.empty else 1
     
-    # Calculate colors for regional "Dissolve" effect
     if is_regional:
         world_data = add_calculated_colors(world_data, "Count", count_scale, 0, max_count)
         border_color = world_data['Calculated_Color']
@@ -524,9 +701,15 @@ if map_metric == "Count":
         fig, us_data, "Count", count_scale, 0, max_count, 
         "<b>%{text}</b><br>Count: %{z}<extra></extra>", ["Count"]
     )
+    add_uk_subdivision_trace(
+        fig, uk_data, uk_geojson, "Count", count_scale, 0, max_count,
+        "<b>%{text}</b><br>Count: %{z}<extra></extra>", ["Count"]
+    )
+
     ms_trace = get_microstate_trace(
         world_data, "Count", count_scale, 0, max_count, 
-        "<b>%{text}</b><br>Count: %{customdata[0]}<extra></extra>", ["Count"]
+        "<b>%{text}</b><br>Count: %{customdata[0]}<extra></extra>", ["Count"],
+        is_regional=is_regional
     )
     if ms_trace: fig.add_trace(ms_trace)
 
@@ -541,7 +724,6 @@ elif map_metric == "Comparison":
         elif ratio < 0.5: return "#8a005c"
         else: return "#666666"
 
-    # For Comparison, we dissolve borders if regional
     if is_regional:
         world_data = add_calculated_colors(world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6)
         world_data["BorderColor"] = world_data["Calculated_Color"]
@@ -552,12 +734,17 @@ elif map_metric == "Comparison":
 
     if not us_data.empty: 
         us_data["BorderColor"] = us_data["Michael Share Ratio"].apply(get_border_color)
+    if not uk_data.empty:
+        uk_data["BorderColor"] = uk_data["Michael Share Ratio"].apply(get_border_color)
+
+    custom_cols = ['Michael Avg', 'Sarah Avg', 'Michael Share %', 'Sarah Share %']
 
     hover_template = (
-        "<b>%{text}</b><br>" + f"Michael ({score_mode}): %{{customdata[0]:,.0f}}<br>" +
-        f"Sarah ({score_mode}): %{{customdata[1]:,.0f}}<br>" + "Share: %{customdata[2]} vs %{customdata[3]}<extra></extra>"
+        "<b>%{text}</b><br>" + 
+        f"Michael Avg: %{{customdata[0]:,.0f}}<br>" +
+        f"Sarah Avg: %{{customdata[1]:,.0f}}<br>" + 
+        "Share: %{customdata[2]} vs %{customdata[3]}<extra></extra>"
     )
-    custom_cols = ['Michael Selected', 'Sarah Selected', 'Michael Share %', 'Sarah Share %']
 
     fig = go.Figure()
     fig.add_trace(go.Choropleth(
@@ -572,9 +759,14 @@ elif map_metric == "Comparison":
         fig, us_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
         hover_template, custom_cols, marker_line_logic="BorderColor"
     )
+    add_uk_subdivision_trace(
+        fig, uk_data, uk_geojson, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
+        hover_template, custom_cols, marker_line_logic="BorderColor"
+    )
+
     ms_trace = get_microstate_trace(
         world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
-        hover_template, custom_cols, line_color_logic=True
+        hover_template, custom_cols, is_regional=is_regional, line_color_logic=True
     )
     if ms_trace: fig.add_trace(ms_trace)
     
@@ -617,9 +809,15 @@ elif map_metric == "Michael":
         fig, us_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
         hover_template, custom_cols
     )
+    add_uk_subdivision_trace(
+        fig, uk_data, uk_geojson, "Michael Efficiency", michael_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+
     ms_trace = get_microstate_trace(
         world_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
-        hover_template, custom_cols
+        hover_template, custom_cols,
+        is_regional=is_regional
     )
     if ms_trace: fig.add_trace(ms_trace)
     
@@ -652,9 +850,15 @@ elif map_metric == "Sarah":
         fig, us_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
         hover_template, custom_cols
     )
+    add_uk_subdivision_trace(
+        fig, uk_data, uk_geojson, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
+        hover_template, custom_cols
+    )
+
     ms_trace = get_microstate_trace(
         world_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
-        hover_template, custom_cols
+        hover_template, custom_cols,
+        is_regional=is_regional
     )
     if ms_trace: fig.add_trace(ms_trace)
     

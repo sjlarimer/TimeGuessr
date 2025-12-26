@@ -326,3 +326,10 @@ TimeGuessr #937
 3. Buenos Aires, Argentina, 2006
 4. Kobe, Japan, 1971
 5. London (England), United Kingdom, 1947
+
+TimeGuessr #939
+1. Vientiane, Laos, 2015
+2. Belfast (Northern Ireland), United Kingdom, 1941
+3. West Danville (Vermont), United States, 1942
+4. Warsaw, Poland, 1930
+5. Rio de Janeiro, Brazil, 2025
