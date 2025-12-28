@@ -50,7 +50,7 @@ TimeGuessr #872
 TimeGuessr #873
 1. Washington DC (Washington DC), United States, 1964
 2. Zagreb, Croatia, 1947
-3. Moscow, Russia, 1991
+3. Moscow (Moscow), Russia, 1991
 4. Monrovia, Liberia, 2014
 5. Milan, Italy, 1975
 
@@ -86,7 +86,7 @@ TimeGuessr #880
 1. Washington DC (Washington DC), United States, 1945
 2. Helsinki, Finland, 1950
 3. Abidja, Côte d'Ivoire, 2025
-4. St. Petersburg, Russia, 1968
+4. Saint Petersburg (Saint Petersburg), Russia, 1968
 5. Dubai, United Arab Emirates, 2006
 
 TimeGuessr #881
@@ -111,7 +111,7 @@ TimeGuessr #883
 5. Mulhouse (Grand Est), France, 1959
 
 TimeGuessr #886
-1. Moscow, Russia, 1990
+1. Moscow (Moscow), Russia, 1990
 2. Berlin (Berlin), Germany, 1955
 3. Santiago, Chile, 1910
 4. Lisbon, Portugal, 1982
@@ -174,7 +174,7 @@ TimeGuessr #903
 5. Shanghai (Shanghai), China, 1972
 
 TimeGuessr #904
-1. Moscow, Russia, 1991
+1. Moscow (Moscow), Russia, 1991
 2. Oslo, Norway, 1950
 3. Istanbul, Türkiye, 1910
 4. Washington DC (Washington DC), United States, 2025
@@ -219,7 +219,7 @@ TimeGuessr #916
 1. Amsterdam, Netherlands, 1947
 2. Sydney (New South Wales), Australia, 1983 
 3. Edmonton (Alberta), Canada, 1931
-4. St. Petersburg, Russia, 1974
+4. Saint Petersburg (Saint Petersburg), Russia, 1974
 5. Seoul, South Korea, 1991
 
 TimeGuessr #917

@@ -36,7 +36,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 872,5,Oslo,,Norway,1950
 873,1,Washington DC,Washington DC,United States,1964
 873,2,Zagreb,,Croatia,1947
-873,3,Moscow,,Russia,1991
+873,3,Moscow,Moscow,Russia,1991
 873,4,Monrovia,,Liberia,2014
 873,5,Milan,,Italy,1975
 874,1,Moab,Utah,United States,2025
@@ -62,7 +62,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 880,1,Washington DC,Washington DC,United States,1945
 880,2,Helsinki,,Finland,1950
 880,3,Abidja,,Côte d'Ivoire,2025
-880,4,St. Petersburg,,Russia,1968
+880,4,Saint Petersburg,Saint Petersburg,Russia,1968
 880,5,Dubai,,United Arab Emirates,2006
 881,1,Tokyo,,Japan,2012
 881,2,Jerusalem,,Israel,2025
@@ -79,7 +79,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 883,3,Krefeld,North Rhine-Westphalia,Germany,1945
 883,4,Bratislava,,Slovakia,1974
 883,5,Mulhouse,Grand Est,France,1959
-886,1,Moscow,,Russia,1990
+886,1,Moscow,Moscow,Russia,1990
 886,2,Berlin,Berlin,Germany,1955
 886,3,Santiago,,Chile,1910
 886,4,Lisbon,,Portugal,1982
@@ -124,7 +124,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 903,3,Placencia,,Belize,2018
 903,4,Madrid,,Spain,1965
 903,5,Shanghai,Shanghai,China,1972
-904,1,Moscow,,Russia,1991
+904,1,Moscow,Moscow,Russia,1991
 904,2,Oslo,,Norway,1950
 904,3,Istanbul,,Türkiye,1910
 904,4,Washington DC,Washington DC,United States,2025
@@ -157,7 +157,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 916,1,Amsterdam,,Netherlands,1947
 916,2,Sydney,New South Wales,Australia,1983
 916,3,Edmonton,Alberta,Canada,1931
-916,4,St. Petersburg,,Russia,1974
+916,4,Saint Petersburg,Saint Petersburg,Russia,1974
 916,5,Seoul,,South Korea,1991
 917,1,Montevideo,,Uruguay,2008
 917,2,Auschwitz,Lesser Poland,Poland,1945

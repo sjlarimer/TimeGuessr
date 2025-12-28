@@ -212,11 +212,11 @@ def get_background_layer(_gdf):
     return json.loads(bg_gdf.to_json())
 
 @st.cache_data(max_entries=10)
-def generate_dynamic_map_layer(_gdf, active_iso_tuple, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, view_mode):
+def generate_dynamic_map_layer(_gdf, active_iso_tuple, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia, view_mode):
     """
     Generates map geometry. 
     Dissolves active countries based on view_mode (Country vs Region vs Continent).
-    Prioritizes splitting US/UK/Germany/France/Canada/Australia/India/China/Poland even in Region/Continent modes.
+    Prioritizes splitting US/UK/Germany/France/Canada/Australia/India/China/Poland/Russia even in Region/Continent modes.
     """
     if _gdf is None: return None
     
@@ -228,24 +228,16 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, split_us, split_uk, split
         
         if iso in active_iso_tuple:
             # 1. Handle Splits FIRST
-            if iso == 'USA' and split_us: 
-                return name if view_mode == 'Countries' else iso
-            if iso == 'GBR' and split_uk: 
-                return name if view_mode == 'Countries' else iso
-            if iso == 'DEU' and split_germany:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'FRA' and split_france:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'CAN' and split_canada:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'AUS' and split_australia:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'IND' and split_india:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'CHN' and split_china:
-                return name if view_mode == 'Countries' else iso
-            if iso == 'POL' and split_poland:
-                return name if view_mode == 'Countries' else iso
+            if iso == 'USA' and split_us: return name if view_mode == 'Countries' else iso
+            if iso == 'GBR' and split_uk: return name if view_mode == 'Countries' else iso
+            if iso == 'DEU' and split_germany: return name if view_mode == 'Countries' else iso
+            if iso == 'FRA' and split_france: return name if view_mode == 'Countries' else iso
+            if iso == 'CAN' and split_canada: return name if view_mode == 'Countries' else iso
+            if iso == 'AUS' and split_australia: return name if view_mode == 'Countries' else iso
+            if iso == 'IND' and split_india: return name if view_mode == 'Countries' else iso
+            if iso == 'CHN' and split_china: return name if view_mode == 'Countries' else iso
+            if iso == 'POL' and split_poland: return name if view_mode == 'Countries' else iso
+            if iso == 'RUS' and split_russia: return name if view_mode == 'Countries' else iso
             
             # 2. Determine base identity based on View Mode
             if view_mode == "Continents":
@@ -265,7 +257,7 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, split_us, split_uk, split
 
 # --- 3. Data Calculation ---
 
-def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, max_points):
+def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia, max_points):
     """
     Calculates stats at the granular level (ISO/Subdiv).
     Handles tie-breaking for most recent locations.
@@ -302,6 +294,7 @@ def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, s
         if iso == 'IND' and split_india and pd.notna(subdiv): return subdiv
         if iso == 'CHN' and split_china and pd.notna(subdiv): return subdiv
         if iso == 'POL' and split_poland and pd.notna(subdiv): return subdiv
+        if iso == 'RUS' and split_russia and pd.notna(subdiv): return subdiv
         return iso
 
     def get_display_name(row):
@@ -319,6 +312,7 @@ def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, s
         elif iso == 'IND' and split_india: is_split = True
         elif iso == 'CHN' and split_china: is_split = True
         elif iso == 'POL' and split_poland: is_split = True
+        elif iso == 'RUS' and split_russia: is_split = True
         
         # If split is active and subdiv exists, label row "Subdiv, Country"
         if is_split and pd.notna(subdiv):
@@ -396,13 +390,14 @@ def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, s
     return grouped
 
 @st.cache_data
-def precompute_stats_v12(raw_df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland):
+def precompute_stats_v13(raw_df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia):
     """
     Calculates stats for ALL 3 Score Modes (Total, Geo, Time).
     Includes Win Counts for Intersection Data.
+    Renamed to v13 to invalidate cache.
     """
     results = {}
-    args = (split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland)
+    args = (split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia)
     
     modes = ["Total Score", "Geography Score", "Time Score"]
     
@@ -445,7 +440,7 @@ def precompute_stats_v12(raw_df, split_us, split_uk, split_germany, split_france
 
     return results
 
-def aggregate_by_view_mode(df, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland):
+def aggregate_by_view_mode(df, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia):
     """
     If view_mode is Region/Continent, re-aggregate the stats.
     Includes tie-breaking logic for locations when aggregating.
@@ -466,6 +461,7 @@ def aggregate_by_view_mode(df, view_mode, split_us, split_uk, split_germany, spl
         if split_india and iso == 'IND': return 'IND'
         if split_china and iso == 'CHN': return 'CHN'
         if split_poland and iso == 'POL': return 'POL'
+        if split_russia and iso == 'RUS': return 'RUS'
         return row[base_group]
 
     df_work = df.copy()
@@ -509,7 +505,7 @@ def aggregate_by_view_mode(df, view_mode, split_us, split_uk, split_germany, spl
     
     name_map = {
         'USA': 'United States', 'GBR': 'United Kingdom', 'DEU': 'Germany', 'FRA': 'France',
-        'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland'
+        'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland', 'RUS': 'Russian Federation'
     }
     grouped['Hover_Name'] = grouped['Agg_Key'].replace(name_map)
     
@@ -630,7 +626,7 @@ def fix_table_name(row):
     key = str(row['Join_Key'])
     name_map = {
         'USA': 'United States', 'GBR': 'United Kingdom', 'DEU': 'Germany', 'FRA': 'France',
-        'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland'
+        'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland', 'RUS': 'Russian Federation'
     }
     if key in name_map: return name_map[key]
     if len(key) == 3 and key.isupper():
@@ -674,15 +670,18 @@ def get_final_loc(row, view_mode):
         is_subdiv_row = False
         is_country_row = False
         
+        # Check split ISOs for row logic
+        special_isos = ['USA', 'GBR', 'DEU', 'FRA', 'CAN', 'AUS', 'IND', 'CHN', 'POL', 'RUS']
+        
         if view_mode == "Countries":
              # If key is NOT 3-char ISO and not special split country ISO, it's a subdivision
-             if len(key) != 3 and key not in ['USA', 'GBR', 'DEU', 'FRA', 'CAN', 'AUS', 'IND', 'CHN', 'POL']: 
+             if len(key) != 3 and key not in special_isos: 
                  is_subdiv_row = True
              else:
                  is_country_row = True
         else:
             # In Region view, Countries are rows if split, otherwise Regions
-            if len(key) == 3 or key in ['USA', 'GBR', 'DEU', 'FRA', 'CAN', 'AUS', 'IND', 'CHN', 'POL']:
+            if len(key) == 3 or key in special_isos:
                 is_country_row = True
         
         p_out = []
@@ -704,7 +703,6 @@ def get_final_loc(row, view_mode):
 
 def get_simple_loc_str(row, view_mode):
     # Fallback if no exclusive logic ran (wrapper for same logic)
-    # Mock a row with no Excl data so get_final_loc uses just L1
     row_mock = row.copy()
     row_mock['Excl_Date'] = pd.NaT
     row_mock['Excl_Loc_Raw'] = ''
@@ -748,19 +746,16 @@ with st.sidebar:
     # Placeholder for slider
     slider_ph = st.empty()
     
-    st.divider()
     map_metric = st.radio("Select Metric:", options=["Count", "Comparison", "Michael", "Sarah"], horizontal=False)
     
     if map_metric != "Count":
-        st.divider()
         score_mode = st.radio("Select Score Type:", options=["Total Score", "Geography Score", "Time Score"], horizontal=False)
     else:
         score_mode = "Total Score" 
 
-    st.divider()
     view_mode = st.radio("Select View Level:", options=["Countries", "UN Regions", "Continents"], horizontal=False)
     
-    split_options = ["United States", "United Kingdom", "Germany", "France", "Canada", "Australia", "India", "China", "Poland"]
+    split_options = ["United States", "United Kingdom", "Germany", "France", "Canada", "Australia", "India", "China", "Poland", "Russia"]
     selected_splits = st.multiselect("Split Countries:", options=split_options, default=[])
 
     split_us = "United States" in selected_splits
@@ -772,6 +767,7 @@ with st.sidebar:
     split_india = "India" in selected_splits
     split_china = "China" in selected_splits
     split_poland = "Poland" in selected_splits
+    split_russia = "Russia" in selected_splits
 
     # --- Validation Logic ---
     if split_us:
@@ -878,6 +874,22 @@ with st.sidebar:
             if valid_map_names:
                 unknown_subdivs = poland_rows[~poland_rows['Subdivision'].isin(valid_map_names)]
                 if not unknown_subdivs.empty: st.error(f"Error: Unknown Poland subdivisions: {', '.join(unknown_subdivs['Subdivision'].unique())}"); st.stop()
+    
+    if split_russia:
+        russia_prov_mapping = {
+            "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_russia_mask = filtered_data['Country'].map(iso_lookup) == 'RUS'
+        if is_russia_mask.any(): filtered_data.loc[is_russia_mask, 'Subdivision'] = filtered_data.loc[is_russia_mask, 'Subdivision'].replace(russia_prov_mapping)
+        russia_rows = filtered_data[is_russia_mask]
+        if not russia_rows.empty:
+            missing_subdivs = russia_rows[russia_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty: st.error("Error: Russia entries missing subdivision"); st.dataframe(missing_subdivs[['Date','Country','Subdivision']]); st.stop()
+            if valid_map_names:
+                unknown_subdivs = russia_rows[~russia_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty: st.error(f"Error: Unknown Russia subdivisions: {', '.join(unknown_subdivs['Subdivision'].unique())}"); st.stop()
 
     granular_split_us = split_us and (view_mode == "Countries")
     granular_split_uk = split_uk and (view_mode == "Countries")
@@ -888,8 +900,9 @@ with st.sidebar:
     granular_split_india = split_india and (view_mode == "Countries")
     granular_split_china = split_china and (view_mode == "Countries")
     granular_split_poland = split_poland and (view_mode == "Countries")
+    granular_split_russia = split_russia and (view_mode == "Countries")
 
-    all_stats = precompute_stats_v12(filtered_data, granular_split_us, granular_split_uk, granular_split_germany, granular_split_france, granular_split_canada, granular_split_australia, granular_split_india, granular_split_china, granular_split_poland)
+    all_stats = precompute_stats_v13(filtered_data, granular_split_us, granular_split_uk, granular_split_germany, granular_split_france, granular_split_canada, granular_split_australia, granular_split_india, granular_split_china, granular_split_poland, granular_split_russia)
     
     if map_metric == "Michael":
         granular_key = f"Michael {score_mode}"
@@ -900,7 +913,7 @@ with st.sidebar:
         
     granular_data = all_stats[granular_key]
     
-    view_data = aggregate_by_view_mode(granular_data, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland)
+    view_data = aggregate_by_view_mode(granular_data, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia)
     
     max_game_count = int(view_data["Count"].max()) if not view_data.empty else 1
     
@@ -972,6 +985,7 @@ with st.sidebar:
             elif split_india and iso == 'IND': is_split = True
             elif split_china and iso == 'CHN': is_split = True
             elif split_poland and iso == 'POL': is_split = True
+            elif split_russia and iso == 'RUS': is_split = True
             
             if is_split:
                 if view_mode == "Countries":
@@ -1011,7 +1025,7 @@ with st.sidebar:
     base_isos = set(active_granular['ISO3'].unique().tolist())
     final_active_isos = tuple(sorted(base_isos.union(exclusive_isos)))
 
-    map_json = generate_dynamic_map_layer(base_gdf, final_active_isos, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, view_mode)
+    map_json = generate_dynamic_map_layer(base_gdf, final_active_isos, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia, view_mode)
     bg_geojson = get_background_layer(base_gdf)
 
     if map_json:
@@ -1201,9 +1215,7 @@ if map_json and not map_df.empty:
             return f"{sel:,.0f}/{tot:,.0f}"
 
         map_df['Score_String'] = map_df.apply(lambda r: get_score_str(r, "Michael"), axis=1)
-        # Apply to view_data for bubbles
-        if 'Score_String' in view_data.columns:
-            view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Michael"), axis=1)
+        view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Michael"), axis=1)
         
         custom_cols = ["Michael Eff %", "Score_String"]
         hover_fmt = hover_base + "Percent: %{customdata[0]}<br>Total Score: %{customdata[1]}<extra></extra>"
@@ -1235,8 +1247,7 @@ if map_json and not map_df.empty:
             return f"{sel:,.0f}/{tot:,.0f}"
 
         map_df['Score_String'] = map_df.apply(lambda r: get_score_str(r, "Sarah"), axis=1)
-        if 'Score_String' in view_data.columns:
-            view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Sarah"), axis=1)
+        view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Sarah"), axis=1)
         
         custom_cols = ["Sarah Eff %", "Score_String"]
         hover_fmt = hover_base + "Percent: %{customdata[0]}<br>Total Score: %{customdata[1]}<extra></extra>"
@@ -1281,6 +1292,18 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 st.subheader(f"Statistics by {view_mode}")
 
+def get_top_items_string(series, count_series=None):
+    if series.empty: return ""
+    if count_series is None:
+        counts = series.value_counts()
+    else:
+        counts = pd.Series(count_series.values, index=series.values)
+        counts = counts.groupby(level=0).sum().sort_values(ascending=False)
+    if counts.empty: return ""
+    top = counts.nlargest(3, keep='all')
+    items = [f"{name} ({val})" for name, val in top.items()]
+    return ", ".join(items)
+
 if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.empty):
     if not view_data.empty:
          table_df = view_data.sort_values("Count", ascending=False)
@@ -1309,6 +1332,7 @@ if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.emp
                 elif split_india and iso == 'IND': is_split = True
                 elif split_china and iso == 'CHN': is_split = True
                 elif split_poland and iso == 'POL': is_split = True
+                elif split_russia and iso == 'RUS': is_split = True
                 
                 if is_split and pd.notna(subdiv): return subdiv
                 return iso
@@ -1337,6 +1361,7 @@ if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.emp
                 if split_india and iso == 'IND': return 'IND'
                 if split_china and iso == 'CHN': return 'CHN'
                 if split_poland and iso == 'POL': return 'POL'
+                if split_russia and iso == 'RUS': return 'RUS'
                 return row[base_group]
             
             granular_work = granular_data.copy()
@@ -1456,6 +1481,7 @@ if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.emp
             elif split_india and iso == 'IND': is_split = True
             elif split_china and iso == 'CHN': is_split = True
             elif split_poland and iso == 'POL': is_split = True
+            elif split_russia and iso == 'RUS': is_split = True
             
             if is_split:
                 if view_mode == "Countries":
@@ -1484,7 +1510,7 @@ if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.emp
         
         split_name_map = {
             'USA': 'United States', 'GBR': 'United Kingdom', 'DEU': 'Germany', 'FRA': 'France',
-            'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland'
+            'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland', 'RUS': 'Russian Federation'
         }
         all_keys = stats_df['Agg_Key'].unique()
         iso_keys = [k for k in all_keys if len(k) == 3 and k.isupper() and k not in split_name_map]
@@ -1505,7 +1531,7 @@ if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.emp
         display_df['Lowest Score'] = display_df['Min'].astype(int)
         display_df = display_df[['Hover_Name', 'Count', 'Percentage', 'Mean Score', 'Median Score', 'Highest Score', 'Lowest Score']]
     
-    any_split = any([split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland])
+    any_split = any([split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, split_russia])
     
     if view_mode == "Countries":
         col_name = "Country/Subdivision" if any_split else "Country"
