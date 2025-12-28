@@ -28,7 +28,7 @@ TimeGuessr #867
 
 TimeGuessr #868
 1. London (England), United Kingdom, 1970
-2. Katowice, Poland, 1929
+2. Katowice (Silesian), Poland, 1929
 3. Edmonton (Alberta), Canada, 1913
 4. Venice, Italy, 1973
 5. Memphis (Tennessee), United States, 2025
@@ -72,7 +72,7 @@ TimeGuessr #876
 1. Oklahoma City (Oklahoma), United States, 1995
 2. Dublin, Ireland, 1946
 3. Dresden (Saxony), Germany, 1978
-4. Warsaw, Poland, 1959
+4. Warsaw (Masovian), Poland, 1959
 5. Thimphu, Bhutan, 2008
 
 TimeGuessr #879
@@ -171,7 +171,7 @@ TimeGuessr #903
 2. Essen (North Rhine-Westphalia), Germany, 1981
 3. Placencia, Belize, 2018
 4. Madrid, Spain, 1965
-5. Shanghai, China, 1972
+5. Shanghai (Shanghai), China, 1972
 
 TimeGuessr #904
 1. Moscow, Russia, 1991
@@ -198,8 +198,8 @@ TimeGuessr #909
 1. London (England), United Kingdom, 1981
 2. Chicago (Illinois), United States, 1903
 3. Ulaanbaatar, Mongolia, 2010
-4. Lublin, Poland, 1963
-5. Beijing, China, 1972
+4. Lublin (Lublin), Poland, 1963
+5. Beijing (Beijing), China, 1972
 
 TimeGuessr #914
 1. Amsterdam, Netherlands, 1988
@@ -213,7 +213,7 @@ TimeGuessr #915
 2. Kathmandu, Nepal, 2021
 3. Tunis, Tunisia, 1943
 4. New York (New York), United States, 1964
-5. Warsaw, Poland, 1989
+5. Warsaw (Masovian), Poland, 1989
 
 TimeGuessr #916
 1. Amsterdam, Netherlands, 1947
@@ -224,7 +224,7 @@ TimeGuessr #916
 
 TimeGuessr #917
 1. Montevideo, Uruguay, 2008
-2. Auschwitz, Poland, 1945
+2. Auschwitz (Lesser Poland), Poland, 1945
 3. Vienna, Austria, 1959
 4. Key West (Florida), United States, 1960
 5. Tbilisi, Georgia, 1992
@@ -247,7 +247,7 @@ TimeGuessr #922
 1. London (England), United Kingdom, 1978
 2. Madre de Dios, Peru, 2023
 3. Atlanta (Georgia), United States, 1996
-4. Warsaw, Poland, 1930
+4. Warsaw (Masovian), Poland, 1930
 5. Vatican City, Vatican City, 1984
 
 TimeGuessr #923
@@ -266,7 +266,7 @@ TimeGuessr #924
 
 TimeGuessr #925
 1. Srebenica, Bosnia and Herzegovina, 2015
-2. Macau (Macau), China, 2007
+2. Macao (Macao), China, 2007
 3. Rio de Janeiro, Brazil, 2025
 4. Antwerp, Belgium, 1985
 5. Olney (England), United Kingdom, 1950
@@ -331,5 +331,5 @@ TimeGuessr #939
 1. Vientiane, Laos, 2015
 2. Belfast (Northern Ireland), United Kingdom, 1941
 3. West Danville (Vermont), United States, 1942
-4. Warsaw, Poland, 1930
+4. Warsaw (Masovian), Poland, 1930
 5. Rio de Janeiro, Brazil, 2025

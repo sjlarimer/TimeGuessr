@@ -112,7 +112,7 @@
         ],
         "special_administrative_regions": [
             "Hong Kong",
-            "Macau"
+            "Macao"
         ]
     },
     "Colombia": {},
@@ -338,7 +338,26 @@
     "Paraguay": {},
     "Peru": {},
     "Philippines": {},
-    "Poland": {},
+    "Poland": {
+        "voivodeships": [
+            "Lower Silesian",
+            "Kuyavian-Pomeranian",
+            "Lublin",
+            "Lubusz",
+            "Łódź",
+            "Lesser Poland",
+            "Masovian",
+            "Opole",
+            "Podlaskie",
+            "Pomeranian",
+            "Silesian",
+            "Subcarpathian",
+            "Świętokrzyskie",
+            "Warmian-Masurian",
+            "Greater Poland",
+            "West Pomeranian"
+        ]
+    },
     "Portugal": {},
     "Qatar": {},
     "Republic of the Congo": {},

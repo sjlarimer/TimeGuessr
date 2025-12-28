@@ -89,8 +89,10 @@ import numpy as np
 from plotly.colors import sample_colorscale
 import datetime
 import json
+import os
+import geopandas as gpd
 
-# --- Styles ---
+# --- Styles ---  
 try:
     with open("styles.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -111,6 +113,12 @@ st.markdown("""
     div[data-testid="stDataFrame"] {
         width: 100%;
     }
+    /* Maximize Chart Area */
+    .main .block-container {
+        max-width: 98%;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -126,433 +134,422 @@ except FileNotFoundError:
 # --- Mappings ---
 cc = coco.CountryConverter()
 
-# US State Mapping (Name -> Code)
-us_state_abbrev = {
-    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
-    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
-    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
-    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
-    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
-    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
-    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
-    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
-    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
-    'District of Columbia': 'DC', 'Washington DC': 'DC', 'Washington, D.C.': 'DC', 'DC': 'DC', 'D.C.': 'DC'
-}
+# --- 1. Load Base Map (Enriched) ---
+@st.cache_data
+def load_base_geodataframe():
+    target_file = "./Data/Custom_World_Map_New.json"
+    if not os.path.exists(target_file):
+        st.error(f"Map file not found at {target_file}")
+        return None, set()
 
-# --- Functions ---
-
-def get_aggregated_data(df, view_mode, split_us_flag, split_uk_flag, max_points_per_game):
-    """
-    Aggregates data. 
-    - Handles US Splitting (Only in 'Countries' mode).
-    - Handles UK Splitting (Only in 'Countries' mode).
-    - Handles Full Continent Coloring (In 'Continents'/'UN Regions' mode).
-    """
-    df_working = df.copy()
-    df_working["Location_Mode"] = "ISO-3" # Default
-    
-    subdiv_col = "Subdivision"
-    
-    # --- Regional Split Logic ---
-    if split_us_flag and view_mode in ["Continents", "UN Regions"]:
-        target_col = "Continent" if view_mode == "Continents" else "UN_Region"
-        # Safely assign United States label
-        df_working.loc[df_working["ISO3"] == "USA", target_col] = "United States"
-
-    # --- Country Split Logic ---
-    if view_mode == "Countries" and subdiv_col in df_working.columns:
+    try:
+        gdf = gpd.read_file(target_file)
         
-        # 1. US Split
-        if split_us_flag:
-            is_us = df_working["ISO3"] == "USA"
-            df_working.loc[is_us, "Mapped_Code"] = df_working.loc[is_us, subdiv_col].map(us_state_abbrev)
+        # --- Standardize Columns & ISO Codes ---
+        cols = gdf.columns
+        
+        # 1. Identify source column for ID
+        iso_src = next((c for c in ['ISO3', 'iso3', 'ISO_CC', 'iso_cc', 'adm0_a3'] if c in cols), None)
+        
+        if iso_src:
+            # Clean source data first
+            gdf[iso_src] = gdf[iso_src].astype(str).str.strip()
             
-            mask_us_valid = is_us & df_working["Mapped_Code"].notna()
-            df_working.loc[mask_us_valid, "Location_Mode"] = "USA-states"
-            df_working.loc[mask_us_valid, "Country"] = df_working.loc[mask_us_valid, subdiv_col]
-            df_working.loc[mask_us_valid, "ISO3"] = df_working.loc[mask_us_valid, "Mapped_Code"]
-
-        # 2. UK Split (GBR)
-        if split_uk_flag:
-            is_uk = df_working["ISO3"] == "GBR"
-            # Ensure we have a valid subdivision name (England, Scotland, etc.)
-            mask_uk_valid = is_uk & df_working[subdiv_col].notna()
+            # Convert entire column to ISO3
+            names = gdf[iso_src].tolist()
+            gdf['ISO3'] = cc.convert(names=names, to='ISO3', not_found=None)
+                  
+        else:
+            gdf['ISO3'] = 'UNK'
             
-            df_working.loc[mask_uk_valid, "Location_Mode"] = "UK-countries"
-            df_working.loc[mask_uk_valid, "Country"] = df_working.loc[mask_uk_valid, subdiv_col]
-            # Set ISO3 to a dummy value so it doesn't merge with main world map 'GBR'
-            df_working.loc[mask_uk_valid, "ISO3"] = "GBR-Split"
+        # Fill missing
+        gdf['ISO3'] = gdf['ISO3'].fillna('UNK')
 
-    # --- Grouping ---
-    if view_mode == "Countries":
-        group_col = "Country"
-        # Include Location_Mode in groupby to keep split countries separate
-        grouped = df_working.groupby(["Country", "ISO3", "Location_Mode"]).agg({
-            "Michael Selected": "sum",
-            "Sarah Selected": "sum",
-            "Country": "count"
-        }).rename(columns={"Country": "Count"}).reset_index()
+        # 2. Identify source column for Name
+        if 'NAME' not in cols:
+            name_key = next((c for c in ['name', 'NAME_1', 'Name', 'COUNTRY'] if c in cols), None)
+            if name_key:
+                gdf['NAME'] = gdf[name_key]
+            else:
+                gdf['NAME'] = 'Unknown'
+
+        # 3. Enrich with Continent/Region info (for dissolving later)
+        # We map based on the ISO3 column we just fixed
+        unique_isos = gdf['ISO3'].unique().tolist()
+        # Remove UNK to avoid warnings
+        clean_isos = [x for x in unique_isos if x != 'UNK']
         
-        grouped["Hover_Name"] = grouped["Country"]
+        cont_map = dict(zip(clean_isos, cc.convert(names=clean_isos, to="continent")))
+        region_map = dict(zip(clean_isos, cc.convert(names=clean_isos, to="UNregion")))
         
-    else:
-        # --- Regional Aggregation (Fill Holes) ---
-        group_key = "Continent" if view_mode == "Continents" else "UN_Region"
-        group_col = group_key
-        
-        # 1. Aggregate Stats by Region
-        grouped_agg = df_working.groupby(group_key).agg({
-            "Michael Selected": "sum",
-            "Sarah Selected": "sum",
-            "Country": "count"
-        }).rename(columns={"Country": "Count"}).reset_index()
-        
-        # 2. Build a Full Reference of ALL Countries to fill holes
+        gdf['Continent'] = gdf['ISO3'].map(cont_map).fillna("Unknown")
+        gdf['UN_Region'] = gdf['ISO3'].map(region_map).fillna("Unknown")
+
+        # Initial cleanup
         try:
-            full_ref = cc.data[['ISO3', 'continent', 'UNregion', 'name_short']].copy()
-            full_ref = full_ref[full_ref['ISO3'].notna()].drop_duplicates(subset=['ISO3'])
+            gdf['geometry'] = gdf['geometry'].buffer(0)
         except:
-            full_ref = df_working[["Country", "ISO3", "Continent", "UN_Region"]].drop_duplicates()
+            pass 
+                
+        return gdf, set(gdf['NAME'].unique())
 
-        # Map the reference columns to our group key
-        ref_key = 'continent' if view_mode == "Continents" else 'UNregion'
-        
-        # Apply US Split to Reference as well
-        if split_us_flag:
-            full_ref.loc[full_ref["ISO3"] == "USA", ref_key] = "United States"
-        
-        # Merge stats into the full reference based on the region name
-        grouped = pd.merge(full_ref, grouped_agg, left_on=ref_key, right_on=group_key, how="right")
-        
-        grouped["Hover_Name"] = grouped[group_key]
-        grouped["Location_Mode"] = "ISO-3"
-        grouped = grouped.rename(columns={'name_short': 'Country'})
+    except Exception as e:
+        st.error(f"Error reading map file: {e}")
+        return None, set()
 
-    # --- Calculations ---
-    grouped["Total Possible"] = grouped["Count"] * max_points_per_game
+base_gdf, valid_map_names = load_base_geodataframe()
+
+# --- 2. Geometry Caching Functions ---
+
+@st.cache_data
+def get_background_layer(_gdf):
+    """
+    Creates a single unified shape for the whole world.
+    """
+    if _gdf is None: return None
+    _gdf['World_Group'] = 1
+    bg_gdf = _gdf.dissolve(by='World_Group', as_index=False)
+    return json.loads(bg_gdf.to_json())
+
+@st.cache_data(max_entries=10)
+def generate_dynamic_map_layer(_gdf, active_iso_tuple, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, view_mode):
+    """
+    Generates map geometry. 
+    Dissolves active countries based on view_mode (Country vs Region vs Continent).
+    Prioritizes splitting US/UK/Germany/France/Canada/Australia/India/China/Poland even in Region/Continent modes.
+    """
+    if _gdf is None: return None
+    
+    work_gdf = _gdf.copy()
+    
+    def get_dissolve_key(row):
+        iso = row['ISO3']
+        name = row['NAME']
+        
+        if iso in active_iso_tuple:
+            # 1. Handle Splits FIRST (Overrides Regional grouping)
+            if iso == 'USA' and split_us: 
+                return name if view_mode == 'Countries' else iso
+            if iso == 'GBR' and split_uk: 
+                return name if view_mode == 'Countries' else iso
+            if iso == 'DEU' and split_germany:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'FRA' and split_france:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'CAN' and split_canada:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'AUS' and split_australia:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'IND' and split_india:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'CHN' and split_china:
+                return name if view_mode == 'Countries' else iso
+            if iso == 'POL' and split_poland:
+                return name if view_mode == 'Countries' else iso
+            
+            # 2. Determine base identity based on View Mode
+            if view_mode == "Continents":
+                return row['Continent']
+            elif view_mode == "UN Regions":
+                return row['UN_Region']
+            else: 
+                return iso 
+        else:
+            return "Background"
+
+    work_gdf['Dissolve_Key'] = work_gdf.apply(get_dissolve_key, axis=1)
+    
+    # Dissolve
+    dissolved_gdf = work_gdf.dissolve(by='Dissolve_Key', as_index=False)
+    
+    return json.loads(dissolved_gdf.to_json())
+
+# --- 3. Data Calculation ---
+
+def calculate_stats_slice(df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, max_points):
+    """
+    Calculates stats at the granular level (ISO/Subdiv).
+    Regional aggregation happens later based on view_mode.
+    """
+    df_work = df.copy()
+    
+    # ISO mapping
+    unique_countries = df_work["Country"].unique()
+    iso3_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="ISO3", not_found=None)))
+    df_work["ISO3"] = df_work["Country"].map(iso3_map)
+
+    # Add Region Info for later aggregation
+    continent_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="continent")))
+    un_region_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="UNregion")))
+    df_work["Continent"] = df_work["Country"].map(continent_map)
+    df_work["UN_Region"] = df_work["Country"].map(un_region_map)
+
+    # Palestine Region Fix
+    mask_pal = df_work["Country"].astype(str).str.contains("Palestine", case=False)
+    if mask_pal.any():
+        df_work.loc[mask_pal, "Continent"] = "Asia"
+        df_work.loc[mask_pal, "UN_Region"] = "Western Asia"
+
+    # Define Join Key (Matches Dissolve Key logic for Countries mode)
+    def get_join_key(row):
+        iso = row['ISO3']
+        subdiv = row.get('Subdivision')
+        if iso == 'USA' and split_us and pd.notna(subdiv): return subdiv
+        if iso == 'GBR' and split_uk and pd.notna(subdiv): return subdiv
+        if iso == 'DEU' and split_germany and pd.notna(subdiv): return subdiv
+        if iso == 'FRA' and split_france and pd.notna(subdiv): return subdiv
+        if iso == 'CAN' and split_canada and pd.notna(subdiv): return subdiv
+        if iso == 'AUS' and split_australia and pd.notna(subdiv): return subdiv
+        if iso == 'IND' and split_india and pd.notna(subdiv): return subdiv
+        if iso == 'CHN' and split_china and pd.notna(subdiv): return subdiv
+        if iso == 'POL' and split_poland and pd.notna(subdiv): return subdiv
+        return iso
+
+    def get_display_name(row):
+        iso = row['ISO3']
+        subdiv = row.get('Subdivision')
+        country = row['Country']
+        if iso == 'USA' and split_us and pd.notna(subdiv): return subdiv
+        if iso == 'GBR' and split_uk and pd.notna(subdiv): return subdiv
+        if iso == 'DEU' and split_germany and pd.notna(subdiv): return subdiv
+        if iso == 'FRA' and split_france and pd.notna(subdiv): return subdiv
+        if iso == 'CAN' and split_canada and pd.notna(subdiv): return subdiv
+        if iso == 'AUS' and split_australia and pd.notna(subdiv): return subdiv
+        if iso == 'IND' and split_india and pd.notna(subdiv): return subdiv
+        if iso == 'CHN' and split_china and pd.notna(subdiv): return subdiv
+        if iso == 'POL' and split_poland and pd.notna(subdiv): return subdiv
+        return country
+
+    df_work['Join_Key'] = df_work.apply(get_join_key, axis=1)
+    df_work['Display_Name'] = df_work.apply(get_display_name, axis=1)
+    
+    # --- Prepare for "Most Recent" calculation ---
+    def get_fmt_loc(row):
+        city = str(row['City']).strip() if pd.notna(row.get('City')) else ''
+        sub = str(row['Subdivision']).strip() if pd.notna(row.get('Subdivision')) else ''
+        ctry = str(row['Country']).strip() if pd.notna(row.get('Country')) else ''
+        parts = [p for p in [city, sub, ctry] if p]
+        return ", ".join(parts)
+
+    df_work['Formatted_Location'] = df_work.apply(get_fmt_loc, axis=1)
+    
+    # Sort by Date descending so that 'first' picks the most recent
+    if 'Date' in df_work.columns:
+        df_work = df_work.sort_values("Date", ascending=False)
+
+    # Aggregate
+    grouped = df_work.groupby(['Join_Key', 'ISO3', 'Display_Name', 'Continent', 'UN_Region']).agg({
+        "Michael Selected": "sum",
+        "Sarah Selected": "sum",
+        "Country": "count",
+        "Date": "first",
+        "Formatted_Location": "first"
+    }).rename(columns={"Country": "Count", "Date": "Last_Date", "Formatted_Location": "Last_Location"}).reset_index()
+    
+    grouped['Hover_Name'] = grouped['Display_Name']
+    
+    # Calculations
+    grouped["Total Possible"] = grouped["Count"] * max_points
     grouped["Michael Efficiency"] = grouped["Michael Selected"] / grouped["Total Possible"]
     grouped["Sarah Efficiency"] = grouped["Sarah Selected"] / grouped["Total Possible"]
-    
     grouped["Combined Points"] = grouped["Michael Selected"] + grouped["Sarah Selected"]
     grouped["Michael Share Ratio"] = grouped.apply(
-        lambda row: row["Michael Selected"] / row["Combined Points"] if row["Combined Points"] > 0 else 0.5, 
-        axis=1
-    )
+        lambda row: row["Michael Selected"] / row["Combined Points"] if row["Combined Points"] > 0 else 0.5, axis=1)
     
-    # Calculate Average Scores (Total / Count), rounded to nearest whole number
     grouped["Michael Avg"] = (grouped["Michael Selected"] / grouped["Count"]).fillna(0).round().astype(int)
     grouped["Sarah Avg"] = (grouped["Sarah Selected"] / grouped["Count"]).fillna(0).round().astype(int)
     
-    # Formatting strings
+    # Formatting
     grouped["Michael Eff %"] = (grouped["Michael Efficiency"] * 100).map('{:,.1f}%'.format)
     grouped["Sarah Eff %"] = (grouped["Sarah Efficiency"] * 100).map('{:,.1f}%'.format)
     grouped["Michael Share %"] = (grouped["Michael Share Ratio"] * 100).map('{:,.1f}%'.format)
     grouped["Sarah Share %"] = ((1 - grouped["Michael Share Ratio"]) * 100).map('{:,.1f}%'.format)
     
-    return grouped, group_col
+    return grouped
+
+@st.cache_data
+def precompute_stats_v9(raw_df, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland):
+    """
+    Calculates stats for ALL 3 Score Modes (Total, Geo, Time).
+    Renamed to v9 to invalidate cache.
+    """
+    results = {}
+    
+    # 1. Total Score (Requires both players)
+    req_total = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
+    
+    # Common args tuple
+    args = (split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland)
+    
+    # Intersection Data (Both players present)
+    df_both_total = raw_df.dropna(subset=req_total + ["Date"]).copy()
+    df_both_total["Michael Selected"] = df_both_total["Michael Geography Score"] + df_both_total["Michael Time Score"]
+    df_both_total["Sarah Selected"] = df_both_total["Sarah Geography Score"] + df_both_total["Sarah Time Score"]
+    results["Intersection Total Score"] = calculate_stats_slice(df_both_total, *args, 10000)
+    
+    # Geography Score (Intersection)
+    req_geo = ["Michael Geography Score", "Sarah Geography Score"]
+    df_both_geo = raw_df.dropna(subset=req_geo + ["Date"]).copy()
+    df_both_geo["Michael Selected"] = df_both_geo["Michael Geography Score"]
+    df_both_geo["Sarah Selected"] = df_both_geo["Sarah Geography Score"]
+    results["Intersection Geography Score"] = calculate_stats_slice(df_both_geo, *args, 5000)
+    
+    # Time Score (Intersection)
+    req_time = ["Michael Time Score", "Sarah Time Score"]
+    df_both_time = raw_df.dropna(subset=req_time + ["Date"]).copy()
+    df_both_time["Michael Selected"] = df_both_time["Michael Time Score"]
+    df_both_time["Sarah Selected"] = df_both_time["Sarah Time Score"]
+    results["Intersection Time Score"] = calculate_stats_slice(df_both_time, *args, 5000)
+    
+    # Individual Data 
+    # Michael Only (Any row with Michael score + Date)
+    m_cols = ["Michael Geography Score", "Michael Time Score"]
+    df_mich = raw_df.dropna(subset=m_cols + ["Date"]).copy()
+    df_mich["Michael Selected"] = df_mich[m_cols].sum(axis=1)
+    df_mich["Sarah Selected"] = 0 # Dummy
+    results["Michael Total Score"] = calculate_stats_slice(df_mich, *args, 10000)
+    
+    # Sarah Only (Any row with Sarah score + Date)
+    s_cols = ["Sarah Geography Score", "Sarah Time Score"]
+    df_sarah = raw_df.dropna(subset=s_cols + ["Date"]).copy()
+    df_sarah["Michael Selected"] = 0 # Dummy
+    df_sarah["Sarah Selected"] = df_sarah[s_cols].sum(axis=1)
+    results["Sarah Total Score"] = calculate_stats_slice(df_sarah, *args, 10000)
+    
+    m_geo_cols = ["Michael Geography Score"]
+    df_mich_geo = raw_df.dropna(subset=m_geo_cols + ["Date"]).copy()
+    df_mich_geo["Michael Selected"] = df_mich_geo[m_geo_cols].sum(axis=1)
+    df_mich_geo["Sarah Selected"] = 0
+    results["Michael Geography Score"] = calculate_stats_slice(df_mich_geo, *args, 5000)
+    
+    m_time_cols = ["Michael Time Score"]
+    df_mich_time = raw_df.dropna(subset=m_time_cols + ["Date"]).copy()
+    df_mich_time["Michael Selected"] = df_mich_time[m_time_cols].sum(axis=1)
+    df_mich_time["Sarah Selected"] = 0
+    results["Michael Time Score"] = calculate_stats_slice(df_mich_time, *args, 5000)
+    
+    s_geo_cols = ["Sarah Geography Score"]
+    df_sarah_geo = raw_df.dropna(subset=s_geo_cols + ["Date"]).copy()
+    df_sarah_geo["Michael Selected"] = 0
+    df_sarah_geo["Sarah Selected"] = df_sarah_geo[s_geo_cols].sum(axis=1)
+    results["Sarah Geography Score"] = calculate_stats_slice(df_sarah_geo, *args, 5000)
+    
+    s_time_cols = ["Sarah Time Score"]
+    df_sarah_time = raw_df.dropna(subset=s_time_cols + ["Date"]).copy()
+    df_sarah_time["Michael Selected"] = 0
+    df_sarah_time["Sarah Selected"] = df_sarah_time[s_time_cols].sum(axis=1)
+    results["Sarah Time Score"] = calculate_stats_slice(df_sarah_time, *args, 5000)
+
+    return results
+
+def aggregate_by_view_mode(df, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland):
+    """
+    If view_mode is Region/Continent, re-aggregate the stats.
+    Respects split toggles by keeping them separate from the regional aggregation.
+    """
+    if view_mode == "Countries":
+        return df
+
+    # Base grouping column
+    base_group = "Continent" if view_mode == "Continents" else "UN_Region"
+    
+    # Define Group Key logic
+    def get_group_key(row):
+        iso = row['ISO3']
+        # If splitting Country and this IS the Country, do not aggregate into Continent
+        if split_us and iso == 'USA': return row['Join_Key']
+        if split_uk and iso == 'GBR': return row['Join_Key']
+        if split_germany and iso == 'DEU': return row['Join_Key']
+        if split_france and iso == 'FRA': return row['Join_Key']
+        if split_canada and iso == 'CAN': return row['Join_Key']
+        if split_australia and iso == 'AUS': return row['Join_Key']
+        if split_india and iso == 'IND': return row['Join_Key']
+        if split_china and iso == 'CHN': return row['Join_Key']
+        if split_poland and iso == 'POL': return row['Join_Key']
+        # Otherwise, aggregate into region/continent
+        return row[base_group]
+
+    df_work = df.copy()
+    df_work['Agg_Key'] = df_work.apply(get_group_key, axis=1)
+    
+    # Sort by Last_Date descending to ensure 'first' picks the most recent in the group
+    if 'Last_Date' in df_work.columns:
+        df_work = df_work.sort_values("Last_Date", ascending=False)
+
+    # Re-group
+    # We maintain Continent/UN_Region for reference, taking the first valid value
+    grouped = df_work.groupby('Agg_Key').agg({
+        "Michael Selected": "sum",
+        "Sarah Selected": "sum",
+        "Count": "sum",
+        "Total Possible": "sum",
+        "Continent": "first",
+        "UN_Region": "first",
+        "Last_Date": "first",
+        "Last_Location": "first"
+    }).reset_index()
+    
+    # Update Keys for Joining with Map
+    # For split countries, Agg_Key is the State Name.
+    grouped['Join_Key'] = grouped['Agg_Key']
+    
+    # Pretty names for Table/Map
+    name_map = {
+        'USA': 'United States', 
+        'GBR': 'United Kingdom', 
+        'DEU': 'Germany', 
+        'FRA': 'France',
+        'CAN': 'Canada',
+        'AUS': 'Australia',
+        'IND': 'India',
+        'CHN': 'China',
+        'POL': 'Poland'
+    }
+    grouped['Hover_Name'] = grouped['Agg_Key'].replace(name_map)
+    
+    # Re-calculate Efficiencies
+    grouped["Michael Efficiency"] = grouped["Michael Selected"] / grouped["Total Possible"]
+    grouped["Sarah Efficiency"] = grouped["Sarah Selected"] / grouped["Total Possible"]
+    grouped["Combined Points"] = grouped["Michael Selected"] + grouped["Sarah Selected"]
+    grouped["Michael Share Ratio"] = grouped.apply(
+        lambda row: row["Michael Selected"] / row["Combined Points"] if row["Combined Points"] > 0 else 0.5, axis=1)
+    
+    # Re-calculate Avgs
+    grouped["Michael Avg"] = (grouped["Michael Selected"] / grouped["Count"]).fillna(0).round().astype(int)
+    grouped["Sarah Avg"] = (grouped["Sarah Selected"] / grouped["Count"]).fillna(0).round().astype(int)
+
+    # Re-format Strings
+    grouped["Michael Eff %"] = (grouped["Michael Efficiency"] * 100).map('{:,.1f}%'.format)
+    grouped["Sarah Eff %"] = (grouped["Sarah Efficiency"] * 100).map('{:,.1f}%'.format)
+    grouped["Michael Share %"] = (grouped["Michael Share Ratio"] * 100).map('{:,.1f}%'.format)
+    grouped["Sarah Share %"] = ((1 - grouped["Michael Share Ratio"]) * 100).map('{:,.1f}%'.format)
+
+    return grouped
 
 def add_calculated_colors(df, value_col, colorscale, min_val, max_val):
     if df.empty: return df
     
-    # 1. Force numeric and handle NaNs/Infs
-    vals = pd.to_numeric(df[value_col], errors='coerce').fillna(min_val)
+    mask_active = df['Dissolve_Key'] != "Background"
+    if not mask_active.any():
+        df['Calculated_Color'] = "#eeeeee"
+        return df
+        
+    vals = pd.to_numeric(df.loc[mask_active, value_col], errors='coerce').fillna(min_val)
     
-    # 2. Normalize
     denom = max_val - min_val
     if denom == 0:
         norm_vals = pd.Series(0.0, index=vals.index)
     else:
         norm_vals = (vals - min_val) / denom
-    
-    # 3. Clip to [0, 1]
     norm_vals = norm_vals.clip(0, 1)
     
-    # 4. Get colors
     sample_points = norm_vals.to_numpy(dtype=float)
+    df.loc[mask_active, 'Calculated_Color'] = sample_colorscale(colorscale, sample_points)
+    df.loc[~mask_active, 'Calculated_Color'] = "#eeeeee" 
     
-    df['Calculated_Color'] = sample_colorscale(colorscale, sample_points)
     return df
 
-# --- 1. Global Controls & Data Filtering (Sidebar) ---
-with st.sidebar:
-    st.header("Map Settings")
-    
-    # -- Date Pre-processing --
-    if "Date" in data.columns:
-        data["Date"] = pd.to_datetime(data["Date"], errors='coerce')
-        # Drop rows with totally invalid dates
-        date_data = data.dropna(subset=["Date"])
-        
-        # Filter for valid location info for min/max determination
-        loc_cols = [c for c in ["Country", "Subdivision", "City"] if c in date_data.columns]
-        if loc_cols:
-            valid_loc_data = date_data.dropna(subset=loc_cols)
-        else:
-            valid_loc_data = date_data
-
-        if not valid_loc_data.empty:
-            min_date = valid_loc_data["Date"].min().date()
-            max_date = valid_loc_data["Date"].max().date()
-        elif not date_data.empty:
-            min_date = date_data["Date"].min().date()
-            max_date = date_data["Date"].max().date()
-        else:
-            min_date = datetime.date.today()
-            max_date = datetime.date.today()
-            
-        selected_dates = st.slider(
-            "Select Date Range:",
-            min_value=min_date,
-            max_value=max_date,
-            value=(min_date, max_date),
-            format="MM/DD/YY"
-        )
-        
-        # Filter Data based on Slider
-        mask = (data["Date"].dt.date >= selected_dates[0]) & (data["Date"].dt.date <= selected_dates[1])
-        filtered_data = data[mask]
-    else:
-        st.warning("Date column not found.")
-        filtered_data = data.copy()
-    
-    st.divider()
-    
-    map_metric = st.radio(
-        "Select Metric:",
-        options=["Count", "Comparison", "Michael", "Sarah"],
-        horizontal=False,
-        key="map_metric_selector"
-    )
-    
-    if map_metric != "Count":
-        st.divider()
-        score_mode = st.radio(
-            "Select Score Type:",
-            options=["Total Score", "Geography Score", "Time Score"],
-            horizontal=False,
-            key="score_mode_selector"
-        )
-    else:
-        score_mode = "Total Score"
-
-    st.divider()
-
-    view_mode = st.radio(
-        "Select View Level:",
-        options=["Countries", "Continents", "UN Regions"],
-        horizontal=False,
-        key="view_mode_selector"
-    )
-    
-    split_us = st.toggle("Split US", value=False)
-    split_uk = st.toggle("Split UK", value=False)
-
-    # -- Metadata Prep for Calculations --
-    if score_mode == "Total Score":
-        req_cols = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
-        filtered_data = filtered_data.dropna(subset=req_cols).copy()
-        filtered_data["Michael Selected"] = filtered_data["Michael Geography Score"] + filtered_data["Michael Time Score"]
-        filtered_data["Sarah Selected"] = filtered_data["Sarah Geography Score"] + filtered_data["Sarah Time Score"]
-        max_points_per_game = 10000
-    elif score_mode == "Geography Score":
-        req_cols = ["Michael Geography Score", "Sarah Geography Score"]
-        filtered_data = filtered_data.dropna(subset=req_cols).copy()
-        filtered_data["Michael Selected"] = filtered_data["Michael Geography Score"]
-        filtered_data["Sarah Selected"] = filtered_data["Sarah Geography Score"]
-        max_points_per_game = 5000
-    else:
-        req_cols = ["Michael Time Score", "Sarah Time Score"]
-        filtered_data = filtered_data.dropna(subset=req_cols).copy()
-        filtered_data["Michael Selected"] = filtered_data["Michael Time Score"]
-        filtered_data["Sarah Selected"] = filtered_data["Sarah Time Score"]
-        max_points_per_game = 5000
-
-    unique_countries = filtered_data["Country"].unique()
-    iso3_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="ISO3", not_found=None)))
-    continent_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="continent")))
-    un_region_map = dict(zip(unique_countries, cc.convert(names=unique_countries, to="UNregion")))
-
-    filtered_data["ISO3"] = filtered_data["Country"].map(iso3_map)
-    filtered_data["Continent"] = filtered_data["Country"].map(continent_map)
-    filtered_data["UN_Region"] = filtered_data["Country"].map(un_region_map)
-
-    # --- MANUAL FIXES ---
-    
-    # 1. Territory Merges (Svalbard -> Norway, Madeira -> Portugal, Canaries -> Spain)
-    # Merging logic ensures they are counted as part of the country stats.
-    
-    # Svalbard
-    mask_svalbard = filtered_data["ISO3"] == "SJM"
-    if mask_svalbard.any():
-        filtered_data.loc[mask_svalbard, "Country"] = "Norway"
-        filtered_data.loc[mask_svalbard, "ISO3"] = "NOR"
-        filtered_data.loc[mask_svalbard, "Continent"] = "Europe"
-        filtered_data.loc[mask_svalbard, "UN_Region"] = "Northern Europe"
-
-    # Madeira
-    mask_madeira = filtered_data["Country"].str.contains("Madeira", case=False, na=False)
-    if mask_madeira.any():
-        filtered_data.loc[mask_madeira, "Country"] = "Portugal"
-        filtered_data.loc[mask_madeira, "ISO3"] = "PRT"
-        filtered_data.loc[mask_madeira, "Continent"] = "Europe"
-        filtered_data.loc[mask_madeira, "UN_Region"] = "Southern Europe"
-
-    # Canary Islands
-    mask_canary = filtered_data["Country"].str.contains("Canary Islands", case=False, na=False)
-    if mask_canary.any():
-        filtered_data.loc[mask_canary, "Country"] = "Spain"
-        filtered_data.loc[mask_canary, "ISO3"] = "ESP"
-        filtered_data.loc[mask_canary, "Continent"] = "Europe"
-        filtered_data.loc[mask_canary, "UN_Region"] = "Southern Europe"
-
-    # -- Calculate Aggregates to find Max Count --
-    map_data, locality_col = get_aggregated_data(filtered_data, view_mode, split_us, split_uk, max_points_per_game)
-    
-    # --- POST-AGGREGATION VISUAL FIXES (Ghost Rows for Bubbles/Map) ---
-    if view_mode == "Countries":
-        # Svalbard (SJM) from Norway (NOR)
-        if "NOR" in map_data["ISO3"].values:
-            nor_stats = map_data[map_data["ISO3"] == "NOR"].iloc[0].copy()
-            nor_stats["ISO3"] = "SJM" # Assign to Svalbard geometry/key
-            nor_stats["Country"] = "Svalbard (Norway)" # Label for hover
-            map_data = pd.concat([map_data, pd.DataFrame([nor_stats])], ignore_index=True)
-
-    max_game_count = 1
-    if not map_data.empty:
-        max_game_count = map_data["Count"].max()
-        if pd.isna(max_game_count) or max_game_count == 0:
-            max_game_count = 1
-    
-    # -- Count Filter Slider --
-    if max_game_count > 1:
-        st.divider()
-        min_count_filter = st.slider(
-            "Minimum Games Played:", 
-            min_value=1, 
-            max_value=int(max_game_count), 
-            value=1
-        )
-    else:
-        min_count_filter = 1
-
-# --- Apply Count Filter to Map Data ---
-map_data = map_data[map_data["Count"] >= min_count_filter]
-
-# DEBUG: Check for unmapped subdivisions
-if view_mode == "Countries":
-    if split_us:
-        us_subset = filtered_data[filtered_data["ISO3"] == "USA"]
-        if "Subdivision" in us_subset.columns:
-            unmapped_mask = ~us_subset["Subdivision"].isin(us_state_abbrev.keys())
-            unmapped_vals = us_subset.loc[unmapped_mask, "Subdivision"]
-            if not unmapped_vals.empty:
-                 with st.expander("⚠️ Unmapped US Subdivisions", expanded=False):
-                    st.write(unmapped_vals.value_counts())
-
-# --- Split data for plotting logic ---
-world_data = map_data[map_data["Location_Mode"] == "ISO-3"].copy()
-
-# If splitting, remove the parent countries from the main world map so they don't overlap
-if split_us and view_mode == "Countries":
-    world_data = world_data[world_data["ISO3"] != "USA"]
-if split_uk and view_mode == "Countries":
-    world_data = world_data[world_data["ISO3"] != "GBR"]
-
-us_data = map_data[map_data["Location_Mode"] == "USA-states"].copy()
-uk_data = map_data[map_data["Location_Mode"] == "UK-countries"].copy()
-
-# --- Helper: Simplify GeoJSON ---
-def simplify_geojson(geojson_data, step=1):
-    """
-    Naively reduces the number of points in a GeoJSON to make it 'polygonal'
-    and faster to render. 
-    step=1 means no change. step=10 means keep every 10th point.
-    """
-    if step <= 1: return geojson_data
-    
-    # Deep copy to avoid mutating cache if used elsewhere
-    simplified = json.loads(json.dumps(geojson_data))
-    
-    for feature in simplified.get("features", []):
-        geom = feature.get("geometry")
-        if not geom: continue
-        
-        g_type = geom.get("type")
-        raw_coords = geom.get("coordinates")
-        
-        if g_type == "Polygon":
-            new_rings = []
-            for ring in raw_coords:
-                # Keep every Nth point
-                new_ring = ring[::step]
-                # Ensure closure (last point == first point)
-                if new_ring and new_ring[-1] != new_ring[0]:
-                    new_ring.append(new_ring[0])
-                # Filter out degenerate rings (need at least 4 points for a closed polygon: A-B-C-A)
-                if len(new_ring) >= 4: 
-                    new_rings.append(new_ring)
-            feature["geometry"]["coordinates"] = new_rings
-            
-        elif g_type == "MultiPolygon":
-            new_polys = []
-            for poly in raw_coords:
-                new_rings = []
-                for ring in poly:
-                    new_ring = ring[::step]
-                    if new_ring and new_ring[-1] != new_ring[0]:
-                        new_ring.append(new_ring[0])
-                    if len(new_ring) >= 4:
-                        new_rings.append(new_ring)
-                if new_rings:
-                    new_polys.append(new_rings)
-            feature["geometry"]["coordinates"] = new_polys
-            
-    return simplified
-
-@st.cache_data
-def load_uk_geojson(filepath):
-    try:
-        with open(filepath, "r") as f:
-            data = json.load(f)
-        # Apply simplification (Step 25 makes it significantly polygonal)
-        return simplify_geojson(data, step=25) 
-    except Exception as e:
-        return None
-
-# --- Load UK GeoJSON if needed ---
-uk_geojson = None
-if split_uk and not uk_data.empty:
-    uk_geojson = load_uk_geojson("./Data/uk_countries.geojson")
-    if not uk_geojson:
-        st.error("File './Data/uk_countries.geojson' not found. UK splitting disabled.")
-
-
-# --- 5. Layout Settings & Helpers ---
-is_regional = view_mode in ["Continents", "UN Regions"]
-
-layout_settings = dict(
-    geo=dict(
-        showframe=False, 
-        bgcolor="#d9d7cc",
-        lakecolor="#d9d7cc",
-        showland=True, 
-        landcolor="white",
-        projection=dict(type="robinson"),
-        scope="world",
-        showcountries=not is_regional, 
-        countrycolor="white",
-        showcoastlines=True, 
-        coastlinecolor="black", 
-    ),
-    paper_bgcolor='rgba(0,0,0,0)',
-    font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
-    width=1600, height=1200, coloraxis_showscale=False, showlegend=False,
-    margin=dict(t=0, b=0, l=0, r=0)
-)
-
-# Helper for Microstates
+# --- Helper for Microstates ---
 microstates = {
     "Vatican City": {"lon": 12.4534, "lat": 41.9029}, "Monaco": {"lon": 7.4167, "lat": 43.7384},
     "San Marino": {"lon": 12.4578, "lat": 43.9424}, "Liechtenstein": {"lon": 9.5215, "lat": 47.1410},
@@ -568,7 +565,7 @@ microstates = {
     "Singapore": {"lon": 103.8198, "lat": 1.3521}, "Bahrain": {"lon": 50.5577, "lat": 26.0667},
     "Maldives": {"lon": 73.2207, "lat": 3.2028}, "Seychelles": {"lon": 55.4920, "lat": -4.6796},
     "Mauritius": {"lon": 57.5522, "lat": -20.3484}, 
-    "Comoros": {"lon": 43.3333, "lat": -11.699}, # Moved to Grande Comore
+    "Comoros": {"lon": 43.3333, "lat": -11.699}, 
     "Sao Tome and Principe": {"lon": 6.6131, "lat": 0.1864}, "Cape Verde": {"lon": -24.0130, "lat": 16.5388},
     "British Virgin Islands": {"lon": -64.6399, "lat": 18.4207}, "Anguilla": {"lon": -63.0686, "lat": 18.2206},
     "Bermuda": {"lon": -64.7505, "lat": 32.3078}, "Cayman Islands": {"lon": -81.2546, "lat": 19.3133},
@@ -589,7 +586,7 @@ microstates = {
     "Cook Islands": {"lon": -159.7777, "lat": -21.2367}, "Niue": {"lon": -169.8672, "lat": -19.0544},
     "Tokelau": {"lon": -171.8554, "lat": -9.2002}, "Cocos Islands": {"lon": 96.828333, "lat": -12.186944},
     "Christmas Island": {"lon": 105.6275, "lat": -10.49}, "Hong Kong": {"lon": 114.1095, "lat": 22.3964},
-    "Macau": {"lon": 113.5439, "lat": 22.1987}, "Faroe Islands": {"lon": -6.9118, "lat": 61.8926},
+    "Macao": {"lon": 113.5439, "lat": 22.1987}, "Faroe Islands": {"lon": -6.9118, "lat": 61.8926},
     "Trinidad and Tobago": {"lon": -61.2225, "lat": 10.6918}, "Norfolk Island": {"lon": 167.95, "lat": -29.033333},
     "Easter Island": {"lon": -109.35, "lat": -27.12}, "Aland": {"lon": 20.366667, "lat": 60.25},
     "Puerto Rico": {"lon": -66.5901, "lat": 18.2208},
@@ -598,19 +595,17 @@ microstates = {
 }
 
 def get_microstate_trace(base_df, value_col, colorscale, zmin, zmax, hover_template, custom_data_cols, is_regional=False, line_color_logic=False):
-    micro_df = base_df[base_df["Country"].isin(microstates.keys())].copy()
+    if "Hover_Name" not in base_df.columns: return None
+    
+    micro_df = base_df[base_df["Hover_Name"].isin(microstates.keys())].copy()
     if micro_df.empty: return None
-    micro_df["lat"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lat"))
-    micro_df["lon"] = micro_df["Country"].map(lambda x: microstates.get(x, {}).get("lon"))
+    
+    micro_df["lat"] = micro_df["Hover_Name"].map(lambda x: microstates.get(x, {}).get("lat"))
+    micro_df["lon"] = micro_df["Hover_Name"].map(lambda x: microstates.get(x, {}).get("lon"))
     
     marker_line_color = "black" 
     
-    if is_regional:
-        # If regional, check if Calculated_Color exists to match fill
-        if "Calculated_Color" in micro_df.columns:
-            marker_line_color = micro_df["Calculated_Color"]
-            
-    elif line_color_logic: 
+    if line_color_logic and value_col in micro_df.columns: 
          micro_df["BorderColor"] = micro_df[value_col].apply(
              lambda ratio: "#221e8f" if ratio > 0.5 else ("#8a005c" if ratio < 0.5 else "#666666")
          )
@@ -625,272 +620,892 @@ def get_microstate_trace(base_df, value_col, colorscale, zmin, zmax, hover_templ
         text=micro_df["Hover_Name"], customdata=micro_df[custom_data_cols], hovertemplate=hover_template
     )
 
-def add_us_subdivision_trace(fig, df_sub, color_col, colorscale, zmin, zmax, hover_template, custom_data_cols, marker_line_logic=None):
-    if df_sub.empty: return
-    trace_kwargs = dict(
-        z=df_sub[color_col],
-        colorscale=colorscale,
-        zmin=zmin, zmax=zmax,
-        text=df_sub['Hover_Name'],
-        customdata=df_sub[custom_data_cols],
-        hovertemplate=hover_template,
-        showscale=False,
-        locations=df_sub['ISO3'], 
-        locationmode='USA-states'
-    )
-    if marker_line_logic:
-        trace_kwargs['marker_line_color'] = df_sub[marker_line_logic]
-        trace_kwargs['marker_line_width'] = 1.5
-    else:
-        trace_kwargs['marker_line_color'] = 'black'
-        trace_kwargs['marker_line_width'] = 0.5 
+# --- 1. Global Controls (Sidebar) ---
+# Initialize view_data to prevent NameError
+view_data = pd.DataFrame()
 
-    fig.add_trace(go.Choropleth(**trace_kwargs))
-
-def add_uk_subdivision_trace(fig, df_sub, geojson, color_col, colorscale, zmin, zmax, hover_template, custom_data_cols, marker_line_logic=None):
-    if df_sub.empty or not geojson: return
+with st.sidebar:
+    st.header("Map Settings")
     
-    trace_kwargs = dict(
-        geojson=geojson,
-        locations=df_sub['Country'], # Match the GeoJSON feature name (e.g., "England")
-        z=df_sub[color_col],
-        colorscale=colorscale,
-        zmin=zmin, zmax=zmax,
-        # 'CTRY21NM' is the standard ONS Key. If map is blank, check your json file properties!
-        featureidkey="properties.CTRY21NM", 
-        text=df_sub['Hover_Name'],
-        customdata=df_sub[custom_data_cols],
-        hovertemplate=hover_template,
-        showscale=False,
-    )
-    
-    if marker_line_logic:
-         if isinstance(marker_line_logic, str):
-             trace_kwargs['marker_line_color'] = df_sub[marker_line_logic]
-         else:
-             trace_kwargs['marker_line_color'] = marker_line_logic
-         trace_kwargs['marker_line_width'] = 1.5
+    # Date Filter
+    if "Date" in data.columns:
+        data["Date"] = pd.to_datetime(data["Date"], errors='coerce')
+        valid_rows = data.dropna(subset=["Date", "Country"])
+        
+        if not valid_rows.empty:
+            min_date = valid_rows["Date"].min().date()
+            max_date = valid_rows["Date"].max().date()
+        else:
+            min_date = datetime.date.today()
+            max_date = datetime.date.today()
+            
+        selected_dates = st.slider("Select Date Range:", min_value=min_date, max_value=max_date, value=(min_date, max_date), format="MM/DD/YY")
+        mask = (data["Date"].dt.date >= selected_dates[0]) & (data["Date"].dt.date <= selected_dates[1])
+        filtered_data = data[mask].copy()
     else:
-         trace_kwargs['marker_line_color'] = 'black'
-         trace_kwargs['marker_line_width'] = 0.5
+        filtered_data = data.copy()
+    
+    st.divider()
+    map_metric = st.radio("Select Metric:", options=["Count", "Comparison", "Michael", "Sarah"], horizontal=False)
+    
+    if map_metric != "Count":
+        st.divider()
+        score_mode = st.radio("Select Score Type:", options=["Total Score", "Geography Score", "Time Score"], horizontal=False)
+    else:
+        score_mode = "Total Score" # Default for Count
 
-    fig.add_trace(go.Choropleth(**trace_kwargs))
+    st.divider()
+    view_mode = st.radio("Select View Level:", options=["Countries", "UN Regions", "Continents"], horizontal=False)
+    
+    split_us = st.toggle("Split US", value=False)
+    split_uk = st.toggle("Split UK", value=False)
+    split_germany = st.toggle("Split Germany", value=False)
+    split_france = st.toggle("Split France", value=False)
+    split_canada = st.toggle("Split Canada", value=False)
+    split_australia = st.toggle("Split Australia", value=False)
+    split_india = st.toggle("Split India", value=False)
+    split_china = st.toggle("Split China", value=False)
+    split_poland = st.toggle("Split Poland", value=False)
+
+    # --- Validation for USA ---
+    if split_us:
+        us_state_mapping = {
+            "Washington DC": "District of Columbia",
+            "Washington D.C.": "District of Columbia",
+            "D.C.": "District of Columbia",
+            "DC": "District of Columbia"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_us_mask = filtered_data['Country'].map(iso_lookup) == 'USA'
+        if is_us_mask.any():
+             filtered_data.loc[is_us_mask, 'Subdivision'] = filtered_data.loc[is_us_mask, 'Subdivision'].replace(us_state_mapping)
+
+    # --- Validation for Germany ---
+    if split_germany:
+        germany_state_mapping = {
+            "Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen",
+            "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen",
+            "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen",
+            "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_germany_mask = filtered_data['Country'].map(iso_lookup) == 'DEU'
+        if is_germany_mask.any():
+            filtered_data.loc[is_germany_mask, 'Subdivision'] = filtered_data.loc[is_germany_mask, 'Subdivision'].replace(germany_state_mapping)
+        germany_rows = filtered_data[is_germany_mask]
+        if not germany_rows.empty:
+            missing_subdivs = germany_rows[germany_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following Germany entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = germany_rows[~germany_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following Germany subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+    
+    # --- Validation for France ---
+    if split_france:
+        france_region_mapping = {
+            "Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne",
+            "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire",
+            "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France",
+            "Ile-de-France": "Île-de-France", "Normandy": "Normandie",
+            "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie",
+            "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_france_mask = filtered_data['Country'].map(iso_lookup) == 'FRA'
+        if is_france_mask.any():
+            filtered_data.loc[is_france_mask, 'Subdivision'] = filtered_data.loc[is_france_mask, 'Subdivision'].replace(france_region_mapping)
+        france_rows = filtered_data[is_france_mask]
+        if not france_rows.empty:
+            missing_subdivs = france_rows[france_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following France entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = france_rows[~france_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following France subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+
+    # --- Validation for Canada ---
+    if split_canada:
+        canada_prov_mapping = {
+            "Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_canada_mask = filtered_data['Country'].map(iso_lookup) == 'CAN'
+        if is_canada_mask.any():
+             filtered_data.loc[is_canada_mask, 'Subdivision'] = filtered_data.loc[is_canada_mask, 'Subdivision'].replace(canada_prov_mapping)
+        canada_rows = filtered_data[is_canada_mask]
+        if not canada_rows.empty:
+            missing_subdivs = canada_rows[canada_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following Canada entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = canada_rows[~canada_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following Canada subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+
+    # --- Validation for Australia ---
+    if split_australia:
+        australia_state_mapping = {}
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_aus_mask = filtered_data['Country'].map(iso_lookup) == 'AUS'
+        if is_aus_mask.any():
+             filtered_data.loc[is_aus_mask, 'Subdivision'] = filtered_data.loc[is_aus_mask, 'Subdivision'].replace(australia_state_mapping)
+        aus_rows = filtered_data[is_aus_mask]
+        if not aus_rows.empty:
+            missing_subdivs = aus_rows[aus_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following Australia entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = aus_rows[~aus_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following Australia subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+                    
+    # --- Validation for India ---
+    if split_india:
+        india_state_mapping = {
+             "Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_india_mask = filtered_data['Country'].map(iso_lookup) == 'IND'
+        if is_india_mask.any():
+             filtered_data.loc[is_india_mask, 'Subdivision'] = filtered_data.loc[is_india_mask, 'Subdivision'].replace(india_state_mapping)
+        india_rows = filtered_data[is_india_mask]
+        if not india_rows.empty:
+            missing_subdivs = india_rows[india_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following India entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = india_rows[~india_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following India subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+
+    # --- Validation for China ---
+    if split_china:
+        china_prov_mapping = {
+            "Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi",
+            "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu",
+            "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong",
+            "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng",
+            "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng",
+            "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng",
+            "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng",
+            "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng",
+            "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng", "Taiwan": "Taiwan"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_china_mask = filtered_data['Country'].map(iso_lookup) == 'CHN'
+        if is_china_mask.any():
+             filtered_data.loc[is_china_mask, 'Subdivision'] = filtered_data.loc[is_china_mask, 'Subdivision'].replace(china_prov_mapping)
+        china_rows = filtered_data[is_china_mask]
+        if not china_rows.empty:
+            missing_subdivs = china_rows[china_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following China entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = china_rows[~china_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following China subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+    
+    # --- Validation for Poland ---
+    if split_poland:
+        poland_mapping = {
+            "Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie",
+            "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie",
+            "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie",
+            "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie",
+            "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"
+        }
+        unique_cs = filtered_data['Country'].unique()
+        iso_lookup = dict(zip(unique_cs, cc.convert(names=unique_cs, to='ISO3', not_found=None)))
+        is_poland_mask = filtered_data['Country'].map(iso_lookup) == 'POL'
+        if is_poland_mask.any():
+             filtered_data.loc[is_poland_mask, 'Subdivision'] = filtered_data.loc[is_poland_mask, 'Subdivision'].replace(poland_mapping)
+        poland_rows = filtered_data[is_poland_mask]
+        if not poland_rows.empty:
+            missing_subdivs = poland_rows[poland_rows['Subdivision'].isna()]
+            if not missing_subdivs.empty:
+                st.error("Error: The following Poland entries are missing a subdivision:")
+                st.dataframe(missing_subdivs[['Date', 'Country', 'Subdivision']])
+                st.stop()
+            if valid_map_names:
+                unknown_subdivs = poland_rows[~poland_rows['Subdivision'].isin(valid_map_names)]
+                if not unknown_subdivs.empty:
+                    bad_names = unknown_subdivs['Subdivision'].unique()
+                    st.error(f"Error: The following Poland subdivisions are not understood: {', '.join(bad_names)}")
+                    st.stop()
+
+    # --- Precompute Stats (Cached) ---
+    granular_split_us = split_us and (view_mode == "Countries")
+    granular_split_uk = split_uk and (view_mode == "Countries")
+    granular_split_germany = split_germany and (view_mode == "Countries")
+    granular_split_france = split_france and (view_mode == "Countries")
+    granular_split_canada = split_canada and (view_mode == "Countries")
+    granular_split_australia = split_australia and (view_mode == "Countries")
+    granular_split_india = split_india and (view_mode == "Countries")
+    granular_split_china = split_china and (view_mode == "Countries")
+    granular_split_poland = split_poland and (view_mode == "Countries")
+
+    all_stats = precompute_stats_v9(filtered_data, granular_split_us, granular_split_uk, granular_split_germany, granular_split_france, granular_split_canada, granular_split_australia, granular_split_india, granular_split_china, granular_split_poland)
+    
+    if map_metric == "Michael":
+        granular_key = f"Michael {score_mode}"
+    elif map_metric == "Sarah":
+        granular_key = f"Sarah {score_mode}"
+    else:
+        granular_key = f"Intersection {score_mode}"
+        
+    granular_data = all_stats[granular_key]
+    
+    # --- Aggregate by View Mode (Region/Continent) ---
+    view_data = aggregate_by_view_mode(granular_data, view_mode, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland)
+    
+    # --- Count Filter ---
+    max_game_count = view_data["Count"].max() if not view_data.empty else 1
+    if max_game_count > 1:
+        st.divider()
+        min_count_filter = st.slider("Minimum Games Played:", min_value=1, max_value=int(max_game_count), value=1)
+        view_data = view_data[view_data["Count"] >= min_count_filter]
+    else:
+        min_count_filter = 1
+
+    # --- Determine Active ISOs and Exclusive Keys for Map ---
+    active_granular = granular_data[granular_data["Count"] >= min_count_filter]
+    if view_mode != "Countries" and not view_data.empty:
+         valid_keys = view_data['Join_Key'].unique()
+         col = "Continent" if view_mode == "Continents" else "UN_Region"
+         mask_region = granular_data[col].isin(valid_keys)
+         mask_state = granular_data['Join_Key'].isin(valid_keys)
+         active_granular = granular_data[mask_region | mask_state]
+    
+    exclusive_keys = set()
+    exclusive_isos = set()
+    exclusive_counts_df = pd.DataFrame()
+    
+    if map_metric == "Count":
+        p_mich = ["Michael Geography Score", "Michael Time Score"] 
+        p_sarah = ["Sarah Geography Score", "Sarah Time Score"]
+        
+        df_excl = filtered_data[filtered_data["Date"].notna()].copy()
+        
+        def get_fmt_loc(row):
+            city = str(row['City']).strip() if pd.notna(row.get('City')) else ''
+            sub = str(row['Subdivision']).strip() if pd.notna(row.get('Subdivision')) else ''
+            ctry = str(row['Country']).strip() if pd.notna(row.get('Country')) else ''
+            parts = [p for p in [city, sub, ctry] if p]
+            return ", ".join(parts)
+
+        df_excl['Formatted_Location'] = df_excl.apply(get_fmt_loc, axis=1)
+        
+        has_mich = df_excl[p_mich].notna().any(axis=1)
+        has_sarah = df_excl[p_sarah].notna().any(axis=1)
+        
+        df_excl['Michael_Only'] = (has_mich & ~has_sarah).astype(int)
+        df_excl['Sarah_Only'] = (~has_mich & has_sarah).astype(int)
+        
+        u_cs = df_excl["Country"].unique()
+        i_map = dict(zip(u_cs, cc.convert(names=u_cs, to="ISO3", not_found=None)))
+        df_excl["ISO3"] = df_excl["Country"].map(i_map)
+        
+        if view_mode != "Countries":
+            c_map = dict(zip(u_cs, cc.convert(names=u_cs, to="continent")))
+            u_map = dict(zip(u_cs, cc.convert(names=u_cs, to="UNregion")))
+            if "Palestine" in u_cs:
+                 c_map["Palestine"] = "Asia"
+                 u_map["Palestine"] = "Western Asia"
+            df_excl["Continent"] = df_excl["Country"].map(c_map)
+            df_excl["UN_Region"] = df_excl["Country"].map(u_map)
+
+        base_g = "Continent" if view_mode == "Continents" else "UN_Region"
+        
+        def get_agg_key_raw_excl(row):
+            iso = row['ISO3']
+            subdiv = row.get('Subdivision')
+            is_split = False
+            if split_us and iso == 'USA': is_split = True
+            elif split_uk and iso == 'GBR': is_split = True
+            elif split_germany and iso == 'DEU': is_split = True
+            elif split_france and iso == 'FRA': is_split = True
+            elif split_canada and iso == 'CAN': is_split = True
+            elif split_australia and iso == 'AUS': is_split = True
+            elif split_india and iso == 'IND': is_split = True
+            elif split_china and iso == 'CHN': is_split = True
+            elif split_poland and iso == 'POL': is_split = True
+            
+            if is_split:
+                if pd.notna(subdiv): return subdiv
+                return iso
+            if view_mode == "Countries": return iso
+            return row[base_g]
+
+        df_excl['Agg_Key'] = df_excl.apply(get_agg_key_raw_excl, axis=1)
+        
+        df_really_excl = df_excl[(df_excl['Michael_Only'] == 1) | (df_excl['Sarah_Only'] == 1)].copy()
+        df_really_excl = df_really_excl.sort_values("Date", ascending=False)
+        
+        exclusive_counts_df = df_excl.groupby('Agg_Key').agg({
+            'Michael_Only': 'sum',
+            'Sarah_Only': 'sum'
+        }).reset_index()
+        
+        excl_dates = df_really_excl.groupby('Agg_Key').agg({
+            'Date': 'first',
+            'Formatted_Location': 'first'
+        }).reset_index().rename(columns={'Date': 'Excl_Date', 'Formatted_Location': 'Excl_Loc'})
+        
+        exclusive_counts_df = pd.merge(exclusive_counts_df, excl_dates, on='Agg_Key', how='left')
+
+        df_has_excl = exclusive_counts_df[(exclusive_counts_df['Michael_Only'] > 0) | (exclusive_counts_df['Sarah_Only'] > 0)]
+        exclusive_keys = set(df_has_excl['Agg_Key'].unique())
+        
+        isos_needed = df_excl[df_excl['Agg_Key'].isin(exclusive_keys)]['ISO3'].unique()
+        exclusive_isos = set(isos_needed)
+
+    base_isos = set(active_granular['ISO3'].unique().tolist())
+    final_active_isos = tuple(sorted(base_isos.union(exclusive_isos)))
+
+    map_json = generate_dynamic_map_layer(base_gdf, final_active_isos, split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland, view_mode)
+    bg_geojson = get_background_layer(base_gdf)
+
+    if map_json:
+        feats = []
+        for f in map_json['features']:
+            feats.append(f['properties'])
+        
+        map_props = pd.DataFrame(feats)
+        map_df = pd.merge(map_props, view_data, left_on='Dissolve_Key', right_on='Join_Key', how='left')
+        
+        if 'Hover_Name' in map_df.columns:
+            def fix_hover_name(row):
+                if pd.notna(row['Hover_Name']):
+                    return row['Hover_Name']
+                key = str(row['Dissolve_Key'])
+                if len(key) == 3 and key.isupper():
+                    return cc.convert(names=key, to='name_short', not_found=key)
+                return key
+            map_df['Hover_Name'] = map_df.apply(fix_hover_name, axis=1)
+
+        map_df['Count'] = map_df['Count'].fillna(0)
+        
+        if map_metric == "Count" and not exclusive_counts_df.empty:
+            map_df = pd.merge(map_df, exclusive_counts_df, left_on='Dissolve_Key', right_on='Agg_Key', how='left')
+            map_df['Michael_Only'] = map_df['Michael_Only'].fillna(0).astype(int)
+            map_df['Sarah_Only'] = map_df['Sarah_Only'].fillna(0).astype(int)
+            
+            def build_excl_str(row):
+                s = ""
+                if row.get('Michael_Only', 0) > 0: s += f"Michael Only: {row['Michael_Only']}<br>"
+                if row.get('Sarah_Only', 0) > 0: s += f"Sarah Only: {row['Sarah_Only']}<br>"
+                return s
+            
+            map_df['Hover_Extra'] = map_df.apply(build_excl_str, axis=1)
+            
+            if not view_data.empty:
+                view_data = pd.merge(view_data, exclusive_counts_df, left_on='Join_Key', right_on='Agg_Key', how='left')
+                view_data['Hover_Extra'] = view_data.apply(build_excl_str, axis=1)
+        else:
+            map_df['Hover_Extra'] = ''
+            if not view_data.empty:
+                view_data['Hover_Extra'] = ''
+            
+    else:
+        map_df = pd.DataFrame()
 
 # --- 6. Visualization Logic ---
 
-if map_metric == "Count":
-    count_scale = [[0.0, "#fee6e6"], [1.0, "#db5049"]]
-    max_count = map_data["Count"].max() if not map_data.empty else 1
-    
-    if is_regional:
-        world_data = add_calculated_colors(world_data, "Count", count_scale, 0, max_count)
-        border_color = world_data['Calculated_Color']
-        border_width = 1.0 
-    else:
-        border_color = "black"
-        border_width = 0.5
+layout_settings = dict(
+    geo=dict(
+        showframe=False, 
+        bgcolor="white", 
+        showland=False, 
+        showcountries=False, 
+        showcoastlines=False, 
+        showocean=False,
+        projection=dict(type="robinson"),
+        fitbounds=False
+    ),
+    paper_bgcolor='rgba(0,0,0,0)',
+    font=dict(family="Poppins, Arial, sans-serif", color="#000000"),
+    width=1600, height=850, 
+    coloraxis_showscale=False, showlegend=False,
+    margin=dict(t=0, b=0, l=0, r=0)
+)
 
-    fig = px.choropleth(
-        world_data, locations="ISO3", locationmode="ISO-3", color="Count",
-        color_continuous_scale=count_scale, range_color=[0, max_count],
-        hover_name="Hover_Name", hover_data={"ISO3": False, "Count": True, "Michael Selected": False, "Sarah Selected": False}
-    )
-    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
-    
-    add_us_subdivision_trace(
-        fig, us_data, "Count", count_scale, 0, max_count, 
-        "<b>%{text}</b><br>Count: %{z}<extra></extra>", ["Count"]
-    )
-    add_uk_subdivision_trace(
-        fig, uk_data, uk_geojson, "Count", count_scale, 0, max_count,
-        "<b>%{text}</b><br>Count: %{z}<extra></extra>", ["Count"]
-    )
+fig = go.Figure()
 
-    ms_trace = get_microstate_trace(
-        world_data, "Count", count_scale, 0, max_count, 
-        "<b>%{text}</b><br>Count: %{customdata[0]}<extra></extra>", ["Count"],
-        is_regional=is_regional
-    )
-    if ms_trace: fig.add_trace(ms_trace)
-
-    fig.update_layout(**layout_settings)
-    st.plotly_chart(fig, use_container_width=True)
-
-elif map_metric == "Comparison":
-    comparison_scale = [[0.0, "#8a005c"], [0.5, "#f2f2f2"], [1.0, "#221e8f"]]
-
-    def get_border_color(ratio):
-        if ratio > 0.5: return "#221e8f"
-        elif ratio < 0.5: return "#8a005c"
-        else: return "#666666"
-
-    if is_regional:
-        world_data = add_calculated_colors(world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6)
-        world_data["BorderColor"] = world_data["Calculated_Color"]
-        border_width = 1.0
-    else:
-        world_data["BorderColor"] = world_data["Michael Share Ratio"].apply(get_border_color)
-        border_width = 1.5
-
-    if not us_data.empty: 
-        us_data["BorderColor"] = us_data["Michael Share Ratio"].apply(get_border_color)
-    if not uk_data.empty:
-        uk_data["BorderColor"] = uk_data["Michael Share Ratio"].apply(get_border_color)
-
-    custom_cols = ['Michael Avg', 'Sarah Avg', 'Michael Share %', 'Sarah Share %']
-
-    hover_template = (
-        "<b>%{text}</b><br>" + 
-        f"Michael Avg: %{{customdata[0]:,.0f}}<br>" +
-        f"Sarah Avg: %{{customdata[1]:,.0f}}<br>" + 
-        "Share: %{customdata[2]} vs %{customdata[3]}<extra></extra>"
-    )
-
-    fig = go.Figure()
+if bg_geojson:
     fig.add_trace(go.Choropleth(
-        locations=world_data['ISO3'], z=world_data['Michael Share Ratio'], locationmode='ISO-3',
-        colorscale=comparison_scale, zmin=0.4, zmax=0.6,
-        marker_line_color=world_data['BorderColor'], 
-        marker_line_width=border_width,
-        text=world_data['Hover_Name'], customdata=world_data[custom_cols], hovertemplate=hover_template, showscale=False
+        geojson=bg_geojson,
+        locations=[1], z=[1], 
+        featureidkey="properties.World_Group",
+        colorscale=[[0, "#eeeeee"], [1, "#eeeeee"]],
+        showscale=False,
+        marker_line_color="white", marker_line_width=0.1,
+        hoverinfo='skip'
     ))
-    
-    add_us_subdivision_trace(
-        fig, us_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
-        hover_template, custom_cols, marker_line_logic="BorderColor"
-    )
-    add_uk_subdivision_trace(
-        fig, uk_data, uk_geojson, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
-        hover_template, custom_cols, marker_line_logic="BorderColor"
-    )
 
-    ms_trace = get_microstate_trace(
-        world_data, "Michael Share Ratio", comparison_scale, 0.4, 0.6,
-        hover_template, custom_cols, is_regional=is_regional, line_color_logic=True
-    )
-    if ms_trace: fig.add_trace(ms_trace)
-    
-    fig.update_layout(**layout_settings)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(f"""
-        <div style="text-align: center; font-weight: bold; margin-top: -10px;">
-            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
-                <span style="color: #ff94bd;">← Sarah Dominant</span>
-                <span style="background: linear-gradient(90deg, #ff94bd, #bcb0ff); width: 200px; height: 10px; display: inline-block; border-radius: 5px;"></span>
-                <span style="color: #bcb0ff;">Michael Dominant →</span>
-            </div>
-            <div style="font-size: 0.8em; color: #555;">*Comparing {score_mode}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-elif map_metric == "Michael":
+if map_json and not map_df.empty:
+    count_scale = [[0.0, "#fee6e6"], [1.0, "#db5049"]]
+    comparison_scale = [[0.0, "#8a005c"], [0.5, "#f2f2f2"], [1.0, "#221e8f"]]
     michael_scale = [[0.0, "#e6e6ff"], [1.0, "#221e8f"]]
-    
-    if is_regional:
-        world_data = add_calculated_colors(world_data, "Michael Efficiency", michael_scale, 0.5, 1.0)
-        border_color = world_data['Calculated_Color']
-        border_width = 1.0
-    else:
-        border_color = "black"
-        border_width = 0.5
-
-    hover_template = "<b>%{text}</b><br>Michael Eff %: %{customdata[0]}<br>Score: %{customdata[1]}<br>Count: %{customdata[2]}<extra></extra>"
-    custom_cols = ["Michael Eff %", "Michael Selected", "Count"]
-
-    fig = px.choropleth(
-        world_data, locations="ISO3", locationmode="ISO-3", color="Michael Efficiency",
-        color_continuous_scale=michael_scale, range_color=[0.5, 1],
-        hover_name="Hover_Name", hover_data={"ISO3": False, "Michael Efficiency": False, "Michael Eff %": True, "Michael Selected": True, "Count": True}
-    )
-    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
-    
-    add_us_subdivision_trace(
-        fig, us_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
-        hover_template, custom_cols
-    )
-    add_uk_subdivision_trace(
-        fig, uk_data, uk_geojson, "Michael Efficiency", michael_scale, 0.5, 1.0,
-        hover_template, custom_cols
-    )
-
-    ms_trace = get_microstate_trace(
-        world_data, "Michael Efficiency", michael_scale, 0.5, 1.0,
-        hover_template, custom_cols,
-        is_regional=is_regional
-    )
-    if ms_trace: fig.add_trace(ms_trace)
-    
-    fig.update_layout(**layout_settings)
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption(f"Showing Michael's **Efficiency**. Scale: 50%-100%.")
-
-elif map_metric == "Sarah":
     sarah_scale = [[0.0, "#ffe6f2"], [1.0, "#8a005c"]]
+
+    z_col, scale, z_min, z_max = "Count", count_scale, 0, max_game_count
+    border_color, border_width = "black", 0.5
     
-    if is_regional:
-        world_data = add_calculated_colors(world_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0)
-        border_color = world_data['Calculated_Color']
+    hover_base = "<b>%{text}</b><br>"
+    custom_cols = []
+    hover_fmt = hover_base + "Count: %{z}<extra></extra>"
+
+    if map_metric == "Count":
+        df_filled = map_df[map_df["Count"] > 0].copy()
+        
+        if 'Last_Date' in df_filled.columns:
+            df_filled['Last_Date_Str'] = pd.to_datetime(df_filled['Last_Date']).dt.strftime('%Y-%m-%d').fillna('')
+        else:
+            df_filled['Last_Date_Str'] = ''
+            
+        if 'Last_Date' in view_data.columns:
+            view_data['Last_Date_Str'] = pd.to_datetime(view_data['Last_Date']).dt.strftime('%Y-%m-%d').fillna('')
+        else:
+            view_data['Last_Date_Str'] = ''
+        
+        df_filled = add_calculated_colors(df_filled, "Count", count_scale, 0, max_game_count)
+        
+        def get_filled_border(row):
+            if (row.get('Michael_Only', 0) > 0) or (row.get('Sarah_Only', 0) > 0):
+                return '#221e8f'
+            return 'black'
+        
+        filled_borders = df_filled.apply(get_filled_border, axis=1)
+        filled_width = 1.0
+
+        custom_cols = ["Last_Date_Str", "Last_Location", "Hover_Extra"]
+        hover_fmt = hover_base + "Count: %{z}<br>%{customdata[2]}<extra></extra>"
+        
+        fig.add_trace(go.Choropleth(
+            geojson=map_json,
+            locations=df_filled['Dissolve_Key'],
+            z=df_filled['Count'],
+            featureidkey="properties.Dissolve_Key",
+            colorscale=count_scale,
+            zmin=0, zmax=max_game_count,
+            marker_line_color=filled_borders,
+            marker_line_width=filled_width,
+            showscale=False,
+            text=df_filled['Hover_Name'],
+            customdata=df_filled[custom_cols] if custom_cols else None,
+            hovertemplate=hover_fmt
+        ))
+        
+        df_border_only = map_df[map_df['Count'] == 0].copy()
+        df_border_only = df_border_only[df_border_only['Dissolve_Key'].isin(exclusive_keys)]
+        
+        if not df_border_only.empty:
+            df_border_only['Last_Date_Str'] = ''
+            df_border_only['Last_Location'] = ''
+            if 'Hover_Extra' not in df_border_only.columns:
+                df_border_only['Hover_Extra'] = ''
+
+            hover_fmt_border = hover_base + "Count: 0<br>%{customdata[2]}<extra></extra>"
+            
+            fig.add_trace(go.Choropleth(
+                geojson=map_json,
+                locations=df_border_only['Dissolve_Key'],
+                z=[0]*len(df_border_only), 
+                featureidkey="properties.Dissolve_Key",
+                colorscale=[[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0)']], 
+                marker_line_color='#221e8f', 
+                marker_line_width=1.0, 
+                showscale=False,
+                text=df_border_only['Hover_Name'],
+                customdata=df_border_only[custom_cols], 
+                hovertemplate=hover_fmt_border
+            ))
+        
+    elif map_metric == "Comparison":
+        map_df = add_calculated_colors(map_df, "Michael Share Ratio", comparison_scale, 0.4, 0.6)
+        z_col, scale, z_min, z_max = "Michael Share Ratio", comparison_scale, 0.4, 0.6
         border_width = 1.0
+        border_color = map_df["Michael Share Ratio"].apply(lambda r: "#221e8f" if r > 0.5 else ("#8a005c" if r < 0.5 else "#666666"))
+        custom_cols = ['Michael Avg', 'Sarah Avg', 'Michael Share %', 'Sarah Share %']
+        hover_fmt = hover_base + "Michael Avg: %{customdata[0]:,.0f}<br>Sarah Avg: %{customdata[1]:,.0f}<br>Share: %{customdata[2]} vs %{customdata[3]}<extra></extra>"
+        
+        fig.add_trace(go.Choropleth(
+            geojson=map_json,
+            locations=map_df['Dissolve_Key'],
+            z=map_df[z_col],
+            featureidkey="properties.Dissolve_Key",
+            colorscale=scale,
+            zmin=z_min, zmax=z_max,
+            marker_line_color=border_color,
+            marker_line_width=border_width,
+            showscale=False,
+            text=map_df['Hover_Name'],
+            customdata=map_df[custom_cols] if custom_cols else None,
+            hovertemplate=hover_fmt
+        ))
+
+    elif map_metric == "Michael":
+        map_df = add_calculated_colors(map_df, "Michael Efficiency", michael_scale, 0.5, 1.0)
+        z_col, scale, z_min, z_max = "Michael Efficiency", michael_scale, 0.5, 1.0
+        
+        def get_score_str(row, col_prefix):
+            sel = row.get(f"{col_prefix} Selected", 0)
+            tot = row.get("Total Possible", 0)
+            if pd.isna(sel): sel = 0
+            if pd.isna(tot): tot = 0
+            return f"{sel:,.0f}/{tot:,.0f}"
+
+        map_df['Score_String'] = map_df.apply(lambda r: get_score_str(r, "Michael"), axis=1)
+        view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Michael"), axis=1)
+        
+        custom_cols = ["Michael Eff %", "Score_String"]
+        hover_fmt = hover_base + "Percent: %{customdata[0]}<br>Total Score: %{customdata[1]}<extra></extra>"
+        
+        fig.add_trace(go.Choropleth(
+            geojson=map_json,
+            locations=map_df['Dissolve_Key'],
+            z=map_df[z_col],
+            featureidkey="properties.Dissolve_Key",
+            colorscale=scale,
+            zmin=z_min, zmax=z_max,
+            marker_line_color=border_color,
+            marker_line_width=border_width,
+            showscale=False,
+            text=map_df['Hover_Name'],
+            customdata=map_df[custom_cols] if custom_cols else None,
+            hovertemplate=hover_fmt
+        ))
+
+    elif map_metric == "Sarah":
+        map_df = add_calculated_colors(map_df, "Sarah Efficiency", sarah_scale, 0.5, 1.0)
+        z_col, scale, z_min, z_max = "Sarah Efficiency", sarah_scale, 0.5, 1.0
+        
+        def get_score_str(row, col_prefix):
+            sel = row.get(f"{col_prefix} Selected", 0)
+            tot = row.get("Total Possible", 0)
+            if pd.isna(sel): sel = 0
+            if pd.isna(tot): tot = 0
+            return f"{sel:,.0f}/{tot:,.0f}"
+
+        map_df['Score_String'] = map_df.apply(lambda r: get_score_str(r, "Sarah"), axis=1)
+        view_data['Score_String'] = view_data.apply(lambda r: get_score_str(r, "Sarah"), axis=1)
+        
+        custom_cols = ["Sarah Eff %", "Score_String"]
+        hover_fmt = hover_base + "Percent: %{customdata[0]}<br>Total Score: %{customdata[1]}<extra></extra>"
+
+        fig.add_trace(go.Choropleth(
+            geojson=map_json,
+            locations=map_df['Dissolve_Key'],
+            z=map_df[z_col],
+            featureidkey="properties.Dissolve_Key",
+            colorscale=scale,
+            zmin=z_min, zmax=z_max,
+            marker_line_color=border_color,
+            marker_line_width=border_width,
+            showscale=False,
+            text=map_df['Hover_Name'],
+            customdata=map_df[custom_cols] if custom_cols else None,
+            hovertemplate=hover_fmt
+        ))
+
+    if map_metric == "Count":
+        if 'Hover_Extra' not in view_data.columns:
+            view_data['Hover_Extra'] = ''
+        ms_cols = (custom_cols if custom_cols else []) + [z_col]
+        ms_hover = hover_fmt.replace("%{z}", f"%{{customdata[{len(ms_cols)-1}]}}")
+        ms_trace = get_microstate_trace(view_data, z_col, scale, z_min, z_max, ms_hover, ms_cols, line_color_logic=(map_metric=="Comparison"))
     else:
-        border_color = "black"
-        border_width = 0.5
-
-    hover_template = "<b>%{text}</b><br>Sarah Eff %: %{customdata[0]}<br>Score: %{customdata[1]}<br>Count: %{customdata[2]}<extra></extra>"
-    custom_cols = ["Sarah Eff %", "Sarah Selected", "Count"]
-
-    fig = px.choropleth(
-        world_data, locations="ISO3", locationmode="ISO-3", color="Sarah Efficiency",
-        color_continuous_scale=sarah_scale, range_color=[0.5, 1],
-        hover_name="Hover_Name", hover_data={"ISO3": False, "Sarah Efficiency": False, "Sarah Eff %": True, "Sarah Selected": True, "Count": True}
-    )
-    fig.update_traces(marker_line_color=border_color, marker_line_width=border_width)
+        ms_trace = get_microstate_trace(view_data, z_col, scale, z_min, z_max, hover_fmt, custom_cols, line_color_logic=(map_metric=="Comparison"))
     
-    add_us_subdivision_trace(
-        fig, us_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
-        hover_template, custom_cols
-    )
-    add_uk_subdivision_trace(
-        fig, uk_data, uk_geojson, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
-        hover_template, custom_cols
-    )
-
-    ms_trace = get_microstate_trace(
-        world_data, "Sarah Efficiency", sarah_scale, 0.5, 1.0,
-        hover_template, custom_cols,
-        is_regional=is_regional
-    )
     if ms_trace: fig.add_trace(ms_trace)
-    
-    fig.update_layout(**layout_settings)
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption(f"Showing Sarah's **Efficiency**. Scale: 50%-100%.")
 
+if map_metric == "Comparison":
+    st.markdown(f"""<div style="text-align: center;">...legend...</div>""", unsafe_allow_html=True)
+elif map_metric == "Michael":
+    st.caption(f"Showing Michael's **Efficiency**.")
+elif map_metric == "Sarah":
+    st.caption(f"Showing Sarah's **Efficiency**.")
 
-# --- 7. Single Summary Table ---
+fig.update_layout(**layout_settings)
+st.plotly_chart(fig, use_container_width=True)
+
+# --- 7. Table ---
 st.divider()
 st.subheader(f"Statistics by {view_mode}")
 
-table_cols = [locality_col, "Count", "Michael Selected", "Sarah Selected", "Total Possible"]
-table_df = map_data[table_cols].drop_duplicates()
-# Filter out "not found" values
-table_df = table_df[table_df[locality_col] != "not found"]
+def get_top_items_string(series, count_series=None):
+    if series.empty: return ""
+    if count_series is None:
+        counts = series.value_counts()
+    else:
+        counts = pd.Series(count_series.values, index=series.values)
+        counts = counts.groupby(level=0).sum().sort_values(ascending=False)
+    if counts.empty: return ""
+    top = counts.nlargest(3, keep='all')
+    items = [f"{name} ({val})" for name, val in top.items()]
+    return ", ".join(items)
 
-table_df["Michael Efficiency"] = (table_df["Michael Selected"] / table_df["Total Possible"]) * 100
-table_df["Sarah Efficiency"] = (table_df["Sarah Selected"] / table_df["Total Possible"]) * 100
-table_df["% Better"] = table_df["Michael Efficiency"] - table_df["Sarah Efficiency"]
-table_df = table_df.sort_values("Count", ascending=False)
+if not view_data.empty or (map_metric == "Count" and not exclusive_counts_df.empty):
+    if not view_data.empty:
+         table_df = view_data.sort_values("Count", ascending=False)
+    else:
+         table_df = pd.DataFrame()
+    
+    if map_metric == "Count":
+        if view_mode == "Countries":
+            raw_work = filtered_data.copy()
+            req_cols = ["Michael Geography Score", "Michael Time Score", "Sarah Geography Score", "Sarah Time Score"]
+            raw_work = raw_work.dropna(subset=req_cols)
+            unique_cs = raw_work["Country"].unique()
+            iso_map = dict(zip(unique_cs, cc.convert(names=unique_cs, to="ISO3", not_found=None)))
+            raw_work["ISO3"] = raw_work["Country"].map(iso_map)
+            
+            def local_join_key(row):
+                iso = row['ISO3']
+                subdiv = row.get('Subdivision')
+                if iso == 'USA' and split_us and pd.notna(subdiv): return subdiv
+                if iso == 'GBR' and split_uk and pd.notna(subdiv): return subdiv
+                if iso == 'DEU' and split_germany and pd.notna(subdiv): return subdiv
+                if iso == 'FRA' and split_france and pd.notna(subdiv): return subdiv
+                if iso == 'CAN' and split_canada and pd.notna(subdiv): return subdiv
+                if iso == 'AUS' and split_australia and pd.notna(subdiv): return subdiv
+                if iso == 'IND' and split_india and pd.notna(subdiv): return subdiv
+                if iso == 'CHN' and split_china and pd.notna(subdiv): return subdiv
+                if iso == 'POL' and split_poland and pd.notna(subdiv): return subdiv
+                return iso
+            
+            raw_work['Join_Key'] = raw_work.apply(local_join_key, axis=1)
+            city_col = "City" if "City" in raw_work.columns else None
+            
+            if city_col:
+                top_cities = raw_work.groupby('Join_Key')[city_col].apply(lambda x: get_top_items_string(x)).reset_index()
+                top_cities.columns = ['Join_Key', 'Top 3 Cities']
+                table_df = pd.merge(table_df, top_cities, on='Join_Key', how='left')
+                display_cols = ["Hover_Name", "Count", "Top 3 Cities"]
+            else:
+                display_cols = ["Hover_Name", "Count"]
 
-display_df = table_df[[locality_col, "Count", "% Better", "Michael Efficiency", "Sarah Efficiency"]].copy()
-display_df.columns = ["Locality", "Count", "% Better", "Michael % Gathered", "Sarah % Gathered"]
+        else:
+            base_group = "Continent" if view_mode == "Continents" else "UN_Region"
+            def local_agg_key(row):
+                iso = row['ISO3']
+                if split_us and iso == 'USA': return row['Join_Key']
+                if split_uk and iso == 'GBR': return row['Join_Key']
+                if split_germany and iso == 'DEU': return row['Join_Key']
+                if split_france and iso == 'FRA': return row['Join_Key']
+                if split_canada and iso == 'CAN': return row['Join_Key']
+                if split_australia and iso == 'AUS': return row['Join_Key']
+                if split_india and iso == 'IND': return row['Join_Key']
+                if split_china and iso == 'CHN': return row['Join_Key']
+                if split_poland and iso == 'POL': return row['Join_Key']
+                return row[base_group]
+            
+            granular_work = granular_data.copy()
+            granular_work['Agg_Key'] = granular_work.apply(local_agg_key, axis=1)
+            
+            top_countries = granular_work.groupby('Agg_Key').apply(
+                lambda x: get_top_items_string(x['Display_Name'], x['Count'])
+            ).reset_index()
+            top_countries.columns = ['Join_Key', 'Top 3 Countries']
+            
+            table_df = pd.merge(table_df, top_countries, on='Join_Key', how='left')
+            display_cols = ["Hover_Name", "Count", "Top 3 Countries"]
 
-column_config = {
-    "Locality": st.column_config.TextColumn("Location", width="medium"),
-    "Count": st.column_config.NumberColumn("Games", format="%d"),
-    "% Better": st.column_config.NumberColumn("% Better", format="%.1f%%"),
-    "Michael % Gathered": st.column_config.ProgressColumn("Michael Efficiency", format="%.1f%%", min_value=0, max_value=100),
-    "Sarah % Gathered": st.column_config.ProgressColumn("Sarah Efficiency", format="%.1f%%", min_value=0, max_value=100),
-}
+        if not exclusive_counts_df.empty:
+            excl_merge = exclusive_counts_df.rename(columns={'Agg_Key': 'Join_Key_Excl'})
+            if table_df.empty:
+                table_df = pd.DataFrame(columns=['Join_Key', 'Hover_Name', 'Count', 'Last_Date', 'Last_Location'])
+                
+            merged_table = pd.merge(table_df, excl_merge, left_on='Join_Key', right_on='Join_Key_Excl', how='outer')
+            merged_table['Join_Key'] = merged_table['Join_Key'].fillna(merged_table['Join_Key_Excl'])
+            
+            if 'Count' in merged_table.columns: merged_table['Count'] = merged_table['Count'].fillna(0)
+            if 'Last_Date' not in merged_table.columns: merged_table['Last_Date'] = pd.NaT
+            if 'Excl_Date' not in merged_table.columns: merged_table['Excl_Date'] = pd.NaT
+            if 'Last_Location' not in merged_table.columns: merged_table['Last_Location'] = ''
+            if 'Excl_Loc' not in merged_table.columns: merged_table['Excl_Loc'] = ''
+            
+            def fix_table_name(row):
+                if pd.notna(row['Hover_Name']): return row['Hover_Name']
+                key = str(row['Join_Key'])
+                name_map = {
+                    'USA': 'United States', 'GBR': 'United Kingdom', 'DEU': 'Germany', 'FRA': 'France',
+                    'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland'
+                }
+                if key in name_map: return name_map[key]
+                if len(key) == 3 and key.isupper():
+                    return cc.convert(names=key, to='name_short', not_found=key)
+                return key
 
-height = (len(display_df) + 1) * 35 + 3
-st.dataframe(display_df, column_config=column_config, use_container_width=True, hide_index=True, height=height)
+            merged_table['Hover_Name'] = merged_table.apply(fix_table_name, axis=1)
+            
+            def get_final_date(row):
+                d1 = row['Last_Date']
+                d2 = row['Excl_Date']
+                if pd.isna(d1): return d2
+                if pd.isna(d2): return d1
+                return max(d1, d2)
+                
+            def get_final_loc(row):
+                d1 = row['Last_Date']
+                d2 = row['Excl_Date']
+                l1 = row['Last_Location']
+                l2 = row['Excl_Loc']
+                if pd.isna(d1): return l2
+                if pd.isna(d2): return l1
+                return l2 if d2 > d1 else l1
+            
+            merged_table['Most Recent Date'] = merged_table.apply(get_final_date, axis=1)
+            merged_table['Most Recent Location'] = merged_table.apply(get_final_loc, axis=1)
+            merged_table['Most Recent Date'] = pd.to_datetime(merged_table['Most Recent Date']).dt.strftime('%Y-%m-%d').fillna('')
+
+            table_df = merged_table
+            display_cols.extend(["Most Recent Date", "Most Recent Location"])
+        else:
+            table_df['Most Recent Date'] = pd.to_datetime(table_df['Last_Date']).dt.strftime('%Y-%m-%d').fillna('')
+            table_df['Most Recent Location'] = table_df['Last_Location']
+            display_cols.extend(["Most Recent Date", "Most Recent Location"])
+
+        final_cols = [c for c in display_cols if c in table_df.columns]
+        display_df = table_df[final_cols].copy()
+    
+    elif map_metric in ["Michael", "Sarah"]:
+        prefix = "Michael" if map_metric == "Michael" else "Sarah"
+        
+        if score_mode == "Total Score":
+            calc_cols = [f"{prefix} Geography Score", f"{prefix} Time Score"]
+            filter_cols = calc_cols
+            max_points = 10000
+        elif score_mode == "Geography Score":
+            calc_cols = [f"{prefix} Geography Score"]
+            filter_cols = calc_cols
+            max_points = 5000
+        else:
+            calc_cols = [f"{prefix} Time Score"]
+            filter_cols = calc_cols
+            max_points = 5000
+            
+        raw_work = filtered_data.dropna(subset=filter_cols + ["Date"]).copy()
+        raw_work['Selected_Score'] = raw_work[calc_cols].sum(axis=1)
+        
+        unique_cs = raw_work["Country"].unique()
+        iso_map = dict(zip(unique_cs, cc.convert(names=unique_cs, to="ISO3", not_found=None)))
+        raw_work["ISO3"] = raw_work["Country"].map(iso_map)
+        
+        if view_mode != "Countries":
+            cont_map = dict(zip(unique_cs, cc.convert(names=unique_cs, to="continent")))
+            un_map = dict(zip(unique_cs, cc.convert(names=unique_cs, to="UNregion")))
+            if "Palestine" in unique_cs:
+                 cont_map["Palestine"] = "Asia"
+                 un_map["Palestine"] = "Western Asia"
+            raw_work["Continent"] = raw_work["Country"].map(cont_map)
+            raw_work["UN_Region"] = raw_work["Country"].map(un_map)
+
+        base_group = "Continent" if view_mode == "Continents" else "UN_Region"
+        
+        def local_agg_key_raw(row):
+            iso = row['ISO3']
+            subdiv = row.get('Subdivision')
+            is_split = False
+            if split_us and iso == 'USA': is_split = True
+            elif split_uk and iso == 'GBR': is_split = True
+            elif split_germany and iso == 'DEU': is_split = True
+            elif split_france and iso == 'FRA': is_split = True
+            elif split_canada and iso == 'CAN': is_split = True
+            elif split_australia and iso == 'AUS': is_split = True
+            elif split_india and iso == 'IND': is_split = True
+            elif split_china and iso == 'CHN': is_split = True
+            elif split_poland and iso == 'POL': is_split = True
+            
+            if is_split:
+                if pd.notna(subdiv): return subdiv
+                return iso
+            if view_mode == "Countries":
+                return iso
+            return row[base_group]
+
+        raw_work['Agg_Key'] = raw_work.apply(local_agg_key_raw, axis=1)
+        
+        stats_df = raw_work.groupby('Agg_Key').agg(
+            Count=('Selected_Score', 'count'),
+            Sum_Score=('Selected_Score', 'sum'),
+            Mean=('Selected_Score', 'mean'),
+            Median=('Selected_Score', 'median'),
+            Max=('Selected_Score', 'max'),
+            Min=('Selected_Score', 'min')
+        ).reset_index()
+        
+        stats_df['Total_Possible'] = stats_df['Count'] * max_points
+        stats_df['Percentage'] = (stats_df['Sum_Score'] / stats_df['Total_Possible']) * 100
+        
+        split_name_map = {
+            'USA': 'United States', 'GBR': 'United Kingdom', 'DEU': 'Germany', 'FRA': 'France',
+            'CAN': 'Canada', 'AUS': 'Australia', 'IND': 'India', 'CHN': 'China', 'POL': 'Poland'
+        }
+        all_keys = stats_df['Agg_Key'].unique()
+        iso_keys = [k for k in all_keys if len(k) == 3 and k.isupper() and k not in split_name_map]
+        
+        if iso_keys:
+            iso_names = cc.convert(names=iso_keys, to='name_short')
+            full_iso_map = dict(zip(iso_keys, iso_names))
+            full_map = {**split_name_map, **full_iso_map}
+        else:
+            full_map = split_name_map
+            
+        stats_df['Hover_Name'] = stats_df['Agg_Key'].replace(full_map)
+        display_df = stats_df
+        display_df['Percentage'] = display_df['Percentage'].map('{:.1f}%'.format)
+        display_df['Mean Score'] = display_df['Mean'].round(0).astype(int)
+        display_df['Median Score'] = display_df['Median'].round(0).astype(int)
+        display_df['Highest Score'] = display_df['Max'].astype(int)
+        display_df['Lowest Score'] = display_df['Min'].astype(int)
+        display_df = display_df[['Hover_Name', 'Count', 'Percentage', 'Mean Score', 'Median Score', 'Highest Score', 'Lowest Score']]
+        
+    else:
+        display_df = table_df[["Hover_Name", "Count", "Michael Efficiency", "Sarah Efficiency"]].copy()
+
+    any_split = any([split_us, split_uk, split_germany, split_france, split_canada, split_australia, split_india, split_china, split_poland])
+    
+    if view_mode == "Countries":
+        col_name = "Country/Subdivision" if any_split else "Country"
+    elif view_mode == "UN Regions":
+        col_name = "UN Region/Country" if any_split else "UN Region"
+    else: # Continents
+        col_name = "Continent/Country" if any_split else "Continent"
+
+    display_df = display_df.rename(columns={"Hover_Name": col_name})
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
