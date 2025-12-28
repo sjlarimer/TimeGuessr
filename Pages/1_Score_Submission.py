@@ -96,7 +96,8 @@ except ImportError:
     def score_update(): pass
 
 try:
-    with open("styles.css") as f:
+    # Added encoding="utf-8" to fix Windows charmap error
+    with open("styles.css", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 except FileNotFoundError:
     pass
@@ -150,7 +151,8 @@ st.markdown(
 )
 
 try:
-    with open("config.json") as f:
+    # Added encoding="utf-8" to fix Windows charmap error
+    with open("config.json", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
     config = {}
@@ -646,7 +648,8 @@ def render_guess_column(container, player_name, opponent_name, timeguessr_day, d
                 st.markdown(f"<div style='padding-top: 7px; font-weight: bold;'>Round {r}</div>", unsafe_allow_html=True)
             with rh2:
                 toggle_label = "KM" if is_km_current else "M"
-                is_km = st.toggle(toggle_label, value=is_km_current, key=ukey, disabled=(has_guesses and not edit_mode))
+                # Removed 'value=is_km_current' to prevent conflict with explicit session_state update above
+                is_km = st.toggle(toggle_label, key=ukey, disabled=(has_guesses and not edit_mode))
             
             # Reduce gap between header and inputs to ALIGN with Actual Answers column
             st.markdown('<div style="margin-top: -15px;"></div>', unsafe_allow_html=True)
@@ -679,11 +682,11 @@ def render_guess_column(container, player_name, opponent_name, timeguessr_day, d
                     with sub_c[0]:
                         dist_val = st.text_input(dist_label, value=d_dist, key=d_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
                     with sub_c[1]:
-                         color = "#221e8f" if player_name == "Michael" else "#8a005c"
-                         bg = "#dde5eb" if player_name == "Michael" else "#edd3df"
-                         # Spacer for vertical alignment with input
-                         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                         st.markdown(f'<div class="score-box" style="background-color:{bg}; color:{color}; padding:0px 8px; border-left:5px solid {color}; border-radius:4px; font-size:0.85rem; line-height:1.2; margin-top: 0px;">🌎 {g_score_disp:.0f}</div>', unsafe_allow_html=True)
+                          color = "#221e8f" if player_name == "Michael" else "#8a005c"
+                          bg = "#dde5eb" if player_name == "Michael" else "#edd3df"
+                          # Spacer for vertical alignment with input
+                          st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                          st.markdown(f'<div class="score-box" style="background-color:{bg}; color:{color}; padding:0px 8px; border-left:5px solid {color}; border-radius:4px; font-size:0.85rem; line-height:1.2; margin-top: 0px;">🌎 {g_score_disp:.0f}</div>', unsafe_allow_html=True)
                 else:
                     # Full width input
                     dist_val = st.text_input(dist_label, value=d_dist, key=d_key, disabled=(has_guesses and not edit_mode), label_visibility="visible")
