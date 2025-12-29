@@ -333,3 +333,10 @@ TimeGuessr #939
 3. West Danville (Vermont), United States, 1942
 4. Warsaw (Masovian), Poland, 1930
 5. Rio de Janeiro, Brazil, 2025
+
+TimeGuessr #942
+1. Ramsau am Dachstein, Austria, 2025
+2. Rio de Janeiro, Brazil, 1942
+3. Wellington, New Zealand, 1930
+4. Mount Rushmore (South Dakota), United States, 2018
+5. Rome, Italy, 1963
