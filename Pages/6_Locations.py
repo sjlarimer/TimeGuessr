@@ -169,9 +169,12 @@ def load_base_geodataframe():
         if 'NAME' not in cols:
             name_key = next((c for c in ['name', 'NAME_1', 'Name', 'COUNTRY'] if c in cols), None)
             if name_key:
-                gdf['NAME'] = gdf[name_key]
+                gdf['NAME'] = gdf[name_key].astype(str).str.strip() # <--- ADD THIS
             else:
                 gdf['NAME'] = 'Unknown'
+        else:
+            # If NAME already exists (like in your snippet), clean it too!
+            gdf['NAME'] = gdf['NAME'].astype(str).str.strip() # <--- CRITICAL FIX
 
         # 3. Enrich with Continent/Region info (for dissolving later)
         # We map based on the ISO3 column we just fixed
@@ -951,8 +954,8 @@ with st.sidebar:
         df_excl['Excl_Sub'] = df_excl['Subdivision']
         df_excl['Excl_Ctry'] = df_excl['Country']
         
-        has_mich = df_excl[p_mich].notna().any(axis=1)
-        has_sarah = df_excl[p_sarah].notna().any(axis=1)
+        has_mich = df_excl[p_mich].notna().all(axis=1)
+        has_sarah = df_excl[p_sarah].notna().all(axis=1)
         
         df_excl['Michael_Only'] = (has_mich & ~has_sarah).astype(int)
         df_excl['Sarah_Only'] = (~has_mich & has_sarah).astype(int)
@@ -989,12 +992,11 @@ with st.sidebar:
             
             if is_split:
                 if view_mode == "Countries":
-                     if pd.notna(subdiv): return subdiv
-                     return iso
-                else:
-                     return iso
-            
-            if view_mode == "Countries": return iso
+                    # Force string and strip whitespace
+                    if pd.notna(subdiv): return str(subdiv).strip() 
+                    return str(iso).strip() # Clean the ISO fallback too
+
+            if view_mode == "Countries": return str(iso).strip()
             return row[base_g]
 
         df_excl['Agg_Key'] = df_excl.apply(get_agg_key_raw_excl, axis=1)
@@ -1016,6 +1018,13 @@ with st.sidebar:
         }).reset_index().rename(columns={'Date': 'Excl_Date', 'Formatted_Location': 'Excl_Loc_Raw'})
         
         exclusive_counts_df = pd.merge(exclusive_counts_df, excl_dates, on='Agg_Key', how='left')
+
+        # # --- DEBUGGING START ---
+        # if view_mode == "Countries":
+        #     debug_df = exclusive_counts_df[exclusive_counts_df['Michael_Only'] > 0].copy()
+        #     st.write("### DEBUG: Data Keys (Michael Only > 0)")
+        #     st.dataframe(debug_df[['Agg_Key', 'Michael_Only']])
+        # # --- DEBUGGING END ---
 
         df_has_excl = exclusive_counts_df[(exclusive_counts_df['Michael_Only'] > 0) | (exclusive_counts_df['Sarah_Only'] > 0)]
         exclusive_keys = set(df_has_excl['Agg_Key'].unique())
