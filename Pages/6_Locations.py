@@ -107,37 +107,10 @@ SPLIT_CONFIG = {
     "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng", "Taiwan": "Taiwan"}},
     "POL": {"name": "Poland", "map": {"Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie", "Lubelskie": "Lubelskie", "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie", "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie", "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie", "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"}},
     "ESP": {"name": "Spain", "map": {
-        "Andalusia": "Andalucía", 
-        "Aragon": "Aragón", 
-        "Asturias": "Principado de Asturias", 
-        "Balearic Islands": "Islas Baleares", 
-        "Basque Country": "País Vasco", 
-        "Canary Islands": "Islas Canarias", 
-        "Cantabria": "Cantabria", 
-        "Castile and Leon": "Castilla y León", 
-        "Castile-La Mancha": "Castilla-La Mancha", 
-        "Catalonia": "Catalunya", 
-        "Cataluña": "Catalunya",
-        "Extremadura": "Extremadura", 
-        "Galicia": "Galicia", 
-        "La Rioja": "La Rioja", 
-        "Madrid": "Madrid, Comunidad de", 
-        "Community of Madrid": "Madrid, Comunidad de",
-        "Murcia": "Región de Murcia", 
-        "Navarre": "Comunidad Foral de Navarra", 
-        "Valencia": "Comunidad Valenciana", 
-        "Valencian Community": "Comunidad Valenciana"
+        "Andalusia": "Andalucía", "Aragon": "Aragón", "Asturias": "Principado de Asturias", "Balearic Islands": "Islas Baleares", "Basque Country": "País Vasco", "Canary Islands": "Islas Canarias", "Cantabria": "Cantabria", "Castile and Leon": "Castilla y León", "Castile-La Mancha": "Castilla-La Mancha", "Catalonia": "Catalunya", "Cataluña": "Catalunya", "Extremadura": "Extremadura", "Galicia": "Galicia", "La Rioja": "La Rioja", "Madrid": "Madrid, Comunidad de", "Community of Madrid": "Madrid, Comunidad de", "Murcia": "Región de Murcia", "Navarre": "Comunidad Foral de Navarra", "Valencia": "Comunidad Valenciana", "Valencian Community": "Comunidad Valenciana"
     }},
     "ITA": {"name": "Italy", "map": {
-        "Apulia": "Puglia",
-        "Lombardy": "Lombardia",
-        "Piedmont": "Piemonte",
-        "Sardinia": "Sardegna",
-        "Sicily": "Sicilia",
-        "Tuscany": "Toscana",
-        "Trentino-South Tyrol": "Trentino-Alto Adige",
-        "Valley of Aosta": "Valle d'Aosta",
-        "Friuli Venezia Giulia": "Friuli-Venezia Giulia"
+        "Apulia": "Puglia", "Lombardy": "Lombardia", "Piedmont": "Piemonte", "Sardinia": "Sardegna", "Sicily": "Sicilia", "Tuscany": "Toscana", "Trentino-South Tyrol": "Trentino-Alto Adige", "Valley of Aosta": "Valle d'Aosta", "Friuli Venezia Giulia": "Friuli-Venezia Giulia"
     }},
     "RUS": {"name": "Russia", "map": {
         "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
@@ -258,13 +231,23 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
     """
     if _gdf is None: return None
     
-    work_gdf = _gdf[_gdf['ISO3'].isin(active_iso_tuple)].copy()
+    # 1. Define UK Dependencies
+    UK_DEPS = {'JEY', 'GGY', 'IMN', 'GIB', 'AIA', 'BMU', 'CYM', 'FLK', 'IOT', 'MSR', 'PCN', 'SGS', 'SHN', 'TCA', 'VGB'}
+    
+    # 2. Expand active ISOs to include UK deps if GBR is present
+    isos_to_fetch = set(active_iso_tuple)
+    if 'GBR' in isos_to_fetch:
+        isos_to_fetch.update(UK_DEPS)
+    
+    work_gdf = _gdf[_gdf['ISO3'].isin(isos_to_fetch)].copy()
     
     if work_gdf.empty: return None
 
     # Filter subdivisions for split countries
     def filter_subdivs(row):
         iso = row['ISO3']
+        if iso in UK_DEPS: return True # Always keep deps
+        
         if iso not in active_splits:
             return True
         allowed = active_subdivs.get(iso, set())
@@ -278,6 +261,8 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
     def get_dissolve_key(row):
         iso = row['ISO3']
         name = row['NAME']
+        
+        if iso in UK_DEPS: return 'GBR'
         
         if iso in active_splits:
              return name if view_mode == "Countries" else iso
@@ -510,10 +495,12 @@ def create_styled_table(df):
                     m_rate = row.get("Michael Win Rate", 0)
                     s_rate = row.get("Sarah Win Rate", 0)
                     
-                    if "Michael" in col and m_rate > s_rate:
-                        style += " font-weight: bold;"
-                    elif "Sarah" in col and s_rate > m_rate:
-                        style += " font-weight: bold;"
+                    if "Michael" in col:
+                         style = style.replace("#696761", COLORS['michael'])
+                         if m_rate > s_rate: style += " font-weight: bold;"
+                    elif "Sarah" in col:
+                         style = style.replace("#696761", COLORS['sarah'])
+                         if s_rate > m_rate: style += " font-weight: bold;"
                         
             elif "Ratio" in col or "Accuracy" in col:
                 if pd.isna(val):
@@ -710,7 +697,7 @@ if map_geojson and not stats.empty:
 
 fig.update_layout(
     geo=dict(showframe=False, showcoastlines=False, projection_type="robinson", 
-             bgcolor='rgba(0,0,0,0)', showocean=True, oceancolor="white", showlakes=True, lakecolor="white"),
+             bgcolor='rgba(0,0,0,0)', showocean=True, oceancolor="white", showland=True, landcolor="white"),
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
     margin=dict(t=0, b=0, l=0, r=0), 
