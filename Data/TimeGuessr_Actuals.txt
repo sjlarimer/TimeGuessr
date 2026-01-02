@@ -30,7 +30,7 @@ TimeGuessr #868
 1. London (England), United Kingdom, 1970
 2. Katowice (Silesian), Poland, 1929
 3. Edmonton (Alberta), Canada, 1913
-4. Venice, Italy, 1973
+4. Venice (Veneto), Italy, 1973
 5. Memphis (Tennessee), United States, 2025
 
 TimeGuessr #869
@@ -52,12 +52,12 @@ TimeGuessr #873
 2. Zagreb, Croatia, 1947
 3. Moscow (Moscow), Russia, 1991
 4. Monrovia, Liberia, 2014
-5. Milan, Italy, 1975
+5. Milan (Lombardy), Italy, 1975
 
 TimeGuessr #874
 1. Moab (Utah), United States, 2025
 2. Caracas, Venezuela, 1988
-3. Barcelona, Spain, 1957
+3. Barcelona (Catalonia), Spain, 1957
 4. Baku, Azerbaijan, 2024
 5. Paris (Ile-de-France), France, 1924
 
@@ -120,7 +120,7 @@ TimeGuessr #886
 TimeGuessr #887
 1. Beirut, Lebanon, 2020
 2. Dublin, Ireland, 1996
-3. Barcelona, Spain, 1957
+3. Barcelona (Catalonia), Spain, 1957
 4. Denver (Colorado), United States, 1966
 5. Helsinki, Finland, 1936
 
@@ -170,7 +170,7 @@ TimeGuessr #903
 1. Chicago (Illinois), United States, 1920
 2. Essen (North Rhine-Westphalia), Germany, 1981
 3. Placencia, Belize, 2018
-4. Madrid, Spain, 1965
+4. Madrid (Community of Madrid), Spain, 1965
 5. Shanghai (Shanghai), China, 1972
 
 TimeGuessr #904
@@ -182,7 +182,7 @@ TimeGuessr #904
 
 TimeGuessr #907
 1. San Francisco (California), United States, 1992
-2. Madrid, Spain, 1965
+2. Madrid (Community of Madrid), Spain, 1965
 3. Buenos Aires, Argentina, 1987
 4. Lillehammer, Norway, 1906
 5. Lima, Peru, 2015
@@ -302,7 +302,7 @@ TimeGuessr #931
 TimeGuessr #932
 1. Amsterdam, Netherlands, 1973
 2. Accra, Ghana, 2023
-3. Rome, Italy, 1984
+3. Rome (Lazio), Italy, 1984
 4. New Delhi (Delhi), India, 1961
 5. Washington DC (Washington DC), United States, 2025
 
@@ -339,18 +339,18 @@ TimeGuessr #942
 2. Rio de Janeiro, Brazil, 1942
 3. Wellington, New Zealand, 1930
 4. Mount Rushmore (South Dakota), United States, 2018
-5. Rome, Italy, 1963
+5. Rome (Lazio), Italy, 1963
 
 TimeGuessr #943
 1. London (England), United Kingdom, 1963
 2. Silema, Malta, 1985
 3. San Francisco (California), United States, 1939
-4. Madrid, Spain, 1961
+4. Madrid (Community of Madrid), Spain, 1961
 5. Copenhagen, Denmark, 1967
 
 TimeGuessr #944
 1. Washington DC (Washington DC), United States, 2000
 2. Istanbul, Türkiye, 1993
-3. Rome, Italy, 1985
+3. Rome (Lazio), Italy, 1985
 4. Saint-Louis, Senegal, 2005
 5. London (England), United Kingdom, 1969

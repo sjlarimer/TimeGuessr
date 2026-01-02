@@ -106,6 +106,39 @@ SPLIT_CONFIG = {
     "IND": {"name": "India", "map": {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"}},
     "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng", "Taiwan": "Taiwan"}},
     "POL": {"name": "Poland", "map": {"Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie", "Lubelskie": "Lubelskie", "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie", "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie", "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie", "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"}},
+    "ESP": {"name": "Spain", "map": {
+        "Andalusia": "Andalucía", 
+        "Aragon": "Aragón", 
+        "Asturias": "Principado de Asturias", 
+        "Balearic Islands": "Islas Baleares", 
+        "Basque Country": "País Vasco", 
+        "Canary Islands": "Islas Canarias", 
+        "Cantabria": "Cantabria", 
+        "Castile and Leon": "Castilla y León", 
+        "Castile-La Mancha": "Castilla-La Mancha", 
+        "Catalonia": "Catalunya", 
+        "Cataluña": "Catalunya",
+        "Extremadura": "Extremadura", 
+        "Galicia": "Galicia", 
+        "La Rioja": "La Rioja", 
+        "Madrid": "Madrid, Comunidad de", 
+        "Community of Madrid": "Madrid, Comunidad de",
+        "Murcia": "Región de Murcia", 
+        "Navarre": "Comunidad Foral de Navarra", 
+        "Valencia": "Comunidad Valenciana", 
+        "Valencian Community": "Comunidad Valenciana"
+    }},
+    "ITA": {"name": "Italy", "map": {
+        "Apulia": "Puglia",
+        "Lombardy": "Lombardia",
+        "Piedmont": "Piemonte",
+        "Sardinia": "Sardegna",
+        "Sicily": "Sicilia",
+        "Tuscany": "Toscana",
+        "Trentino-South Tyrol": "Trentino-Alto Adige",
+        "Valley of Aosta": "Valle d'Aosta",
+        "Friuli Venezia Giulia": "Friuli-Venezia Giulia"
+    }},
     "RUS": {"name": "Russia", "map": {
         "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
     }}
@@ -230,19 +263,13 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
     if work_gdf.empty: return None
 
     # Filter subdivisions for split countries
-    # We want to keep:
-    # 1. Rows where ISO is NOT in active_splits (normal countries)
-    # 2. Rows where ISO IS in active_splits AND NAME is in the active_subdivs set for that ISO
-    
     def filter_subdivs(row):
         iso = row['ISO3']
         if iso not in active_splits:
             return True
-        # It is a split country, check name
         allowed = active_subdivs.get(iso, set())
         return row['NAME'] in allowed
 
-    # Apply the filter logic
     if active_splits:
         work_gdf = work_gdf[work_gdf.apply(filter_subdivs, axis=1)]
 
@@ -252,11 +279,9 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
         iso = row['ISO3']
         name = row['NAME']
         
-        # Check if this specific ISO is being split
         if iso in active_splits:
              return name if view_mode == "Countries" else iso
 
-        # Base Identity
         if view_mode == "Continents":
             return row['Continent']
         elif view_mode == "UN Regions":
@@ -351,6 +376,7 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     df_work['Row_Shared'] = (m_played & s_played).astype(int)
 
     # 7. Aggregate
+    # Add metadata columns for labels
     agg_cols = {
         'Row_Shared': 'sum', 
         'Michael Selected': 'sum', 
@@ -358,13 +384,21 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         'Michael Win': 'sum',
         'Sarah Win': 'sum',
         'Row_Michael_Only': 'sum',
-        'Row_Sarah_Only': 'sum'
+        'Row_Sarah_Only': 'sum',
+        'Country': 'first',
+        'Continent': 'first',
+        'UN_Region': 'first',
+        'ISO3': 'first'
     }
     
     grouped = df_work.groupby('Join_Key').agg(agg_cols).rename(columns={
         "Row_Shared": "Shared_Count",
         "Row_Michael_Only": "Michael_Only_Count",
-        "Row_Sarah_Only": "Sarah_Only_Count"
+        "Row_Sarah_Only": "Sarah_Only_Count",
+        "Country": "Country_Name",
+        "Continent": "Continent_Name",
+        "UN_Region": "Region_Name",
+        "ISO3": "ISO_Code"
     }).reset_index()
 
     # 8. Post-Aggregation Calcs
@@ -372,24 +406,50 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     # Calculate Total Active Games (valid games)
     grouped['Total_Active'] = grouped['Shared_Count'] + grouped['Michael_Only_Count'] + grouped['Sarah_Only_Count']
     
-    # IMPORTANT: "Count" metric uses Shared_Count only, per user request.
     if metric == "Count":
         grouped['Count'] = grouped['Shared_Count']
     else:
         grouped['Count'] = grouped['Total_Active'] 
 
     grouped['Total Possible'] = grouped['Total_Active'] * max_p
-    grouped['Michael Efficiency'] = grouped['Michael Selected'] / grouped['Total Possible']
-    grouped['Sarah Efficiency'] = grouped['Sarah Selected'] / grouped['Total Possible']
+    grouped['Michael Accuracy'] = grouped['Michael Selected'] / grouped['Total Possible']
+    grouped['Sarah Accuracy'] = grouped['Sarah Selected'] / grouped['Total Possible']
     grouped['Combined'] = grouped['Michael Selected'] + grouped['Sarah Selected']
     grouped['Michael Share Ratio'] = grouped.apply(lambda x: x['Michael Selected'] / x['Combined'] if x['Combined'] > 0 else 0.5, axis=1)
+    grouped['Sarah Share Ratio'] = 1 - grouped['Michael Share Ratio']
 
-    # 9. Hover Names
-    grouped['Hover_Name'] = grouped['Join_Key'].apply(lambda x: SPLIT_CONFIG.get(x, {}).get('name', str(x)))
-    mask_iso = (grouped['Join_Key'].str.len() == 3) & (grouped['Join_Key'].str.isupper())
-    if mask_iso.any():
-        iso_to_name = dict(zip(grouped.loc[mask_iso, 'Join_Key'], cc.convert(names=grouped.loc[mask_iso, 'Join_Key'], to='name_short')))
-        grouped.loc[mask_iso, 'Hover_Name'] = grouped.loc[mask_iso, 'Join_Key'].map(iso_to_name)
+    # 9. Hover Names / Location Labels
+    unique_keys = grouped['Join_Key'].unique()
+    iso_keys = [k for k in unique_keys if isinstance(k, str) and len(k) == 3 and k.isupper()]
+    simple_names = {}
+    if iso_keys:
+        converted = coco.convert(names=iso_keys, to='name_short', not_found=None)
+        if isinstance(converted, str): converted = [converted]
+        simple_names = dict(zip(iso_keys, converted))
+
+    def get_label(row):
+        key = row['Join_Key']
+        iso = row['ISO_Code']
+        
+        # 1. Split Country in Region/Continent View (Key is ISO)
+        if view_mode != "Countries" and iso in active_splits and key == iso:
+            base_name = SPLIT_CONFIG.get(iso, {}).get('name', simple_names.get(iso, str(iso)))
+            region_suffix = row['Region_Name'] if view_mode == "UN Regions" else row['Continent_Name']
+            return f"{base_name}, {region_suffix}"
+            
+        # 2. Split Subdivision in Country View (Key is Subdiv Name)
+        if view_mode == "Countries" and iso in active_splits:
+            # If key is Subdivision, it won't equal ISO (unless sub is missing/same)
+            if key != iso:
+                country_nice = SPLIT_CONFIG.get(iso, {}).get('name', row['Country_Name'])
+                return f"{key}, {country_nice}"
+        
+        # 3. Standard
+        if key in SPLIT_CONFIG: return SPLIT_CONFIG[key]['name']
+        if key in simple_names: return simple_names[key]
+        return str(key)
+
+    grouped['Hover_Name'] = grouped.apply(get_label, axis=1)
 
     # 10. Recent Location Logic
     if 'Date' in df_work.columns:
@@ -414,14 +474,12 @@ def create_styled_table(df):
     
     html = '<table style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
     
-    # Header
     html += "<thead><tr>"
     for col in df.columns:
         s = header_style if col == "Location" else header_center
         html += f"<th style='{s}'>{col}</th>"
     html += "</tr></thead><tbody>"
     
-    # Rows
     for _, row in df.iterrows():
         html += f"<tr style='{row_style}'>"
         for col in df.columns:
@@ -429,24 +487,43 @@ def create_styled_table(df):
             style = cell_style if col == "Location" else cell_center
             content = str(val)
             
-            # Custom Formatting
-            if col == "Count":
+            if col == "Count" or "Rank" in col:
                 content = f"{int(val):,}"
-            elif "Ratio" in col or "Efficiency" in col:
+            elif col == "Score Advantage":
+                if pd.isna(val):
+                    content = "-"
+                else:
+                    if val > 0:
+                        style = style.replace("#696761", COLORS['michael'])
+                        content = f"+{val:.1%}"
+                    elif val < 0:
+                        style = style.replace("#696761", COLORS['sarah'])
+                        content = f"+{abs(val):.1%}"
+                    else:
+                        content = "0.0%"
+            elif "Win Rate" in col:
                 if pd.isna(val):
                     content = "-"
                 else:
                     content = f"{val:.1%}"
-                    # Color logic
+                    # Bold higher win rate
+                    m_rate = row.get("Michael Win Rate", 0)
+                    s_rate = row.get("Sarah Win Rate", 0)
+                    
+                    if "Michael" in col and m_rate > s_rate:
+                        style += " font-weight: bold;"
+                    elif "Sarah" in col and s_rate > m_rate:
+                        style += " font-weight: bold;"
+                        
+            elif "Ratio" in col or "Accuracy" in col:
+                if pd.isna(val):
+                    content = "-"
+                else:
+                    content = f"{val:.1%}"
                     if "Michael" in col:
                         style = style.replace("#696761", COLORS['michael'])
                     elif "Sarah" in col:
                         style = style.replace("#696761", COLORS['sarah'])
-                    elif "Win Ratio" in col:
-                        if val > 0.5:
-                            style = style.replace("#696761", COLORS['michael']) + " font-weight: bold;"
-                        elif val < 0.5:
-                            style = style.replace("#696761", COLORS['sarah']) + " font-weight: bold;"
             
             html += f"<td style='{style}'>{content}</td>"
         html += "</tr>"
@@ -481,47 +558,67 @@ with st.sidebar:
                 filtered_data.loc[mask, 'Subdivision'] = filtered_data.loc[mask, 'Subdivision'].replace(cfg['map'])
                 if valid_map_names:
                     bad = filtered_data[mask & ~filtered_data['Subdivision'].isin(valid_map_names)]
-                    if not bad.empty: st.error(f"Unknown subdivision in {cfg['name']}: {bad['Subdivision'].unique()}")
+                    if not bad.empty: 
+                        st.error(f"Unknown subdivision in {cfg['name']}: {bad['Subdivision'].unique()}")
+                        st.stop()
 
     # Main Calculation
     stats = calculate_stats(filtered_data, active_splits, view_mode, map_metric, score_mode)
     
-    # Filter based on Total_Active (Active Games), allowing "Count" (Shared) to be 0 for exclusive rows.
-    # Set min slider value to 0.
     max_games = int(stats['Total_Active'].max()) if not stats.empty else 0
     min_count = st.slider("Min Games:", 0, max_games, 0)
     
     stats = stats[stats['Total_Active'] >= min_count]
-    
-    # HARD CONSTRAINT: Remove completely empty rows (0 count, 0 michael only, 0 sarah only)
     stats = stats[stats['Total_Active'] > 0]
 
 # --- Map Generation ---
 
 if not filtered_data.empty:
-    filtered_data['Join_Key'] = filtered_data['ISO3'] 
+    map_data = filtered_data.copy()
+    map_data['Join_Key'] = map_data['ISO3'] 
     
     if active_splits:
          if view_mode == "Countries":
-            mask_split = filtered_data['ISO3'].isin(active_splits) & filtered_data['Subdivision'].notna()
-            filtered_data.loc[mask_split, 'Join_Key'] = filtered_data.loc[mask_split, 'Subdivision']
+            mask_split = map_data['ISO3'].isin(active_splits) & map_data['Subdivision'].notna()
+            map_data.loc[mask_split, 'Join_Key'] = map_data.loc[mask_split, 'Subdivision']
     
     if view_mode != "Countries":
-        mask_not_split = ~filtered_data['ISO3'].isin(active_splits)
+        mask_not_split = ~map_data['ISO3'].isin(active_splits)
         if view_mode == "Continents":
-            filtered_data.loc[mask_not_split, 'Join_Key'] = filtered_data.loc[mask_not_split, 'Continent']
+            map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, 'Continent']
         elif view_mode == "UN Regions":
-            filtered_data.loc[mask_not_split, 'Join_Key'] = filtered_data.loc[mask_not_split, 'UN_Region']
+            map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, 'UN_Region']
+
+    # Filter map data by metric logic
+    if 'Michael Round Score' in map_data.columns:
+        m_played = map_data['Michael Round Score'].notna()
+    else:
+        m_played = map_data['Michael Geography Score'].notna() 
+
+    if 'Sarah Round Score' in map_data.columns:
+        s_played = map_data['Sarah Round Score'].notna()
+    else:
+        s_played = map_data['Sarah Geography Score'].notna()
+
+    if map_metric == "Michael":
+        map_data = map_data[m_played]
+    elif map_metric == "Sarah":
+        map_data = map_data[s_played]
+    elif map_metric == "Comparison":
+        map_data = map_data[m_played & s_played]
+    elif map_metric == "Count":
+        map_data = map_data[m_played | s_played]
 
 active_keys = set(stats['Join_Key'].unique())
-active_iso_tuple = tuple(filtered_data[filtered_data['Join_Key'].isin(active_keys)]['ISO3'].unique()) if not stats.empty else ()
+# Only extract ISOs for valid map data rows that match the filtered stats keys
+active_iso_tuple = tuple(map_data[map_data['Join_Key'].isin(active_keys)]['ISO3'].unique()) if not stats.empty else ()
 
-# Calculate Active Subdivs for Split Countries
+# Calculate Active Subdivs for Split Countries using filtered map_data
 active_subdivs = {}
 if active_splits:
     for iso in active_splits:
-        # Get unique subdivisions present in data for this ISO
-        subs = filtered_data[(filtered_data['ISO3'] == iso) & filtered_data['Subdivision'].notna()]['Subdivision'].astype(str).str.strip().unique()
+        # Clean and filter subdivisions
+        subs = map_data[(map_data['ISO3'] == iso) & map_data['Subdivision'].notna()]['Subdivision'].astype(str).str.strip().unique()
         active_subdivs[iso] = set(subs)
 
 map_geojson = generate_dynamic_map_layer(base_gdf, active_iso_tuple, active_splits, active_subdivs, view_mode)
@@ -548,47 +645,38 @@ if map_geojson and not stats.empty:
         "Sarah": ([[0, "#ffe6f2"], [1, "#8a005c"]], 0.5, 1.0)
     }
     scale, zmin, zmax = scales.get(map_metric, scales["Count"])
-    z_col = "Michael Share Ratio" if map_metric == "Comparison" else (f"{map_metric} Efficiency" if map_metric in ["Michael", "Sarah"] else "Count")
+    z_col = "Michael Share Ratio" if map_metric == "Comparison" else (f"{map_metric} Accuracy" if map_metric in ["Michael", "Sarah"] else "Count")
     
-    # Split for COUNT metric: Shared vs Pure Exclusive
     stats_shared = stats.copy()
     stats_exclusive = pd.DataFrame()
-    
     stats['BorderColor'] = "black"
     stats['BorderWidth'] = 0.5
     
     if map_metric == "Count":
-        # Pure Exclusive: Count is 0 (because we updated Count to be Shared_Count)
         mask_excl = stats['Count'] == 0
         stats_exclusive = stats[mask_excl].copy()
-        
-        # Shared: Count > 0
         stats_shared = stats[~mask_excl].copy()
-        
-        stats_exclusive['BorderColor'] = "#221e8f" # Blue border for exclusive
-        
+        stats_exclusive['BorderColor'] = "#221e8f" 
     elif map_metric == "Comparison":
         stats['BorderColor'] = np.where(stats[z_col] > 0.5, "#221e8f", np.where(stats[z_col] < 0.5, "#8a005c", "#666666"))
         stats_shared = stats 
     else:
         stats_shared = stats 
 
-    # Hover
     stats_shared['Score_Str'] = stats_shared.apply(lambda r: f"{int(r['Michael Selected'])}/{int(r['Total Possible'])}" if map_metric=="Michael" else (f"{int(r['Sarah Selected'])}/{int(r['Total Possible'])}" if map_metric=="Sarah" else ""), axis=1)
     if not stats_exclusive.empty: stats_exclusive['Score_Str'] = ""
 
     hover_base = "<b>%{text}</b><br>"
     if map_metric == "Count":
-        hover_t = hover_base + "Count: %{customdata[2]}<br>Michael Only: %{customdata[0]}<br>Sarah Only: %{customdata[1]}"
+        hover_t = hover_base + "Count: %{customdata[2]}<br>Michael Only: %{customdata[0]}<br>Sarah Only: %{customdata[1]}<extra></extra>"
         custom_cols = ['Michael_Only_Count', 'Sarah_Only_Count', 'Count']
     elif map_metric == "Comparison": 
-        hover_t = hover_base + "Share: %{customdata[0]:.1%}"
-        custom_cols = [z_col]
+        hover_t = hover_base + "Michael Percent: %{customdata[2]:.1%}<br>Sarah Percent: %{customdata[3]:.1%}<br>Michael Points: %{customdata[0]:,.0f}<br>Sarah Points: %{customdata[1]:,.0f}<extra></extra>"
+        custom_cols = ['Michael Selected', 'Sarah Selected', 'Michael Share Ratio', 'Sarah Share Ratio']
     else: 
-        hover_t = hover_base + "Eff: %{z:.1%}<br>Score: %{customdata[0]}"
+        hover_t = hover_base + "Accuracy: %{z:.1%}<br>Score: %{customdata[0]}<extra></extra>"
         custom_cols = ['Score_Str']
 
-    # Trace 1: Shared (Colored)
     if not stats_shared.empty:
         fig.add_trace(go.Choropleth(
             geojson=map_geojson, locations=stats_shared['Join_Key'], z=stats_shared[z_col],
@@ -598,7 +686,6 @@ if map_geojson and not stats.empty:
             hovertemplate=hover_t, showscale=False
         ))
 
-    # Trace 2: Pure Exclusive (Transparent Fill)
     if not stats_exclusive.empty and map_metric == "Count":
         fig.add_trace(go.Choropleth(
             geojson=map_geojson, locations=stats_exclusive['Join_Key'],
@@ -607,10 +694,9 @@ if map_geojson and not stats.empty:
             marker_line_color=stats_exclusive['BorderColor'], marker_line_width=stats_exclusive['BorderWidth'],
             text=stats_exclusive['Hover_Name'], customdata=stats_exclusive[custom_cols],
             hovertemplate=hover_t, showscale=False,
-            z=[1]*len(stats_exclusive) # Dummy z for plotting
+            z=[1]*len(stats_exclusive)
         ))
 
-    # Microstates
     ms_df = stats[stats['Hover_Name'].isin(MICROSTATES)].copy()
     if not ms_df.empty:
         coords = ms_df['Hover_Name'].map(MICROSTATES)
@@ -639,24 +725,85 @@ st.subheader(f"Statistics by {view_mode}")
 if not stats.empty:
     disp = stats.sort_values("Count", ascending=False).copy()
     cols = ['Hover_Name', 'Count', 'Most Recent Location']
+    
+    # Defaults
+    def_sort_col = "Count"
+    def_sort_idx = 0 # Descending
+
     if map_metric == "Comparison":
-        if 'Michael Win' in disp.columns and 'Sarah Win' in disp.columns:
-            disp['Total Wins'] = disp['Michael Win'] + disp['Sarah Win']
-            disp['Win Ratio'] = disp.apply(lambda x: x['Michael Win'] / x['Total Wins'] if x['Total Wins'] > 0 else 0.5, axis=1)
-        else: disp['Win Ratio'] = 0.5     
-        cols += ['Michael Share Ratio', 'Win Ratio']
+        # Calculate Separate Win Rates
+        def get_win_rates(row):
+            total = row['Count']
+            if total == 0: return 0.0, 0.0
+            return row['Michael Win'] / total, row['Sarah Win'] / total
+
+        rates = disp.apply(get_win_rates, axis=1, result_type='expand')
+        disp['Michael Win Rate'] = rates[0]
+        disp['Sarah Win Rate'] = rates[1]
+        
+        disp['Score Advantage'] = disp['Michael Accuracy'] - disp['Sarah Accuracy']
+        
+        # Bayesian Logic
+        v = disp['Total Possible']
+        R = disp['Score Advantage']
+        
+        m_total = disp['Michael Selected'].sum()
+        s_total = disp['Sarah Selected'].sum()
+        p_total = disp['Total Possible'].sum()
+        C = (m_total - s_total) / p_total if p_total > 0 else 0
+        m = v.mean()
+        
+        if m > 0:
+            bayesian_val = (v * R + m * C) / (v + m)
+        else:
+            bayesian_val = 0
+            
+        disp['abs_bayesian'] = bayesian_val.abs()
+        disp = disp.sort_values('abs_bayesian', ascending=False)
+        disp['Discrepancy Rank'] = range(1, len(disp) + 1)
+        
+        cols = ['Discrepancy Rank', 'Hover_Name', 'Count', 'Score Advantage', 'Michael Win Rate', 'Sarah Win Rate']
+        
+        def_sort_col = "Discrepancy Rank"
+        def_sort_idx = 1 # Ascending
+        
     elif map_metric in ["Michael", "Sarah"]:
-        cols += [f'{map_metric} Efficiency']
+        cols = ['Hover_Name', 'Count']
+        prefix = "Michael" if map_metric == "Michael" else "Sarah"
+        disp['Score'] = disp.apply(lambda x: f"{int(x[f'{prefix} Selected']):,}/{int(x['Total Possible']):,}", axis=1)
+        acc_col = f'{map_metric} Accuracy'
+        
+        # Bayesian Logic for Michael/Sarah
+        v = disp['Total Possible']
+        R = disp[acc_col]
+        total_sel = disp[f'{prefix} Selected'].sum()
+        total_pos = disp['Total Possible'].sum()
+        C = total_sel / total_pos if total_pos > 0 else 0
+        m = v.mean()
+        
+        if m > 0:
+            disp['bayesian_val'] = (v * R + m * C) / (v + m)
+        else:
+            disp['bayesian_val'] = 0
+            
+        disp = disp.sort_values('bayesian_val', ascending=False)
+        disp['Rank'] = range(1, len(disp) + 1)
+        cols = ['Rank'] + cols + ['Score', acc_col]
+        
+        def_sort_col = "Rank"
+        def_sort_idx = 1 # Ascending
         
     final_df = disp[cols].rename(columns={'Hover_Name': 'Location'})
     
-    # Sorting Controls
+    col_opts = list(final_df.columns)
+    try: idx_col = col_opts.index(def_sort_col)
+    except: idx_col = 0
+
     sort_c1, sort_c2 = st.columns([3, 1])
     with sort_c1:
-        sort_col = st.selectbox("Sort By", options=final_df.columns, index=1 if "Count" in final_df.columns else 0)
+        sort_col = st.selectbox("Sort By", options=col_opts, index=idx_col)
     with sort_c2:
-        # Using a selectbox for order to match visual height of sort_by box better than radio
-        sort_dir = st.selectbox("Order", options=["Descending", "Ascending"], index=0)
+        sort_dir = st.selectbox("Order", options=["Descending", "Ascending"], index=def_sort_idx)
     
     ascending = sort_dir == "Ascending"
     final_df = final_df.sort_values(by=sort_col, ascending=ascending)

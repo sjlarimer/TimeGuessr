@@ -22,7 +22,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 868,1,London,England,United Kingdom,1970
 868,2,Katowice,Silesian,Poland,1929
 868,3,Edmonton,Alberta,Canada,1913
-868,4,Venice,,Italy,1973
+868,4,Venice,Veneto,Italy,1973
 868,5,Memphis,Tennessee,United States,2025
 869,1,Heemskerk,,Netherlands,1990
 869,2,Istanbul,,Türkiye,2005
@@ -38,10 +38,10 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 873,2,Zagreb,,Croatia,1947
 873,3,Moscow,Moscow,Russia,1991
 873,4,Monrovia,,Liberia,2014
-873,5,Milan,,Italy,1975
+873,5,Milan,Lombardy,Italy,1975
 874,1,Moab,Utah,United States,2025
 874,2,Caracas,,Venezuela,1988
-874,3,Barcelona,,Spain,1957
+874,3,Barcelona,Catalonia,Spain,1957
 874,4,Baku,,Azerbaijan,2024
 874,5,Paris,Ile-de-France,France,1924
 875,1,Zurich,,Switzerland,1962
@@ -86,7 +86,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 886,5,Indianapolis,Indiana,United States,1918
 887,1,Beirut,,Lebanon,2020
 887,2,Dublin,,Ireland,1996
-887,3,Barcelona,,Spain,1957
+887,3,Barcelona,Catalonia,Spain,1957
 887,4,Denver,Colorado,United States,1966
 887,5,Helsinki,,Finland,1936
 888,1,New York,New York,United States,2025
@@ -122,7 +122,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 903,1,Chicago,Illinois,United States,1920
 903,2,Essen,North Rhine-Westphalia,Germany,1981
 903,3,Placencia,,Belize,2018
-903,4,Madrid,,Spain,1965
+903,4,Madrid,Community of Madrid,Spain,1965
 903,5,Shanghai,Shanghai,China,1972
 904,1,Moscow,Moscow,Russia,1991
 904,2,Oslo,,Norway,1950
@@ -130,7 +130,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 904,4,Washington DC,Washington DC,United States,2025
 904,5,Dublin,,Ireland,1916
 907,1,San Francisco,California,United States,1992
-907,2,Madrid,,Spain,1965
+907,2,Madrid,Community of Madrid,Spain,1965
 907,3,Buenos Aires,,Argentina,1987
 907,4,Lillehammer,,Norway,1906
 907,5,Lima,,Peru,2015
@@ -216,7 +216,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 931,5,Helsinki,,Finland,1984
 932,1,Amsterdam,,Netherlands,1973
 932,2,Accra,,Ghana,2023
-932,3,Rome,,Italy,1984
+932,3,Rome,Lazio,Italy,1984
 932,4,New Delhi,Delhi,India,1961
 932,5,Washington DC,Washington DC,United States,2025
 935,1,Cibitoke,,Burundi,2025
@@ -243,14 +243,14 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 942,2,Rio de Janeiro,,Brazil,1942
 942,3,Wellington,,New Zealand,1930
 942,4,Mount Rushmore,South Dakota,United States,2018
-942,5,Rome,,Italy,1963
+942,5,Rome,Lazio,Italy,1963
 943,1,London,England,United Kingdom,1963
 943,2,Silema,,Malta,1985
 943,3,San Francisco,California,United States,1939
-943,4,Madrid,,Spain,1961
+943,4,Madrid,Community of Madrid,Spain,1961
 943,5,Copenhagen,,Denmark,1967
 944,1,Washington DC,Washington DC,United States,2000
 944,2,Istanbul,,Türkiye,1993
-944,3,Rome,,Italy,1985
+944,3,Rome,Lazio,Italy,1985
 944,4,Saint-Louis,,Senegal,2005
 944,5,London,England,United Kingdom,1969
