@@ -97,29 +97,25 @@ COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
 
 # Split Configuration
 SPLIT_CONFIG = {
-    "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia", "Washington D.C.": "District of Columbia", "D.C.": "District of Columbia", "DC": "District of Columbia"}},
-    "GBR": {"name": "United Kingdom", "map": {}},
-    "DEU": {"name": "Germany", "map": {"Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen", "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen", "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen", "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"}},
-    "FRA": {"name": "France", "map": {"Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne", "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire", "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France", "Ile-de-France": "Île-de-France", "Normandy": "Normandie", "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie", "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"}},
-    "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
     "AUS": {"name": "Australia", "map": {}},
-    "IND": {"name": "India", "map": {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"}},
+    "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
     "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng", "Taiwan": "Taiwan"}},
-    "POL": {"name": "Poland", "map": {"Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie", "Lubelskie": "Lubelskie", "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie", "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie", "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie", "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"}},
-    "ESP": {"name": "Spain", "map": {
-        "Andalusia": "Andalucía", "Aragon": "Aragón", "Asturias": "Principado de Asturias", "Balearic Islands": "Islas Baleares", "Basque Country": "País Vasco", "Canary Islands": "Islas Canarias", "Cantabria": "Cantabria", "Castile and Leon": "Castilla y León", "Castile-La Mancha": "Castilla-La Mancha", "Catalonia": "Catalunya", "Cataluña": "Catalunya", "Extremadura": "Extremadura", "Galicia": "Galicia", "La Rioja": "La Rioja", "Madrid": "Madrid, Comunidad de", "Community of Madrid": "Madrid, Comunidad de", "Murcia": "Región de Murcia", "Navarre": "Comunidad Foral de Navarra", "Valencia": "Comunidad Valenciana", "Valencian Community": "Comunidad Valenciana"
-    }},
+    "FRA": {"name": "France", "map": {"Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne", "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire", "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France", "Ile-de-France": "Île-de-France", "Normandy": "Normandie", "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie", "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"}},
+    "DEU": {"name": "Germany", "map": {"Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen", "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen", "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen", "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"}},
+    "IND": {"name": "India", "map": {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"}},
     "ITA": {"name": "Italy", "map": {
         "Apulia": "Puglia", "Lombardy": "Lombardia", "Piedmont": "Piemonte", "Sardinia": "Sardegna", "Sicily": "Sicilia", "Tuscany": "Toscana", "Trentino-South Tyrol": "Trentino-Alto Adige", "Valley of Aosta": "Valle d'Aosta", "Friuli Venezia Giulia": "Friuli-Venezia Giulia"
     }},
+    "POL": {"name": "Poland", "map": {"Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie", "Lubelskie": "Lubelskie", "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie", "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie", "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie", "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"}},
     "RUS": {"name": "Russia", "map": {
         "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
-    }}
+    }},
+    "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia", "Washington D.C.": "District of Columbia", "D.C.": "District of Columbia", "DC": "District of Columbia"}},
 }
 
 # Microstates
 MICROSTATES = {
-    "Vatican City": (41.9029, 12.4534), "Monaco": (43.7384, 7.4167), "San Marino": (43.9424, 12.4578), "Liechtenstein": (47.1410, 9.5215),
+    "Vatican City": (41.9029, 12.4534), "Holy See": (41.9029, 12.4534), "Monaco": (43.7384, 7.4167), "San Marino": (43.9424, 12.4578), "Liechtenstein": (47.1410, 9.5215),
     "Malta": (35.8989, 14.5146), "Andorra": (42.5063, 1.5218), "Luxembourg": (49.816667, 6.133333), "Singapore": (1.3521, 103.8198),
     "Bahrain": (26.0667, 50.5577), "Maldives": (3.2028, 73.2207), "Seychelles": (-4.6796, 55.4920), "Mauritius": (-20.3484, 57.5522),
     "Barbados": (13.1939, -59.5432), "Grenada": (12.1165, -61.6790), "Saint Lucia": (13.9094, -60.9789), "Dominica": (15.4150, -61.3710),
@@ -403,6 +399,11 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     grouped['Michael Share Ratio'] = grouped.apply(lambda x: x['Michael Selected'] / x['Combined'] if x['Combined'] > 0 else 0.5, axis=1)
     grouped['Sarah Share Ratio'] = 1 - grouped['Michael Share Ratio']
 
+    # New: Calculate Max/Min Scores per location
+    mm = df_work.groupby('Join_Key')[['Michael Selected', 'Sarah Selected']].agg(['max', 'min'])
+    mm.columns = [f"{c[0]}_{c[1]}" for c in mm.columns]
+    grouped = grouped.merge(mm, on='Join_Key', how='left')
+
     # 9. Hover Names / Location Labels
     unique_keys = grouped['Join_Key'].unique()
     iso_keys = [k for k in unique_keys if isinstance(k, str) and len(k) == 3 and k.isupper()]
@@ -415,6 +416,9 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     def get_label(row):
         key = row['Join_Key']
         iso = row['ISO_Code']
+
+        # Fix for Vatican City if ISO is VAT
+        if iso == "VAT": return "Vatican City"
         
         # 1. Split Country in Region/Continent View (Key is ISO)
         if view_mode != "Countries" and iso in active_splits and key == iso:
@@ -472,7 +476,7 @@ def create_styled_table(df):
             style = cell_style if col == "Location" else cell_center
             content = str(val)
             
-            if col == "Count" or "Rank" in col:
+            if col == "Count" or "Rank" in col or "Highest Score" in col or "Lowest Score" in col:
                 content = f"{int(val):,}"
             elif col == "Score Advantage":
                 if pd.isna(val):
@@ -521,11 +525,6 @@ def create_styled_table(df):
 # --- Sidebar ---
 with st.sidebar:
     st.header("Map Settings")
-    if "Date" in data.columns:
-        min_d, max_d = data["Date"].min().date(), data["Date"].max().date()
-        sel_dates = st.slider("Select Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
-        filtered_data = data[(data["Date"].dt.date >= sel_dates[0]) & (data["Date"].dt.date <= sel_dates[1])].copy()
-    else: filtered_data = data.copy()
 
     map_metric = st.radio("Metric:", ["Count", "Comparison", "Michael", "Sarah"])
     score_mode = st.radio("Score Type:", ["Total Score", "Geography Score", "Time Score"]) if map_metric != "Count" else "Total Score"
@@ -535,6 +534,12 @@ with st.sidebar:
     avail_splits = [cfg['name'] for cfg in SPLIT_CONFIG.values()]
     sel_splits = st.multiselect("Split Countries:", avail_splits, default=[])
     
+    if "Date" in data.columns:
+        min_d, max_d = data["Date"].min().date(), data["Date"].max().date()
+        sel_dates = st.slider("Select Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
+        filtered_data = data[(data["Date"].dt.date >= sel_dates[0]) & (data["Date"].dt.date <= sel_dates[1])].copy()
+    else: filtered_data = data.copy()
+
     active_splits = set()
     for iso, cfg in SPLIT_CONFIG.items():
         if cfg['name'] in sel_splits:
@@ -687,12 +692,21 @@ if map_geojson and not stats.empty:
     ms_df = stats[stats['Hover_Name'].isin(MICROSTATES)].copy()
     if not ms_df.empty:
         coords = ms_df['Hover_Name'].map(MICROSTATES)
-        ms_custom = ms_df[custom_cols]
+        
+        # Prepare customdata specifically for scatter to fix %{z} issues in hover
+        ms_custom = ms_df[custom_cols].copy()
+        ms_custom['z_val'] = ms_df[z_col] # Add z value as extra column
+        
+        # Adjust hovertemplate to reference the last customdata column instead of %{z}
+        z_idx = len(custom_cols)
+        # REMOVED CLOSING BRACE } from replacement string to fix format bug
+        hover_t_ms = hover_t.replace("%{z", f"%{{customdata[{z_idx}]")
+        
         fig.add_trace(go.Scattergeo(
             lat=[x[0] for x in coords], lon=[x[1] for x in coords], mode='markers',
             marker=dict(size=8, color=ms_df[z_col], colorscale=scale, cmin=zmin, cmax=zmax, 
                         line=dict(width=1, color=ms_df['BorderColor'])),
-            text=ms_df['Hover_Name'], customdata=ms_custom, hovertemplate=hover_t
+            text=ms_df['Hover_Name'], customdata=ms_custom, hovertemplate=hover_t_ms
         ))
 
 fig.update_layout(
@@ -711,7 +725,15 @@ st.subheader(f"Statistics by {view_mode}")
 
 if not stats.empty:
     disp = stats.sort_values("Count", ascending=False).copy()
-    cols = ['Hover_Name', 'Count', 'Most Recent Location']
+    
+    # Pre-format the date column (used in Count view)
+    if 'Last_Date' in disp.columns:
+        disp['Most Recent Date'] = disp['Last_Date'].dt.strftime('%Y-%m-%d')
+    else:
+        disp['Most Recent Date'] = ""
+
+    # Default columns (Metric = Count usually falls through here)
+    cols = ['Hover_Name', 'Count', 'Most Recent Location', 'Most Recent Date']
     
     # Defaults
     def_sort_col = "Count"
@@ -760,6 +782,10 @@ if not stats.empty:
         disp['Score'] = disp.apply(lambda x: f"{int(x[f'{prefix} Selected']):,}/{int(x['Total Possible']):,}", axis=1)
         acc_col = f'{map_metric} Accuracy'
         
+        # New: Highest/Lowest Scores
+        disp['Highest Score'] = disp[f'{prefix} Selected_max']
+        disp['Lowest Score'] = disp[f'{prefix} Selected_min']
+
         # Bayesian Logic for Michael/Sarah
         v = disp['Total Possible']
         R = disp[acc_col]
@@ -775,7 +801,7 @@ if not stats.empty:
             
         disp = disp.sort_values('bayesian_val', ascending=False)
         disp['Rank'] = range(1, len(disp) + 1)
-        cols = ['Rank'] + cols + ['Score', acc_col]
+        cols = ['Rank'] + cols + ['Score', 'Highest Score', 'Lowest Score', acc_col]
         
         def_sort_col = "Rank"
         def_sort_idx = 1 # Ascending
