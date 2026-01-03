@@ -754,12 +754,15 @@ if not stats.empty:
         
         # Bayesian Logic
         v = disp['Total Possible']
-        R = disp['Score Advantage']
+        R = disp['Score Advantage'].abs() # Use absolute advantage
         
         m_total = disp['Michael Selected'].sum()
         s_total = disp['Sarah Selected'].sum()
         p_total = disp['Total Possible'].sum()
-        C = (m_total - s_total) / p_total if p_total > 0 else 0
+        
+        # Global Absolute Advantage
+        C = abs(m_total - s_total) / p_total if p_total > 0 else 0
+        
         m = v.mean()
         
         if m > 0:
@@ -767,7 +770,7 @@ if not stats.empty:
         else:
             bayesian_val = 0
             
-        disp['abs_bayesian'] = bayesian_val.abs()
+        disp['abs_bayesian'] = bayesian_val
         disp = disp.sort_values('abs_bayesian', ascending=False)
         disp['Discrepancy Rank'] = range(1, len(disp) + 1)
         
