@@ -67,5 +67,12 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-st.dataframe(data)
+
+display_data = data.iloc[::-1]
+
+display_data = display_data[['Date', 'City', 'Country', 'Year', 
+                             'Michael Total Score', 'Sarah Total Score', 'Michael Round Score', 'Sarah Round Score',
+                             'Michael Geography', 'Sarah Geography', 'Michael Time', 'Sarah Time']]
+
+st.dataframe(display_data)
     
