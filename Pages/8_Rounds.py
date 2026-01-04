@@ -4,6 +4,7 @@ import numpy as np
 import pycountry
 import datetime
 from streamlit.components.v1 import html as components_html
+from collections import Counter
 
 # --- Page Config ---
 st.set_page_config(page_title="All Rounds", layout="wide")
@@ -27,6 +28,18 @@ st.markdown(
         /* Ensure font consistency across Streamlit elements */
         html, body, p, h1, h2, h3, h4, h5, h6, label, input, textarea, select, button {
             font-family: 'Poppins', sans-serif !important;
+        }
+        
+        /* Sidebar specific styling */
+        /* Sidebar headers white, text/labels grey */
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 {
+            color: white !important;
+        }
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] .stMarkdown p {
+            color: #696761 !important;
         }
     </style>
     """,
@@ -128,46 +141,75 @@ def get_bar_html(score, pattern, ranges):
         '''
     return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
 
+def get_base_location_name(row):
+    """Returns the base location name (Subdivision, Country or just Country)."""
+    country = row["Country"]
+    subdivision = row.get("Subdivision")
+    if pd.notna(subdivision) and str(subdivision).strip() != "":
+        return f"{subdivision}, {country}"
+    return country
+
 # --- Main Page Logic ---
 st.title("All Rounds")
 
 df = load_data("./Data/Timeguessr_Stats.csv")
 
 if df is not None:
-    # Toggle to filter out single-player rounds
-    st.markdown("### Filters")
-    both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
-    show_perfect_geo = st.checkbox("Show only perfect Geography scores (5,000)", value=False)
-    show_perfect_time = st.checkbox("Show only perfect Time scores (5,000)", value=False)
+    # --- Sidebar Filters ---
+    with st.sidebar:
+        st.header("Filter Settings")
+        
+        # General Filters
+        both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
+        
+        # Country filter - get countries ordered by frequency
+        country_counts = df["Country"].value_counts()
+        # Remove NaN if present
+        country_counts = country_counts[country_counts.index.notna()]
+        available_countries = country_counts.index.tolist()
+        
+        selected_countries = st.multiselect(
+            "Filter by countries:",
+            options=available_countries,
+            default=[],
+            help="Select one or more countries to filter. Leave empty to show all countries."
+        )
+        
+        # Year Filter
+        year_range = st.slider(
+            "Filter by year:",
+            min_value=1900,
+            max_value=2026,
+            value=(1900, 2026),
+            help="Select a range of years to filter rounds."
+        )
+        
+        # Date Filter
+        min_date = df["Date"].min()
+        max_date = df["Date"].max()
+        
+        date_range = st.slider(
+            "Select date range:",
+            min_value=min_date,
+            max_value=max_date,
+            value=(min_date, max_date),
+            format="YYYY-MM-DD"
+        )
+        
+        # Fixed height for the scrollable window
+        viewport_height = 1025
     
-    # Country filter - get countries ordered by frequency
-    country_counts = df["Country"].value_counts()
-    # Remove NaN if present
-    country_counts = country_counts[country_counts.index.notna()]
-    available_countries = country_counts.index.tolist()
-    
-    selected_countries = st.multiselect(
-        "Filter by countries:",
-        options=available_countries,
-        default=[],
-        help="Select one or more countries to filter. Leave empty to show all countries."
-    )
-    
-    # Date Filter
-    min_date = df["Date"].min()
-    max_date = df["Date"].max()
-    
-    st.markdown("### Filter by Date Range")
-    date_range = st.slider(
-        "Select date range:",
-        min_value=min_date,
-        max_value=max_date,
-        value=(min_date, max_date),
-        format="YYYY-MM-DD"
-    )
+    # --- Data Filtering ---
     
     # Filter dataframe by selected date range
     df_filtered = df[(df["Date"] >= date_range[0]) & (df["Date"] <= date_range[1])]
+    
+    # Filter by Year
+    if "Year" in df_filtered.columns:
+        df_filtered = df_filtered[
+            (df_filtered["Year"] >= year_range[0]) & 
+            (df_filtered["Year"] <= year_range[1])
+        ]
     
     # Filter by countries if any selected
     if selected_countries:
@@ -179,25 +221,6 @@ if df is not None:
             (df_filtered["Michael Geography"].notna() | df_filtered["Michael Geography Score"].notna()) &
             (df_filtered["Sarah Geography"].notna() | df_filtered["Sarah Geography Score"].notna())
         ]
-    
-    # Define conditions for perfect scores
-    m_geo_perf = (df_filtered["Michael Geography Score"] == 5000) | (df_filtered["Michael Geography"] == "OOO")
-    s_geo_perf = (df_filtered["Sarah Geography Score"] == 5000) | (df_filtered["Sarah Geography"] == "OOO")
-    m_time_perf = (df_filtered["Michael Time Score"] == 5000) | (df_filtered["Michael Time"] == "OOO")
-    s_time_perf = (df_filtered["Sarah Time Score"] == 5000) | (df_filtered["Sarah Time"] == "OOO")
-
-    # Apply filters based on selection
-    if show_perfect_geo and show_perfect_time:
-        # STRICT FILTER: One player must have BOTH perfect Geo and perfect Time in the same round
-        cond_m_both = m_geo_perf & m_time_perf
-        cond_s_both = s_geo_perf & s_time_perf
-        df_filtered = df_filtered[cond_m_both | cond_s_both]
-    elif show_perfect_geo:
-        # Filter where ANY player got 5000 Geo
-        df_filtered = df_filtered[m_geo_perf | s_geo_perf]
-    elif show_perfect_time:
-        # Filter where ANY player got 5000 Time
-        df_filtered = df_filtered[m_time_perf | s_time_perf]
     
     if df_filtered.empty:
         st.warning("No data available for the selected filters.")
@@ -267,19 +290,26 @@ if df is not None:
         time_pct = (tm_val / max_sub * 100) if max_sub > 0 else 0
         
         html = f"""
-        <div class="tg-container" style="background-color: {bg};">
-            <div class="tg-header" style="color: {header_col};">{player}</div>
-            <div class="tg-total" style="font-size: 1.5rem; color: #333;">All-Time Total: {total_pct:.2f}%   -   {t_val:,} / {max_total:,}</div>
-            <div class="tg-sub" style="color: #444;">🌎 All-Time Geo: {geo_pct:.2f}%   -   <b>{g_val:,}</b> / {max_sub:,}</div>
-            <div class="tg-sub" style="color: #444;">📅 All-Time Time: {time_pct:.2f}%   -   <b>{tm_val:,}</b> / {max_sub:,}</div>
-            <div style="margin-top: 20px;"></div>
+        <div class="tg-outer-container" style="background-color: {bg};">
+            <div class="tg-static-header">
+                <div class="tg-header" style="color: {header_col};">{player}</div>
+                <div class="tg-total" style="font-size: 1.5rem; color: #333;">All-Time Total: {total_pct:.2f}%   -   {t_val:,} / {max_total:,}</div>
+                <div class="tg-sub" style="color: #444;">🌎 All-Time Geo: {geo_pct:.2f}%   -   <b>{g_val:,}</b> / {max_sub:,}</div>
+                <div class="tg-sub" style="color: #444;">📅 All-Time Time: {time_pct:.2f}%   -   <b>{tm_val:,}</b> / {max_sub:,}</div>
+            </div>
+            <div class="tg-scrollable-content">
         """
         
         # Sort and limit to last 100 rounds for display (or all if fewer than 100)
         player_df = df.sort_values(by=["Timeguessr Day", "Timeguessr Round"], ascending=[False, True])
-        if len(player_df) > 100:
-            player_df = player_df.head(100)
         
+        # --- Pre-calculate location counts for this specific view ---
+        # This determines if we need to show the City for disambiguation
+        location_counts = Counter()
+        for _, row in player_df.iterrows():
+            base_loc = get_base_location_name(row)
+            location_counts[base_loc] += 1
+            
         current_day = None
         
         for _, row in player_df.iterrows():
@@ -291,13 +321,33 @@ if df is not None:
                 
             r_num = row["Timeguessr Round"]
             country = row["Country"]
+            year = row["Year"]
             
-            # Check if Subdivision exists and is populated
-            subdivision = row.get("Subdivision")
-            if pd.notna(subdivision) and str(subdivision).strip() != "":
-                location_display = f"{subdivision}, {country}"
+            # Determine display name logic
+            base_loc = get_base_location_name(row)
+            
+            # If this base location appears 5 or more times in the current view, prepend City
+            if location_counts[base_loc] >= 5:
+                city = row.get("City")
+                subdivision = row.get("Subdivision")
+                
+                # Check for DC edge case to avoid "Washington, District of Columbia" redundancy
+                is_dc = False
+                if pd.notna(subdivision):
+                    sub_str = str(subdivision).strip()
+                    if sub_str in ["Washington DC", "Washington D.C.", "District of Columbia", "D.C.", "DC"]:
+                        is_dc = True
+
+                if not is_dc and pd.notna(city) and str(city).strip() != "":
+                    # Check if base_loc already has subdivision or is just country
+                    if pd.notna(subdivision) and str(subdivision).strip() != "":
+                        location_display = f"{city}, {subdivision}, {country}"
+                    else:
+                        location_display = f"{city}, {country}"
+                else:
+                    location_display = base_loc
             else:
-                location_display = country
+                location_display = base_loc
 
             flag = get_flag_img(country)
             
@@ -316,10 +366,40 @@ if df is not None:
             elif tp in TIME_RANGES: t_txt = f"{TIME_RANGES[tp][0]}-{TIME_RANGES[tp][1]}"
             else: t_txt = "???"
 
+            # --- Construct Header Logic ---
+            
+            # 1. Process Year
+            year_str = ""
+            if pd.notna(year) and str(year).strip() != "":
+                try:
+                    year_str = f"({int(year)})"
+                except:
+                    # Fallback if year isn't an integer convertible string
+                    year_str = f"({year})"
+
+            # 2. Process Location
+            loc_str = ""
+            if pd.notna(location_display) and str(location_display).strip() != "":
+                loc_str = str(location_display).strip()
+
+            # 3. Assemble
+            content_parts = []
+            if loc_str:
+                content_parts.append(loc_str)
+            if year_str:
+                content_parts.append(year_str)
+            
+            content_str = " ".join(content_parts)
+            
+            if content_str:
+                header_text = f"Round {r_num} - {content_str}"
+            else:
+                header_text = f"Round {r_num}"
+
             # Increased visibility for the score text in the HTML component by changing the small color to black
             html += f"""
             <div class="tg-round">
-                <div style="font-size: 0.85rem; font-weight: 600; color: #db5049; margin-bottom: 2px;">Round {r_num} - {location_display}</div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: #db5049; margin-bottom: 2px;">{header_text}</div>
                 <div class="tg-row">
                     <div class="tg-half">
                         <div class="tg-score-note">{flag} <small style="color: #000000;">{g_txt}</small></div>
@@ -333,25 +413,54 @@ if df is not None:
             </div>
             """
             
-        html += "</div>"
+        html += """
+            </div>
+        </div>
+        """
         return html
 
     col1, col2 = st.columns(2)
     
-    # Base CSS template for the HTML component
+    # Base CSS template for the HTML component with flexbox layout for sticky header
     css_template = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
-        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; height: 100vh; overflow: hidden; }
         
-        .tg-container {
-            padding: 15px;
-            border-radius: 12px;
+        .tg-outer-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Fill the iframe */
             width: 100%;
+            border-radius: 12px;
             box-sizing: border-box;
-            /* Disable internal scrollbar */
-            overflow-y: hidden; 
+            overflow: hidden; 
         }
+        .tg-static-header {
+            padding: 15px 15px 5px 15px;
+            flex-shrink: 0; /* Prevents header from shrinking */
+            z-index: 10;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .tg-scrollable-content {
+            flex-grow: 1; /* Takes remaining space */
+            overflow-y: auto; /* Enable internal scrolling */
+            padding: 10px 15px 15px 15px;
+        }
+        
+        /* Scrollbar Styling */
+        .tg-scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .tg-scrollable-content::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        .tg-scrollable-content::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        /* Typography */
         .tg-header { font-weight: 800; font-size: 32px; line-height: 1.1; margin-bottom: 5px; }
         .tg-total { color: #222; font-weight: 700; margin-bottom: 10px; }
         .tg-sub { font-size: 18px; color: #444; line-height: 1.3; }
@@ -364,29 +473,15 @@ if df is not None:
     </style>
     """
 
-    # Calculate required height for synchronous scrolling
-    # Estimate: ~80px for header + 60px per round + 20px per day header
-    # Only displaying last 100 rounds, so calculate based on that
-    ROUNDS_TO_DISPLAY = min(100, total_rounds)
-    ROUND_HEIGHT = 60 
-    HEADER_HEIGHT = 150
-    
-    # Estimate number of day headers in last 100 rounds (conservative estimate)
-    estimated_days_in_display = min(20, num_days)
-    
-    # Calculate a height for the displayed rounds + headers
-    # Adding a margin (500px) for safety and padding
-    component_height = (ROUNDS_TO_DISPLAY * ROUND_HEIGHT) + (estimated_days_in_display * 35) + HEADER_HEIGHT + 500 
-
     with col1:
         h1 = build_player_column("Michael")
-        # Set exact calculated height and disable internal scrolling
-        components_html(css_template + h1, height=component_height, scrolling=False)
+        # Set fixed height via sidebar slider and disable iframe scrolling (we handle it internally)
+        components_html(css_template + h1, height=viewport_height, scrolling=False)
 
     with col2:
         h2 = build_player_column("Sarah")
-        # Set exact calculated height and disable internal scrolling
-        components_html(css_template + h2, height=component_height, scrolling=False)
+        # Set fixed height via sidebar slider and disable iframe scrolling (we handle it internally)
+        components_html(css_template + h2, height=viewport_height, scrolling=False)
 
 else:
     st.error("No data found.")
