@@ -419,7 +419,7 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         iso = row['ISO_Code']
 
         # Fix for Vatican City if ISO is VAT
-        if iso == "VAT": return "Vatican City"
+        if view_mode == "Countries" and iso == "VAT": return "Vatican City"
         
         # 1. Split Country in Region/Continent View (Key is ISO)
         if view_mode != "Countries" and iso in active_splits and key == iso:
