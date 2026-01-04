@@ -4,6 +4,7 @@ with open("styles.css") as f:
 import pandas as pd
 from PIL import Image
 import numpy as np
+import random
 
 
 
@@ -26,12 +27,25 @@ with col2:
 st.markdown("<h1 style='text-align: center;'>Score Tracking</h2>", unsafe_allow_html=True)
 
 st.markdown("""## Overview""")
-st.markdown("Timeguessr is a geography and history based game. The link can be found [here](https://timeguessr.com/)")
+st.markdown(
+    """
+    <div style='font-family: Poppins; font-size: 16px; line-height: 1.6;'>
+        TimeGuessr is a daily geography and history browser game that challenges players to identify the context of historical photographs.
+        <br><br>
+        Each day, players are presented with five rounds. In each round, an image is revealed, and the goal is to:
+        <ul>
+            <li><b>Guess the Location:</b> Pinpoint where the photo was taken on a world map.</li>
+            <li><b>Guess the Year:</b> Select the year the photo was taken on a timeline.</li>
+        </ul>
+        Points are awarded based on the accuracy of both the location (distance from the actual spot) and the year (difference from the actual date). A perfect round yields 10,000 points (5,000 for location + 5,000 for year), for a maximum daily score of 50,000.
+        <br><br>
+        You can play the game yourself <a href="https://timeguessr.com/" target="_blank" style="color: #db5049; text-decoration: none; font-weight: bold;">here</a>.
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
 
-# --- Side by side images ---
-col1, col2 = st.columns(2)
-with col1:
-    st.image("Images/Results.png")  # optional secondary image
+st.markdown("""""")
 
 st.markdown("""## Data""")
 
