@@ -34,36 +34,110 @@ with col1:
     st.image("Images/Results.png")  # optional secondary image
 
 st.markdown("""## Data""")
-data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 
-# Ensure 'Date' is treated as a date column
+# --- Data Processing ---
+data = pd.read_csv("./Data/Timeguessr_Stats.csv")
 data["Date"] = pd.to_datetime(data["Date"]).dt.date
 
-# --- Convert scores to numeric safely ---
 data["Michael Total Score"] = pd.to_numeric(data["Michael Total Score"], errors="coerce")
 data["Sarah Total Score"] = pd.to_numeric(data["Sarah Total Score"], errors="coerce")
 
-# --- Group by date and determine who played ---
+# Group by date
 daily = data.groupby("Date", as_index=False).agg(
     michael_played=("Michael Total Score", lambda x: x.notna().any()),
     sarah_played=("Sarah Total Score", lambda x: x.notna().any())
 )
 
-# --- Compute summary stats ---
-total_days = len(daily)
-both_played = ((daily["michael_played"]) & (daily["sarah_played"])).sum()
-michael_only = ((daily["michael_played"]) & (~daily["sarah_played"])).sum()
-sarah_only = ((~daily["michael_played"]) & (daily["sarah_played"])).sum()
+# --- CALCULATIONS ---
 
-# --- Display results (vertically) ---
+# 1. Define the cutoff dates
+date_1020 = pd.to_datetime("2025-10-20").date()
+date_1010 = pd.to_datetime("2025-10-10").date()
+
+# 2. Create filtered dataframes
+daily_since_1020 = daily[daily["Date"] >= date_1020]
+daily_since_1010 = daily[daily["Date"] >= date_1010]
+
+# 3. Helper function to calculate the 4 metrics for any dataframe
+def get_stats(df):
+    total = len(df)
+    both = ((df["michael_played"]) & (df["sarah_played"])).sum()
+    m_only = ((df["michael_played"]) & (~df["sarah_played"])).sum()
+    s_only = ((~df["michael_played"]) & (df["sarah_played"])).sum()
+    return total, both, m_only, s_only
+
+# 4. Get values for all three timeframes
+all_total, all_both, all_m, all_s = get_stats(daily)
+s1020_total, s1020_both, s1020_m, s1020_s = get_stats(daily_since_1020)
+s1010_total, s1010_both, s1010_m, s1010_s = get_stats(daily_since_1010)
+
+# --- DISPLAY: Grid Table ---
 st.markdown(
     f"""
-    <div style='font-family: Poppins; font-size: 18px; color: #db5049;'>
-        <p><b>Total Days Played:</b> {total_days}</p>
-        <p><b>Days Both Played:</b> {both_played}</p>
-        <p><b>Days Only Michael Played:</b> {michael_only}</p>
-        <p><b>Days Only Sarah Played:</b> {sarah_only}</p>
-    </div>
+    <style>
+        .stat-table {{
+            width: 100%;
+            font-family: Poppins;
+            font-size: 18px;
+            color: #db5049;
+            border-collapse: collapse;
+        }}
+        .stat-table th {{
+            text-align: center; /* Center headers */
+            padding-bottom: 10px;
+            border-bottom: 2px solid #db5049;
+        }}
+        /* Left align the first column header specifically */
+        .stat-table th:first-child {{
+            text-align: left;
+        }}
+        .stat-table td {{
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }}
+        .stat-val {{
+            font-weight: bold;
+            text-align: center;
+        }}
+    </style>
+
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th style="width: 30%;">Metric</th>
+                <th>All Time</th>
+                <th>Post-Sarah Tracking (10/20/25)</th>
+                <th>Post-Michael Tracking (10/10/25)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Total Days Played</td>
+                <td class="stat-val">{all_total}</td>
+                <td class="stat-val">{s1020_total}</td>
+                <td class="stat-val">{s1010_total}</td>
+            </tr>
+            <tr>
+                <td>Days Both Played</td>
+                <td class="stat-val">{all_both}</td>
+                <td class="stat-val">{s1020_both}</td>
+                <td class="stat-val">{s1010_both}</td>
+            </tr>
+            <tr>
+                <td>Days Only Michael Played</td>
+                <td class="stat-val">{all_m}</td>
+                <td class="stat-val">{s1020_m}</td>
+                <td class="stat-val">{s1010_m}</td>
+            </tr>
+            <tr>
+                <td>Days Only Sarah Played</td>
+                <td class="stat-val">{all_s}</td>
+                <td class="stat-val">{s1020_s}</td>
+                <td class="stat-val">{s1010_s}</td>
+            </tr>
+        </tbody>
+    </table>
+    <br>
     """,
     unsafe_allow_html=True
 )
