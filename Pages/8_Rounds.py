@@ -122,6 +122,24 @@ def get_midpoint_score(row, player, category):
         return (low + high) / 2
     return 0
 
+def get_filter_score(row, player, category):
+    """
+    Returns a float score for filtering purposes.
+    Returns NaN if no data exists for the player in that category.
+    """
+    col_score = f"{player} {category} Score"
+    col_pattern = f"{player} {category}"
+    ranges = GEOGRAPHY_RANGES if category == "Geography" else TIME_RANGES
+    
+    val = row.get(col_score)
+    if pd.notna(val): return float(val)
+    
+    pat = row.get(col_pattern)
+    if pat in ranges:
+        return (ranges[pat][0] + ranges[pat][1]) / 2
+    
+    return np.nan
+
 def get_bar_html(score, pattern, ranges):
     """Generates the progress bar HTML."""
     total = 5000
@@ -155,6 +173,13 @@ st.title("All Rounds")
 df = load_data("./Data/Timeguessr_Stats.csv")
 
 if df is not None:
+    # Pre-calculate score columns for filtering
+    # We create temporary columns to filter against sliders
+    df["_M_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Michael", "Geography"), axis=1)
+    df["_S_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Sarah", "Geography"), axis=1)
+    df["_M_Time_Filter"] = df.apply(lambda r: get_filter_score(r, "Michael", "Time"), axis=1)
+    df["_S_Time_Filter"] = df.apply(lambda r: get_filter_score(r, "Sarah", "Time"), axis=1)
+
     # --- Sidebar Filters ---
     with st.sidebar:
         st.header("Filter Settings")
@@ -183,6 +208,15 @@ if df is not None:
             value=(1900, 2026),
             help="Select a range of years to filter rounds."
         )
+        
+        st.divider()
+        st.markdown("### Score Filters")
+        m_geo_range = st.slider("Michael Geography Score:", 0, 5000, (0, 5000))
+        s_geo_range = st.slider("Sarah Geography Score:", 0, 5000, (0, 5000))
+        m_time_range = st.slider("Michael Time Score:", 0, 5000, (0, 5000))
+        s_time_range = st.slider("Sarah Time Score:", 0, 5000, (0, 5000))
+        
+        st.divider()
         
         # Date Filter
         min_date = df["Date"].min()
@@ -215,6 +249,30 @@ if df is not None:
     if selected_countries:
         df_filtered = df_filtered[df_filtered["Country"].isin(selected_countries)]
     
+    # Filter by Scores
+    # Logic: Only filter if the user adjusted the range from default (0, 5000).
+    # If filtered, ensure score is within range (implicitly handles NaNs by exclusion).
+    if m_geo_range != (0, 5000):
+        df_filtered = df_filtered[
+            (df_filtered["_M_Geo_Filter"] >= m_geo_range[0]) & 
+            (df_filtered["_M_Geo_Filter"] <= m_geo_range[1])
+        ]
+    if s_geo_range != (0, 5000):
+        df_filtered = df_filtered[
+            (df_filtered["_S_Geo_Filter"] >= s_geo_range[0]) & 
+            (df_filtered["_S_Geo_Filter"] <= s_geo_range[1])
+        ]
+    if m_time_range != (0, 5000):
+        df_filtered = df_filtered[
+            (df_filtered["_M_Time_Filter"] >= m_time_range[0]) & 
+            (df_filtered["_M_Time_Filter"] <= m_time_range[1])
+        ]
+    if s_time_range != (0, 5000):
+        df_filtered = df_filtered[
+            (df_filtered["_S_Time_Filter"] >= s_time_range[0]) & 
+            (df_filtered["_S_Time_Filter"] <= s_time_range[1])
+        ]
+
     # Filter for both players if toggle is enabled
     if both_players_only:
         df_filtered = df_filtered[
