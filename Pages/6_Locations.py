@@ -536,7 +536,8 @@ with st.sidebar:
     sel_splits = st.multiselect("Split Countries:", avail_splits, default=[])
     
     if "Date" in data.columns:
-        min_d, max_d = data["Date"].min().date(), data["Date"].max().date()
+        min_d = data[data['Country'].notna()]["Date"].min().date()
+        max_d = data["Date"].max().date()
         sel_dates = st.slider("Select Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
         filtered_data = data[(data["Date"].dt.date >= sel_dates[0]) & (data["Date"].dt.date <= sel_dates[1])].copy()
     else: filtered_data = data.copy()
