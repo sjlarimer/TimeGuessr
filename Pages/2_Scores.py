@@ -1283,21 +1283,21 @@ if page_type == "Total Scores":
     ceiling = CEILING_TOTAL
     score_type = "total"
     default_bin_size = 5000
-    bin_options = [1000, 2000, 2500, 3000, 4000, 5000, 7500, 10000, 15000]
+    bin_options = [1000, 2500, 5000, 10000]
     change_threshold = 5000
 elif page_type == "Time Scores":
     df_daily, mask = prepare_time_scores_data(data, remove_estimated, include_single_player_days)
     ceiling = 25000
     score_type = "time"
     default_bin_size = 2500
-    bin_options = [500, 1000, 2000, 2500, 3000, 4000, 5000, 7500]
+    bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
 else:  # Geography Scores
     df_daily, mask = prepare_geography_scores_data(data, remove_estimated, include_single_player_days)
     ceiling = 25000
     score_type = "geography"
     default_bin_size = 2500
-    bin_options = [500, 1000, 2000, 2500, 3000, 4000, 5000, 7500]
+    bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
 
 # Date range

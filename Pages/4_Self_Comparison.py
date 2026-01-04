@@ -367,6 +367,8 @@ def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series,
 
     return 0, "", ""
 
+# --- ADDED HELPER FUNCTIONS FOR STREAKS ---
+
 def calculate_cumulative_avg_streak(scores: pd.Series, dates: pd.Series, 
                                    above: bool = True, 
                                    date_format: str = "%Y-%m-%d") -> Tuple[int, str, str]:
@@ -444,6 +446,8 @@ def calculate_score_change_streak(scores: np.ndarray, dates: pd.Series,
         return max_streak, start_date, end_date
 
     return 0, "", ""
+
+# ------------------------------------------
 
 def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> str:
     """Format streak dates for display."""
@@ -886,6 +890,18 @@ with st.sidebar:
     remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
     window_length = st.slider("Rolling Average Window", min_value=1, max_value=30, value=5, step=1)
 
+    # Bucket Size Slider (Only for Scores view)
+    bucket_size = 5000 # Default fallback
+    if view_mode == "Scores":
+        if player == "Combined":
+            bucket_options = [1000, 2500, 5000, 10000]
+            default_idx = 2 # 5000
+        else:
+            bucket_options = [500, 1250, 2500, 5000]
+            default_idx = 2 # 2500
+        
+        bucket_size = st.select_slider("Bucket Size", options=bucket_options, value=bucket_options[default_idx])
+
     player_data = prepare_player_data(data, player, remove_estimated)
 
     if not player_data.empty:
@@ -913,11 +929,9 @@ if view_mode == "Scores":
     # Determine bucket settings
     if player == "Combined":
         streak_ceiling = 50000
-        streak_bin = 5000
         change_threshold = 5000
     else:
         streak_ceiling = 25000
-        streak_bin = 2500
         change_threshold = 2500
     
     col1, col2 = st.columns(2)
@@ -928,7 +942,7 @@ if view_mode == "Scores":
             player_data_filtered[time_col], 
             player_data_filtered[geo_col],
             player_data_filtered["Date"],
-            bin_size=streak_bin, 
+            bin_size=bucket_size, 
             ceiling=streak_ceiling
         )
         st.markdown(stats_html, unsafe_allow_html=True)
@@ -937,7 +951,7 @@ if view_mode == "Scores":
         hist_fig = create_histogram(
             player_data_filtered[time_col], 
             player_data_filtered[geo_col],
-            bin_size=streak_bin, 
+            bin_size=bucket_size, 
             ceiling=streak_ceiling
         )
         st.plotly_chart(hist_fig, use_container_width=True)
@@ -948,7 +962,7 @@ if view_mode == "Scores":
             player_data_filtered[time_col], 
             player_data_filtered[geo_col],
             player_data_filtered["Date"],
-            bin_size=streak_bin, 
+            bin_size=bucket_size, 
             ceiling=streak_ceiling,
             change_threshold=change_threshold
         )
