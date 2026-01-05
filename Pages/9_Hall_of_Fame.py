@@ -76,13 +76,13 @@ st.markdown(
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Yearly Trophy Styling (Standard Size, Special Background) */
+        /* Yearly Trophy Styling */
         .trophy-card.yearly {
             background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(245,245,255,0.85));
             border: 2px solid rgba(0,0,0,0.08);
         }
         
-        /* Darker background for ties to distinguish them */
+        /* Darker background for ties */
         .trophy-card.tie {
             background: rgba(230, 230, 230, 0.6);
             border: 1px solid rgba(0,0,0,0.15);
@@ -223,7 +223,7 @@ def check_silver(winner_score, loser_score):
     return (winner_score - loser_score) / loser_score >= 0.10
 
 def generate_trophies_for_period(row, daily_data_for_period, period_label, is_yearly=False):
-    """Generates the list of 9 trophies for a specific period (Month, Quarter, or Year)."""
+    """Generates the list of trophies for a specific period (Month, Quarter, or Year)."""
     t_m = []
     t_s = []
     
@@ -375,6 +375,51 @@ def generate_trophies_for_period(row, daily_data_for_period, period_label, is_ye
             t_m.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(m_high_time):,}", "is_tie": True, "is_yearly": is_yearly})
             t_s.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(s_high_time):,}", "is_tie": True, "is_yearly": is_yearly})
 
+    # --- 10. Most Perfect Rounds (Total) 🟩 ---
+    m_perfect_total = row['M_Total_Perf']
+    s_perfect_total = row['S_Total_Perf']
+
+    if m_perfect_total > 0 or s_perfect_total > 0:
+        if m_perfect_total > s_perfect_total:
+            diff = int(m_perfect_total - s_perfect_total)
+            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(m_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_perfect_total > m_perfect_total:
+            diff = int(s_perfect_total - m_perfect_total)
+            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(s_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(m_perfect_total)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(s_perfect_total)}", "is_tie": True, "is_yearly": is_yearly})
+
+    # --- 11. Most Perfect Geo Rounds 🌍🟩 ---
+    m_perfect_geo = row['M_Geo_Perf']
+    s_perfect_geo = row['S_Geo_Perf']
+
+    if m_perfect_geo > 0 or s_perfect_geo > 0:
+        if m_perfect_geo > s_perfect_geo:
+            diff = int(m_perfect_geo - s_perfect_geo)
+            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(m_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_perfect_geo > m_perfect_geo:
+            diff = int(s_perfect_geo - m_perfect_geo)
+            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(s_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(m_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(s_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly})
+
+    # --- 12. Most Perfect Time Rounds 📆🟩 ---
+    m_perfect_time = row['M_Time_Perf']
+    s_perfect_time = row['S_Time_Perf']
+
+    if m_perfect_time > 0 or s_perfect_time > 0:
+        if m_perfect_time > s_perfect_time:
+            diff = int(m_perfect_time - s_perfect_time)
+            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(m_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_perfect_time > m_perfect_time:
+            diff = int(s_perfect_time - m_perfect_time)
+            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(s_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(m_perfect_time)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(s_perfect_time)}", "is_tie": True, "is_yearly": is_yearly})
+
     return t_m, t_s
 
 def calculate_trophies(df):
@@ -399,6 +444,14 @@ def calculate_trophies(df):
     df_valid['M_Time_Row'] = (df_valid['Michael Time Score (Min)'] + df_valid['Michael Time Score (Max)']) / 2
     df_valid['S_Time_Row'] = (df_valid['Sarah Time Score (Min)'] + df_valid['Sarah Time Score (Max)']) / 2
 
+    # Calculate Perfect Rounds at Row Level
+    df_valid['M_Geo_Perf'] = (df_valid['M_Geo_Row'] == 5000).astype(int)
+    df_valid['S_Geo_Perf'] = (df_valid['S_Geo_Row'] == 5000).astype(int)
+    df_valid['M_Time_Perf'] = (df_valid['M_Time_Row'] == 5000).astype(int)
+    df_valid['S_Time_Perf'] = (df_valid['S_Time_Row'] == 5000).astype(int)
+    df_valid['M_Total_Perf'] = ((df_valid['M_Geo_Row'] == 5000) & (df_valid['M_Time_Row'] == 5000)).astype(int)
+    df_valid['S_Total_Perf'] = ((df_valid['S_Geo_Row'] == 5000) & (df_valid['S_Time_Row'] == 5000)).astype(int)
+
     # Aggregate to Daily
     daily_stats = df_valid.groupby('Date').agg({
         'Michael Total Score': 'first',
@@ -406,7 +459,13 @@ def calculate_trophies(df):
         'M_Geo_Row': 'sum',
         'S_Geo_Row': 'sum',
         'M_Time_Row': 'sum',
-        'S_Time_Row': 'sum'
+        'S_Time_Row': 'sum',
+        'M_Geo_Perf': 'sum',
+        'S_Geo_Perf': 'sum',
+        'M_Time_Perf': 'sum',
+        'S_Time_Perf': 'sum',
+        'M_Total_Perf': 'sum',
+        'S_Total_Perf': 'sum'
     }).reset_index()
 
     # Calculate Wins
@@ -436,6 +495,12 @@ def calculate_trophies(df):
         'S_Geo_Win': 'sum',
         'M_Time_Win': 'sum',
         'S_Time_Win': 'sum',
+        'M_Geo_Perf': 'sum',
+        'S_Geo_Perf': 'sum',
+        'M_Time_Perf': 'sum',
+        'S_Time_Perf': 'sum',
+        'M_Total_Perf': 'sum',
+        'S_Total_Perf': 'sum',
         'Date': 'count'
     }).reset_index()
     yearly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
@@ -445,7 +510,6 @@ def calculate_trophies(df):
         year_val = row['Year']
         daily_for_year = daily_stats[daily_stats['Year'] == year_val]
         
-        # FIX: Ensure year displays as int (e.g., "2025" not "2025.0")
         t_m, t_s = generate_trophies_for_period(row, daily_for_year, str(int(year_val)), is_yearly=True)
         yearly_m.extend(t_m)
         yearly_s.extend(t_s)
@@ -465,6 +529,12 @@ def calculate_trophies(df):
         'S_Geo_Win': 'sum',
         'M_Time_Win': 'sum',
         'S_Time_Win': 'sum',
+        'M_Geo_Perf': 'sum',
+        'S_Geo_Perf': 'sum',
+        'M_Time_Perf': 'sum',
+        'S_Time_Perf': 'sum',
+        'M_Total_Perf': 'sum',
+        'S_Total_Perf': 'sum',
         'Date': 'count'
     }).reset_index()
     quarterly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
@@ -473,8 +543,6 @@ def calculate_trophies(df):
     for _, row in quarterly_agg.iterrows():
         q_period = row['Quarter']
         daily_for_q = daily_stats[daily_stats['Quarter'] == q_period]
-        
-        # Format label like "Q4 2025"
         q_label = f"Q{q_period.quarter} {q_period.year}"
         
         t_m, t_s = generate_trophies_for_period(row, daily_for_q, q_label, is_yearly=False)
@@ -496,6 +564,12 @@ def calculate_trophies(df):
         'S_Geo_Win': 'sum',
         'M_Time_Win': 'sum',
         'S_Time_Win': 'sum',
+        'M_Geo_Perf': 'sum',
+        'S_Geo_Perf': 'sum',
+        'M_Time_Perf': 'sum',
+        'S_Time_Perf': 'sum',
+        'M_Total_Perf': 'sum',
+        'S_Total_Perf': 'sum',
         'Date': 'count'
     }).reset_index()
     monthly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
@@ -545,18 +619,17 @@ with col1:
     has_content = False
     
     if yearly_m:
-         # ADDED SEPARATOR for Yearly
          m_html += get_separator("Yearly")
          m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in yearly_m]) + '</div>'
          has_content = True
          
     if quarterly_m:
-         m_html += get_separator("Quarterly")
+         if has_content: m_html += get_separator("Quarterly")
          m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in quarterly_m]) + '</div>'
          has_content = True
 
     if monthly_m:
-         m_html += get_separator("Monthly")
+         if has_content: m_html += get_separator("Monthly")
          m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in monthly_m]) + '</div>'
          has_content = True
     
@@ -574,18 +647,17 @@ with col2:
     has_content = False
     
     if yearly_s:
-         # ADDED SEPARATOR for Yearly
          s_html += get_separator("Yearly")
          s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in yearly_s]) + '</div>'
          has_content = True
          
     if quarterly_s:
-         s_html += get_separator("Quarterly")
+         if has_content: s_html += get_separator("Quarterly")
          s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in quarterly_s]) + '</div>'
          has_content = True
 
     if monthly_s:
-         s_html += get_separator("Monthly")
+         if has_content: s_html += get_separator("Monthly")
          s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in monthly_s]) + '</div>'
          has_content = True
     

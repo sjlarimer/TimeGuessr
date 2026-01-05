@@ -195,8 +195,8 @@ def load_data():
         st.error(f"Error loading data: {e}")
         return None
 
-def generate_shame_trophies_for_period(daily_data, period_label, is_yearly=False):
-    """Generates the list of lowest daily score awards for a specific period."""
+def generate_shame_trophies_for_period(row, daily_data, period_label, is_yearly=False):
+    """Generates the list of lowest score 'awards' for a specific period."""
     if daily_data.empty:
         return [], []
 
@@ -216,9 +216,11 @@ def generate_shame_trophies_for_period(daily_data, period_label, is_yearly=False
     
     # Compare who had the absolute lowest score
     if m_min_val < s_min_val:
-        t_m.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(m_min_val):,}<br>({m_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(s_min_val - m_min_val)
+        t_m.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(m_min_val):,}<br>-{diff:,} ({m_date})", "is_tie": False, "is_yearly": is_yearly})
     elif s_min_val < m_min_val:
-        t_s.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(s_min_val):,}<br>({s_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(m_min_val - s_min_val)
+        t_s.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(s_min_val):,}<br>-{diff:,} ({s_date})", "is_tie": False, "is_yearly": is_yearly})
     else:
         # Tie for lowest
         t_m.append({"icon": "📉", "title": period_label, "desc": f"Tie Low: {int(m_min_val):,}", "is_tie": True, "is_yearly": is_yearly})
@@ -235,9 +237,11 @@ def generate_shame_trophies_for_period(daily_data, period_label, is_yearly=False
     s_geo_date = daily_data.loc[s_geo_min_idx, 'Date'].strftime('%b %d')
     
     if m_geo_min < s_geo_min:
-        t_m.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(m_geo_min):,}<br>({m_geo_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(s_geo_min - m_geo_min)
+        t_m.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(m_geo_min):,}<br>-{diff:,} ({m_geo_date})", "is_tie": False, "is_yearly": is_yearly})
     elif s_geo_min < m_geo_min:
-        t_s.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(s_geo_min):,}<br>({s_geo_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(m_geo_min - s_geo_min)
+        t_s.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(s_geo_min):,}<br>-{diff:,} ({s_geo_date})", "is_tie": False, "is_yearly": is_yearly})
     else:
         t_m.append({"icon": "🏚️", "title": period_label, "desc": f"Tie Low Geo: {int(m_geo_min):,}", "is_tie": True, "is_yearly": is_yearly})
         t_s.append({"icon": "🏚️", "title": period_label, "desc": f"Tie Low Geo: {int(s_geo_min):,}", "is_tie": True, "is_yearly": is_yearly})
@@ -253,12 +257,60 @@ def generate_shame_trophies_for_period(daily_data, period_label, is_yearly=False
     s_time_date = daily_data.loc[s_time_min_idx, 'Date'].strftime('%b %d')
     
     if m_time_min < s_time_min:
-        t_m.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(m_time_min):,}<br>({m_time_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(s_time_min - m_time_min)
+        t_m.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(m_time_min):,}<br>-{diff:,} ({m_time_date})", "is_tie": False, "is_yearly": is_yearly})
     elif s_time_min < m_time_min:
-        t_s.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(s_time_min):,}<br>({s_time_date})", "is_tie": False, "is_yearly": is_yearly})
+        diff = int(m_time_min - s_time_min)
+        t_s.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(s_time_min):,}<br>-{diff:,} ({s_time_date})", "is_tie": False, "is_yearly": is_yearly})
     else:
         t_m.append({"icon": "🐌", "title": period_label, "desc": f"Tie Low Time: {int(m_time_min):,}", "is_tie": True, "is_yearly": is_yearly})
         t_s.append({"icon": "🐌", "title": period_label, "desc": f"Tie Low Time: {int(s_time_min):,}", "is_tie": True, "is_yearly": is_yearly})
+
+    # --- 4. Most Black Square Total Rounds (Total Fail) ⬛ ---
+    m_fail_total = row['M_Total_Fail']
+    s_fail_total = row['S_Total_Fail']
+
+    if m_fail_total > 0 or s_fail_total > 0:
+        # Winner is whoever has MORE black squares
+        if m_fail_total > s_fail_total:
+            diff = int(m_fail_total - s_fail_total)
+            t_m.append({"icon": "⬛", "title": period_label, "desc": f"Double Black: {int(m_fail_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_fail_total > m_fail_total:
+            diff = int(s_fail_total - m_fail_total)
+            t_s.append({"icon": "⬛", "title": period_label, "desc": f"Double Black: {int(s_fail_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "⬛", "title": period_label, "desc": f"Tie Black: {int(m_fail_total)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "⬛", "title": period_label, "desc": f"Tie Black: {int(s_fail_total)}", "is_tie": True, "is_yearly": is_yearly})
+
+    # --- 5. Most Black Square Geo Rounds (Geo Fail) 🌍⬛ ---
+    m_fail_geo = row['M_Geo_Fail']
+    s_fail_geo = row['S_Geo_Fail']
+
+    if m_fail_geo > 0 or s_fail_geo > 0:
+        if m_fail_geo > s_fail_geo:
+            diff = int(m_fail_geo - s_fail_geo)
+            t_m.append({"icon": "🌍⬛", "title": period_label, "desc": f"Geo Black: {int(m_fail_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_fail_geo > m_fail_geo:
+            diff = int(s_fail_geo - m_fail_geo)
+            t_s.append({"icon": "🌍⬛", "title": period_label, "desc": f"Geo Black: {int(s_fail_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "🌍⬛", "title": period_label, "desc": f"Tie Geo Black: {int(m_fail_geo)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "🌍⬛", "title": period_label, "desc": f"Tie Geo Black: {int(s_fail_geo)}", "is_tie": True, "is_yearly": is_yearly})
+
+    # --- 6. Most Black Square Time Rounds (Time Fail) 📆⬛ ---
+    m_fail_time = row['M_Time_Fail']
+    s_fail_time = row['S_Time_Fail']
+
+    if m_fail_time > 0 or s_fail_time > 0:
+        if m_fail_time > s_fail_time:
+            diff = int(m_fail_time - s_fail_time)
+            t_m.append({"icon": "📆⬛", "title": period_label, "desc": f"Time Black: {int(m_fail_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        elif s_fail_time > m_fail_time:
+            diff = int(s_fail_time - m_fail_time)
+            t_s.append({"icon": "📆⬛", "title": period_label, "desc": f"Time Black: {int(s_fail_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+        else:
+            t_m.append({"icon": "📆⬛", "title": period_label, "desc": f"Tie Time Black: {int(m_fail_time)}", "is_tie": True, "is_yearly": is_yearly})
+            t_s.append({"icon": "📆⬛", "title": period_label, "desc": f"Tie Time Black: {int(s_fail_time)}", "is_tie": True, "is_yearly": is_yearly})
 
     return t_m, t_s
 
@@ -284,6 +336,15 @@ def calculate_shame(df):
     df_valid['M_Time_Row'] = (df_valid['Michael Time Score (Min)'] + df_valid['Michael Time Score (Max)']) / 2
     df_valid['S_Time_Row'] = (df_valid['Sarah Time Score (Min)'] + df_valid['Sarah Time Score (Max)']) / 2
 
+    # Calculate Shame Rounds at Row Level
+    # Geo < 2500, Time == 0
+    df_valid['M_Geo_Fail'] = (df_valid['M_Geo_Row'] < 2500).astype(int)
+    df_valid['S_Geo_Fail'] = (df_valid['S_Geo_Row'] < 2500).astype(int)
+    df_valid['M_Time_Fail'] = (df_valid['M_Time_Row'] == 0).astype(int)
+    df_valid['S_Time_Fail'] = (df_valid['S_Time_Row'] == 0).astype(int)
+    df_valid['M_Total_Fail'] = ((df_valid['M_Geo_Row'] < 2500) & (df_valid['M_Time_Row'] == 0)).astype(int)
+    df_valid['S_Total_Fail'] = ((df_valid['S_Geo_Row'] < 2500) & (df_valid['S_Time_Row'] == 0)).astype(int)
+
     # Aggregate to Daily
     daily_stats = df_valid.groupby('Date').agg({
         'Michael Total Score': 'first',
@@ -291,7 +352,13 @@ def calculate_shame(df):
         'M_Geo_Row': 'sum',
         'S_Geo_Row': 'sum',
         'M_Time_Row': 'sum',
-        'S_Time_Row': 'sum'
+        'S_Time_Row': 'sum',
+        'M_Geo_Fail': 'sum',
+        'S_Geo_Fail': 'sum',
+        'M_Time_Fail': 'sum',
+        'S_Time_Fail': 'sum',
+        'M_Total_Fail': 'sum',
+        'S_Total_Fail': 'sum'
     }).reset_index()
     
     # Add Time Periods
@@ -305,27 +372,70 @@ def calculate_shame(df):
 
     # --- YEARLY STATS ---
     unique_years = sorted(daily_stats['Year'].unique(), reverse=True)
+    
+    # Pre-calculate year aggregations for Fail counts
+    yearly_agg = daily_stats.groupby('Year').agg({
+        'M_Geo_Fail': 'sum',
+        'S_Geo_Fail': 'sum',
+        'M_Time_Fail': 'sum',
+        'S_Time_Fail': 'sum',
+        'M_Total_Fail': 'sum',
+        'S_Total_Fail': 'sum',
+        'Date': 'count'
+    }).reset_index()
+    yearly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    
     for year_val in unique_years:
         daily_subset = daily_stats[daily_stats['Year'] == year_val]
-        t_m, t_s = generate_shame_trophies_for_period(daily_subset, str(year_val), is_yearly=True)
+        agg_row = yearly_agg[yearly_agg['Year'] == year_val].iloc[0]
+        
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, daily_subset, str(int(year_val)), is_yearly=True)
         yearly_m.extend(t_m)
         yearly_s.extend(t_s)
 
     # --- QUARTERLY STATS ---
     unique_quarters = sorted(daily_stats['Quarter'].unique(), reverse=True)
+    
+    quarterly_agg = daily_stats.groupby('Quarter').agg({
+        'M_Geo_Fail': 'sum',
+        'S_Geo_Fail': 'sum',
+        'M_Time_Fail': 'sum',
+        'S_Time_Fail': 'sum',
+        'M_Total_Fail': 'sum',
+        'S_Total_Fail': 'sum',
+        'Date': 'count'
+    }).reset_index()
+    quarterly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    
     for q_period in unique_quarters:
         daily_subset = daily_stats[daily_stats['Quarter'] == q_period]
+        agg_row = quarterly_agg[quarterly_agg['Quarter'] == q_period].iloc[0]
         q_label = f"Q{q_period.quarter} {q_period.year}"
-        t_m, t_s = generate_shame_trophies_for_period(daily_subset, q_label, is_yearly=False)
+        
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, daily_subset, q_label, is_yearly=False)
         quarterly_m.extend(t_m)
         quarterly_s.extend(t_s)
 
     # --- MONTHLY STATS ---
     unique_months = sorted(daily_stats['MonthPeriod'].unique(), reverse=True)
+    
+    monthly_agg = daily_stats.groupby('MonthPeriod').agg({
+        'M_Geo_Fail': 'sum',
+        'S_Geo_Fail': 'sum',
+        'M_Time_Fail': 'sum',
+        'S_Time_Fail': 'sum',
+        'M_Total_Fail': 'sum',
+        'S_Total_Fail': 'sum',
+        'Date': 'count'
+    }).reset_index()
+    monthly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    
     for m_period in unique_months:
         daily_subset = daily_stats[daily_stats['MonthPeriod'] == m_period]
+        agg_row = monthly_agg[monthly_agg['MonthPeriod'] == m_period].iloc[0]
         m_label = m_period.strftime('%B %Y')
-        t_m, t_s = generate_shame_trophies_for_period(daily_subset, m_label, is_yearly=False)
+        
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, daily_subset, m_label, is_yearly=False)
         monthly_m.extend(t_m)
         monthly_s.extend(t_s)
 
