@@ -1,35 +1,28 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 import base64
+import time
+import io
 from PIL import Image
+from typing import List, Tuple
+from pathlib import Path
 
+# --- Configuration ---
+st.set_page_config(page_title="Karaoke", layout="wide")
+
+# --- Helper Functions for Background ---
 def get_base64_image(image_path):
     """
-    Encodes an image to a Base64 string, using its detected format (e.g., PNG or JPEG) 
-    when saving to the in-memory buffer.
-
-    Args:
-        image_path (str): Path to the image file (e.g., "Images/Sarah.jpg").
-
-    Returns:
-        str or None: The Base64 encoded string, or None if the file is not found.
+    Encodes an image to a Base64 string.
     """
     try:
-        # Open the image using PIL
         img = Image.open(image_path)
-        
-        # Determine the saving format. PIL reports 'JPEG' for .jpg/.jpeg files 
-        # and 'PNG' for .png files. We use the detected format.
         file_format = img.format if img.format is not None else 'PNG'
-        
         buffer = io.BytesIO()
-        # Save the image into the buffer using its original format
         img.save(buffer, format=file_format)
-        
-        # Encode the buffer content to Base64
         return base64.b64encode(buffer.getvalue()).decode()
-        
     except FileNotFoundError:
-        print(f"Error: Image file not found at {image_path}")
         return None
     except Exception as e:
         print(f"An error occurred during image processing: {e}")
@@ -37,26 +30,16 @@ def get_base64_image(image_path):
 
 def set_lighter_background_image(base64_string, lightness_level=0.7):
     """
-    Injects CSS to set the background image and applies a semi-transparent 
-    white overlay using linear-gradient to make the image appear lighter.
-
-    Args:
-        base64_string (str): The Base64 encoded image string.
-        lightness_level (float): The transparency/lightness of the white overlay (0.0=no overlay, 1.0=pure white).
+    Injects CSS to set the background image with a white overlay.
     """
     if not base64_string:
-        st.error("Could not load image for background.")
         return
 
-    # Calculate the alpha value for the RGBA overlay
-    # We use lightness_level for the alpha (A) component of RGBA(R, G, B, A)
-    # The 'white' color is represented by 255, 255, 255
     rgba_overlay = f"rgba(255, 255, 255, {lightness_level})"
 
     css = f"""
     <style>
     .stApp {{
-        /* Use linear-gradient to layer a semi-transparent white color over the image. */
         background-image: linear-gradient({rgba_overlay}, {rgba_overlay}), 
                           url("data:image/png;base64,{base64_string}");
         background-size: cover;
@@ -68,136 +51,185 @@ def set_lighter_background_image(base64_string, lightness_level=0.7):
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# --- Main Streamlit Script ---
-import io
+# --- Load Global CSS ---
+try:
+    with open("styles.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    pass
 
-image_file_path = "Images/Sarah5.jpg"
-
-# 1. Get the base64 string
-base64_img = get_base64_image(image_file_path)
-
-# 2. Inject the CSS with a 70% lightness overlay
-# Try adjusting the second argument (e.g., 0.3 for slightly lighter, 0.9 for very light)
-set_lighter_background_image(base64_img, lightness_level=0.7)
-
-import streamlit as st
-import time
-from typing import List, Tuple
-
-# --- App Title ---
-st.title("🎤 Streamlit Karaoke Demo (Simplified Auto-Sync)")
-st.markdown("---")
-
-# --- 2. Timed lyric lines (Adjusted Timings) ---
-lyrics: List[Tuple[int, str]] = [
-    # ... (Your original lyrics list)
-    (9, "Nice to meet you, where you been?"),
-    (12, "I could show you incredible things"),
-    (14, "Magic, madness, heaven, sin"),
-    (17, "Saw you there and I thought"),
-    (19, "Oh, my God, look at that face"),
-    (21, "You look like my next mistake"),
-    (24, "Love's a game, wanna play?"),
-    (29, "New money, suit and tie"),
-    (32, "I can read you like a magazine"),
-    (34, "Ain't it funny? Rumors fly"),
-    (37, "And I know you heard about me"),
-    (39, "So, hey, let's be friends"),
-    (41, "I'm dying to see how this one ends"),
-    (44, "Grab your passport and my hand"),
-    (46, "I can make the bad guys good for a weekend"),
-
-    # Chorus
-    (48, "So it's gonna be forever"),
-    (50, "Or it's gonna go down in flames?"),
-    (50, "You can tell me when it's over, mm"),
-    (52, "If the high was worth the pain"),
-    (54, "Got a long list of ex-lovers"),
-    (56, "They'll tell you I'm insane"),
-    (58, "'Cause you know I love the players"),
-    (60, "And you love the game"),
-    (62, "'Cause we're young and we're reckless"),
-    (64, "We'll take this way too far"),
-    (66, "It'll leave you breathless, mm"),
-    (68, "Or with a nasty scar"),
-    (70, "Got a long list of ex-lovers"),
-    (72, "They'll tell you I'm insane"),
-    (74, "But I've got a blank space, baby"),
-    (76, "And I'll write your name"),
-    
-    # ... (Rest of the lyrics)
-    (192, "And I'll write your name"),
-]
-
-# --- 3. CSS for highlighted lyric display ---
+# --- Custom Styling (Global + Karaoke Specific) ---
 st.markdown(
     """
     <style>
-    .lyric-line {
-        font-size: 1.3rem;
-        font-family: 'Poppins', sans-serif;
-        color: #666;
-        text-align: center;
-        transition: all 0.3s ease-in-out;
-    }
-    .active-line {
-        color: #db5049;
-        font-weight: 700;
-        font-size: 1.6rem;
-    }
+        /* Global Font & Colors (Matching other pages) */
+        .stMarkdown p, label, h1, h2, h3, h4, h5, h6, div {
+            font-family: 'Poppins', sans-serif !important;
+        }
+        h1, h2, h3 {
+            color: #db5049 !important;
+        }
+        
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] h1, 
+        [data-testid="stSidebar"] h2, 
+        [data-testid="stSidebar"] h3 {
+            color: white !important;
+        }
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] .stMarkdown p {
+            color: #696761 !important;
+        }
+
+        /* Karaoke Specific Styles */
+        .lyric-container {
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .lyric-line {
+            font-size: 1.3rem;
+            color: #666;
+            text-align: center;
+            transition: all 0.3s ease-in-out;
+            margin: 5px 0;
+            opacity: 0.6;
+        }
+        .active-line {
+            color: #db5049;
+            font-weight: 800;
+            font-size: 1.8rem;
+            opacity: 1;
+            transform: scale(1.05);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- 4. Audio Player (Must be manually started by user) ---
+# --- Background Setup ---
+image_file_path = "Images/Sarah5.jpg"
+base64_img = get_base64_image(image_file_path)
+if base64_img:
+    set_lighter_background_image(base64_img, lightness_level=0.85)
 
-st.audio("./Images/BlankSpace.mp3", start_time=0) 
+# --- App Content ---
+st.title("🎤 Karaoke Mode")
 
+# --- Lyrics Data ---
+lyrics: List[Tuple[int, str]] = [
+    (9, "Nice to meet you, where you been?"),
+    (11, "I could show you incredible things"),
+    (14, "Magic, madness, heaven, sin"),
+    (16, "Saw you there and I thought"),
+    (19, "Oh, my God, look at that face"),
+    (21, "You look like my next mistake"),
+    (24, "Love's a game, wanna play?"),
+    (29, "New money, suit and tie"),
+    (31, "I can read you like a magazine"),
+    (34, "Ain't it funny? Rumors fly"),
+    (36, "And I know you heard about me"),
+    (39, "So, hey, let's be friends"),
+    (41, "I'm dying to see how this one ends"),
+    (44, "Grab your passport and my hand"),
+    (46, "I can make the bad guys good for a weekend"),
+    (48, "So it's gonna be forever"),
+    (51, "Or it's gonna go down in flames?"),
+    (53, "You can tell me when it's over, mm"),
+    (56, "If the high was worth the pain"),
+    (58, "Got a long list of ex-lovers"),
+    (61, "They'll tell you I'm insane"),
+    (63, "'Cause you know I love the players"),
+    (66, "And you love the game"),
+    (68, "'Cause we're young and we're reckless"),
+    (71, "We'll take this way too far"),
+    (73, "It'll leave you breathless, mm"),
+    (76, "Or with a nasty scar"),
+    (78, "Got a long list of ex-lovers"),
+    (81, "They'll tell you I'm insane"),
+    (83, "But I've got a blank space, baby"),
+    (86, "And I'll write your name"),
+    (192, "And I'll write your name"),
+]
+
+# --- Control & Display ---
+audio_placeholder = st.empty()
+start_btn = st.button("Start Karaoke 🎤", type="primary")
 placeholder = st.empty()
 
-# Record the start time of the Python script execution (when the page loaded)
-start_time = time.time()
-
-# --- Synchronization Logic ---
-# The script will run through all the lyrics sequentially based on the timer,
-# assuming the user hits play on the audio player around the same time
-# the app starts running.
-
-for i, (t, line) in enumerate(lyrics):
+if start_btn:
+    # 1. Start Audio (Autoplay)
+    audio_placeholder.audio("Images/BlankSpace.mp3", format="audio/mp3", start_time=0, autoplay=True)
     
-    # Calculate time to wait until next line
-    next_line_time = lyrics[i + 1][0] if i + 1 < len(lyrics) else None
+    # 2. Record the start time of the execution
+    start_time = time.time()
 
-    # Wait for the correct moment (t) based on the absolute start time
-    current_time_offset = time.time() - start_time
-    time_to_wait = t - current_time_offset
-    
-    if time_to_wait > 0:
-        # Wait for the specific duration to reach the next lyric time (t)
-        time.sleep(time_to_wait)
-    
-    # Display Logic
-    display = ""
-    display_lines = lyrics[max(0, i-1) : i+2]
-    
-    for start_t, txt in display_lines:
-        active = (start_t == t)
-        display += f"<div class='lyric-line {'active-line' if active else ''}'>{txt}</div>"
-
-    # Update the lyrics display
-    placeholder.markdown(display, unsafe_allow_html=True)
-
-    # Wait for the duration of the current line
-    if next_line_time:
-        expected_end_time = start_time + next_line_time
-        time_to_wait_for_line_duration = expected_end_time - time.time()
+    # --- Synchronization Loop ---
+    for i, (t, line) in enumerate(lyrics):
         
-        if time_to_wait_for_line_duration > 0:
-            time.sleep(time_to_wait_for_line_duration)
-    else:
-        time.sleep(5)
+        # Calculate time to wait until this specific line should appear
+        current_time_offset = time.time() - start_time
+        time_to_wait = t - current_time_offset
         
-# Karaoke finished
-placeholder.empty()
-st.success("Karaoke finished! Thanks for singing! 🎤")
+        if time_to_wait > 0:
+            time.sleep(time_to_wait)
+        
+        # Determine surrounding lines for context
+        # Show previous line, current line, next line
+        display_html = "<div class='lyric-container'>"
+        
+        # Previous Line
+        if i > 0:
+            display_html += f"<div class='lyric-line'>{lyrics[i-1][1]}</div>"
+            
+        # Current Line (Active)
+        display_html += f"<div class='lyric-line active-line'>{line}</div>"
+        
+        # Next Line
+        if i < len(lyrics) - 1:
+            display_html += f"<div class='lyric-line'>{lyrics[i+1][1]}</div>"
+            
+        display_html += "</div>"
+
+        # Update the lyrics display
+        placeholder.markdown(display_html, unsafe_allow_html=True)
+
+        # Logic to hold the current line until the next one starts
+        # This prevents the loop from racing if the 'time_to_wait' above was 0
+        if i < len(lyrics) - 1:
+            next_line_start = lyrics[i+1][0]
+            # Calculate how long to keep this slide visible
+            # We want to wait until the NEXT line's timestamp
+            playhead = time.time() - start_time
+            duration = next_line_start - playhead
+            if duration > 0:
+                 time.sleep(duration)
+        else:
+            time.sleep(5) # End of song buffer
+            
+    st.balloons()
+    st.success("Karaoke finished! 🎤")
+else:
+    # Initial State
+    # Note: We show a dormant audio player here just so the UI element is visible 
+    # if the user wants to play manually without lyrics, but the button is the main interaction.
+    # We leave the audio_placeholder empty until button press to force auto-play state.
+    
+    placeholder.markdown(
+        """
+        <div class='lyric-container'>
+            <div class='lyric-line'>Hit 'Start Karaoke' to begin!</div>
+            <div class='lyric-line active-line'>Ready for Blank Space?</div>
+            <div class='lyric-line'>...</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
