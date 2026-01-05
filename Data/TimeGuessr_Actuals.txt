@@ -354,3 +354,10 @@ TimeGuessr #944
 3. Rome (Lazio), Italy, 1985
 4. Saint-Louis, Senegal, 2005
 5. London (England), United Kingdom, 1969
+
+TimeGuessr #949
+1. Prague, Czechia, 1968
+2. Rome (Lazio), Italy, 1985
+3. Tbilisi, Georgia, 1992
+4. Kuwait City, Kuwait, 2010
+5. Washington DC (Washington DC), United States, 1969
