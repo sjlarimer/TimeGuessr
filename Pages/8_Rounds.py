@@ -174,7 +174,6 @@ df = load_data("./Data/Timeguessr_Stats.csv")
 
 if df is not None:
     # Pre-calculate score columns for filtering
-    # We create temporary columns to filter against sliders
     df["_M_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Michael", "Geography"), axis=1)
     df["_S_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Sarah", "Geography"), axis=1)
     df["_M_Time_Filter"] = df.apply(lambda r: get_filter_score(r, "Michael", "Time"), axis=1)
@@ -184,41 +183,7 @@ if df is not None:
     with st.sidebar:
         st.header("Filter Settings")
         
-        # General Filters
-        both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
-        
-        # Country filter - get countries ordered by frequency
-        country_counts = df["Country"].value_counts()
-        # Remove NaN if present
-        country_counts = country_counts[country_counts.index.notna()]
-        available_countries = country_counts.index.tolist()
-        
-        selected_countries = st.multiselect(
-            "Filter by countries:",
-            options=available_countries,
-            default=[],
-            help="Select one or more countries to filter. Leave empty to show all countries."
-        )
-        
-        # Year Filter
-        year_range = st.slider(
-            "Filter by year:",
-            min_value=1900,
-            max_value=2026,
-            value=(1900, 2026),
-            help="Select a range of years to filter rounds."
-        )
-        
-        st.divider()
-        st.markdown("### Score Filters")
-        m_geo_range = st.slider("Michael Geography Score:", 0, 5000, (0, 5000))
-        s_geo_range = st.slider("Sarah Geography Score:", 0, 5000, (0, 5000))
-        m_time_range = st.slider("Michael Time Score:", 0, 5000, (0, 5000))
-        s_time_range = st.slider("Sarah Time Score:", 0, 5000, (0, 5000))
-        
-        st.divider()
-        
-        # Date Filter
+        # 1. Date Filter (Top)
         min_date = df["Date"].min()
         max_date = df["Date"].max()
         
@@ -230,6 +195,43 @@ if df is not None:
             format="YYYY-MM-DD"
         )
         
+        # 2. General Filters
+        both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
+        
+        # 3. Location Filter
+        enable_location_filter = st.toggle("Filter by Location", value=False)
+        selected_countries = []
+        if enable_location_filter:
+            # Country filter - get countries ordered by frequency
+            country_counts = df["Country"].value_counts()
+            country_counts = country_counts[country_counts.index.notna()]
+            available_countries = country_counts.index.tolist()
+            
+            selected_countries = st.multiselect(
+                "Select countries:",
+                options=available_countries,
+                default=[],
+                help="Select one or more countries to filter. Leave empty to show all countries."
+            )
+        
+        # 4. Year Filter
+        enable_year_filter = st.toggle("Filter by Year", value=False)
+        year_range = (1900, 2026)
+        if enable_year_filter:
+            year_range = st.slider(
+                "Select year range:",
+                min_value=1900,
+                max_value=2026,
+                value=(1900, 2026),
+                help="Select a range of years to filter rounds."
+            )
+        
+        st.markdown("### Score Filters")
+        m_geo_range = st.slider("Michael Geography Score:", 0, 5000, (0, 5000))
+        s_geo_range = st.slider("Sarah Geography Score:", 0, 5000, (0, 5000))
+        m_time_range = st.slider("Michael Time Score:", 0, 5000, (0, 5000))
+        s_time_range = st.slider("Sarah Time Score:", 0, 5000, (0, 5000))
+        
         # Fixed height for the scrollable window
         viewport_height = 1025
     
@@ -238,20 +240,18 @@ if df is not None:
     # Filter dataframe by selected date range
     df_filtered = df[(df["Date"] >= date_range[0]) & (df["Date"] <= date_range[1])]
     
-    # Filter by Year
-    if "Year" in df_filtered.columns:
+    # Filter by Year (if enabled)
+    if enable_year_filter and "Year" in df_filtered.columns:
         df_filtered = df_filtered[
             (df_filtered["Year"] >= year_range[0]) & 
             (df_filtered["Year"] <= year_range[1])
         ]
     
-    # Filter by countries if any selected
-    if selected_countries:
+    # Filter by countries (if enabled and selected)
+    if enable_location_filter and selected_countries:
         df_filtered = df_filtered[df_filtered["Country"].isin(selected_countries)]
     
     # Filter by Scores
-    # Logic: Only filter if the user adjusted the range from default (0, 5000).
-    # If filtered, ensure score is within range (implicitly handles NaNs by exclusion).
     if m_geo_range != (0, 5000):
         df_filtered = df_filtered[
             (df_filtered["_M_Geo_Filter"] >= m_geo_range[0]) & 
@@ -358,7 +358,7 @@ if df is not None:
             <div class="tg-scrollable-content">
         """
         
-        # Sort and limit to last 100 rounds for display (or all if fewer than 100)
+        # Sort using all filtered rows
         player_df = df.sort_values(by=["Timeguessr Day", "Timeguessr Round"], ascending=[False, True])
         
         # --- Pre-calculate location counts for this specific view ---
@@ -533,12 +533,12 @@ if df is not None:
 
     with col1:
         h1 = build_player_column("Michael")
-        # Set fixed height via sidebar slider and disable iframe scrolling (we handle it internally)
+        # Set fixed height via viewport_height and disable iframe scrolling (we handle it internally)
         components_html(css_template + h1, height=viewport_height, scrolling=False)
 
     with col2:
         h2 = build_player_column("Sarah")
-        # Set fixed height via sidebar slider and disable iframe scrolling (we handle it internally)
+        # Set fixed height via viewport_height and disable iframe scrolling (we handle it internally)
         components_html(css_template + h2, height=viewport_height, scrolling=False)
 
 else:
