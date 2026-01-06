@@ -361,3 +361,10 @@ TimeGuessr #949
 3. Tbilisi, Georgia, 1992
 4. Kuwait City, Kuwait, 2010
 5. Washington DC (Washington DC), United States, 1969
+
+TimeGuessr #950
+1. Paris (Ile-de-France), France, 2017
+2. Kotor, Montenegro, 2025
+3. Seattle (Washington), United States, 1938
+4. Singapore, Singapore, 1955
+5. Amsterdam, Netherlands, 1949
