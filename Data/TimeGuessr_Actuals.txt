@@ -368,3 +368,10 @@ TimeGuessr #950
 3. Seattle (Washington), United States, 1938
 4. Singapore, Singapore, 1955
 5. Amsterdam, Netherlands, 1949
+
+TimeGuessr #951
+1. Havana, Cuba, 1941
+2. Hanoi, Vietnam, 2015
+3. New York (New York), United States, 1936
+4. Copenhagen, Denmark, 1967
+5. London (England), United Kingdom, 2025
