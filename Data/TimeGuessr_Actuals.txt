@@ -389,3 +389,10 @@ TimeGuessr #953
 3. Budapest, Hungary, 1970
 4. Tallinn, Estonia, 2007
 5. Taumatawhakatangi­hangakoauauotamatea­turipukakapikimaunga­horonukupokaiwhen­uakitanatahu, New Zealand, 1948
+
+TimeGuessr #956
+1. Breda, Netherlands, 2017
+2. Cairo, Egypt, 1979
+3. Uppsala, Sweden, 1925
+4. Aspen (Colorado), United States, 1957
+5. Winnipeg (Manitoba), Canada, 2015
