@@ -396,3 +396,10 @@ TimeGuessr #956
 3. Uppsala, Sweden, 1925
 4. Aspen (Colorado), United States, 1957
 5. Winnipeg (Manitoba), Canada, 2015
+
+TimeGuessr #957
+1. Amman, Jordan, 1958
+2. Gothenburg, Sweden, 1968
+3. Thimphu, Bhutan, 2011
+4. Kuala Lumpur, Malaysia, 1996
+5. New York (New York), United States, 1903
