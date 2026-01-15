@@ -410,3 +410,10 @@ TimeGuessr #958
 3. Bangkok, Thailand, 1958
 4. Lima, Peru, 2022
 5. Moscow (Moscow), Russia, 1991
+
+TimeGuessr #959
+1. Rome (Lazio), Italy, 1962
+2. New Orleans (Louisiana), United States, 1960
+3. Minsk, Belarus, 2020
+4. Sao Paolo, Brazil, 1958
+5. Amsterdam, Netherlands, 1950
