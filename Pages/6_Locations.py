@@ -104,8 +104,6 @@ ISO_LANGUAGE_MAP = {
     'GRD': 'English', 'KNA': 'English', 'LCA': 'English', 'VCT': 'English', 'BLZ': 'English',
     'NGA': 'English', 'GHA': 'English', 'SLE': 'English', 'LBR': 'English', 'GMB': 'English', 
     'UGA': 'English', 'ZMB': 'English', 'ZWE': 'English', 'BWA': 'English', 'NAM': 'English',
-    'MLT': 'English', 
-    # Removed SGP (Singapore), PHL (Philippines) due to overlap
     
     # Spanish
     'ESP': 'Spanish', 'MEX': 'Spanish', 'COL': 'Spanish', 'ARG': 'Spanish', 'PER': 'Spanish', 
@@ -130,7 +128,6 @@ ISO_LANGUAGE_MAP = {
     'ITA': 'Italian', 'SMR': 'Italian', 'VAT': 'Italian',
 
     # Germanic (Excluding English)
-    # Removed CHE (Switzerland) due to language splits
     'DEU': 'Germanic', 'AUT': 'Germanic', 'LIE': 'Germanic', # German
     'NLD': 'Germanic', 'SUR': 'Germanic', # Dutch
     'SWE': 'Germanic', 'NOR': 'Germanic', 'DNK': 'Germanic', 'ISL': 'Germanic', # Nordic
@@ -146,7 +143,6 @@ ISO_LANGUAGE_MAP = {
     'SVN': 'Slavic (Latin)', 'HRV': 'Slavic (Latin)',
     
     # Slavic (Cyrillic Script)
-    # Renamed from Cyrillic. Removed non-Slavic Cyrillic users (KAZ, KGZ, TJK)
     'RUS': 'Slavic (Cyrillic)', 'BLR': 'Slavic (Cyrillic)', 'UKR': 'Slavic (Cyrillic)', 
     'BGR': 'Slavic (Cyrillic)', 'MKD': 'Slavic (Cyrillic)', 
 
@@ -155,12 +151,10 @@ ISO_LANGUAGE_MAP = {
     'MKD': 'Slavic (Mixed)', 
     
     # East Asian Scripts
-    # Removed HKG, MAC, MNG due to overlap
     'CHN': 'East Asian Scripts', 'TWN': 'East Asian Scripts', 
     'JPN': 'East Asian Scripts', 'KOR': 'East Asian Scripts', 'PRK': 'East Asian Scripts',
 
     # Asian Latin Script
-    # PHL removed from English, but excluded here too as requested ("put into other")
     'VNM': 'Asian Latin Script', 'IDN': 'Asian Latin Script', 
     'MYS': 'Asian Latin Script', 'BRN': 'Asian Latin Script',
 
