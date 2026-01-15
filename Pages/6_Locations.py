@@ -99,7 +99,7 @@ COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
 ISO_LANGUAGE_MAP = {
     # English
     'USA': 'English', 'GBR': 'English', 'AUS': 'English', 'CAN': 'English', 'NZL': 'English', 
-    'IRL': 'English', 'ZAF': 'English', 'JAM': 'English', 'BHS': 'English', 
+    'IRL': 'English', 'JAM': 'English', 'BHS': 'English', 
     'BRB': 'English', 'GUY': 'English', 'TTO': 'English', 'ATG': 'English', 'DMA': 'English', 
     'GRD': 'English', 'KNA': 'English', 'LCA': 'English', 'VCT': 'English', 'BLZ': 'English',
     'NGA': 'English', 'GHA': 'English', 'SLE': 'English', 'LBR': 'English', 'GMB': 'English', 
@@ -112,6 +112,7 @@ ISO_LANGUAGE_MAP = {
     'VEN': 'Spanish', 'CHL': 'Spanish', 'ECU': 'Spanish', 'GTM': 'Spanish', 'CUB': 'Spanish', 
     'BOL': 'Spanish', 'DOM': 'Spanish', 'HND': 'Spanish', 'PRY': 'Spanish', 'SLV': 'Spanish', 
     'NIC': 'Spanish', 'CRI': 'Spanish', 'PAN': 'Spanish', 'URY': 'Spanish', 'GNQ': 'Spanish',
+    'PRI': 'Spanish', # Puerto Rico
     
     # Portuguese
     'BRA': 'Portuguese', 'PRT': 'Portuguese', 'MOZ': 'Portuguese', 'AGO': 'Portuguese', 
@@ -121,7 +122,7 @@ ISO_LANGUAGE_MAP = {
     # Removed BEL, LUX, CMR due to language splits
     'FRA': 'French', 'COD': 'French', 'MAD': 'French', 'CIV': 'French', 
     'BFA': 'French', 'NER': 'French', 'SEN': 'French', 'MLI': 'French', 'RWA': 'French', 
-    'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 'BDI': 'French', 
+    'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 
     'BEN': 'French', 'TGO': 'French', 'CAF': 'French', 'COG': 'French', 'GAB': 'French', 
     'DJI': 'French', 'MCO': 'French', 'VUT': 'French', 'SYC': 'French',
     
@@ -177,7 +178,7 @@ ISO_LANGUAGE_MAP = {
     'IRN': 'Arabic Script', 'AFG': 'Arabic Script', 'PAK': 'Arabic Script',
 
     # Greek Script
-    'GRC': 'Greek Script', 'CYP': 'Greek Script',
+    'GRC': 'Greek Script', 
 
     # Hebrew Script
     'ISR': 'Hebrew Script',
@@ -205,7 +206,7 @@ SPLIT_CONFIG = {
         "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
     }},
     "GBR": {"name": "United Kingdom", "map": {}},
-    "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia"}},
+    "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia", "Puerto Rico": "Puerto Rico"}},
 }
 
 # Microstates
@@ -250,8 +251,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("## Locations")
-
 # --- Data Loading (Cached & Optimized) ---
 @st.cache_data
 def load_data():
@@ -277,6 +276,9 @@ def load_data():
         
         # Special Language Logic for Quebec
         df.loc[(df['ISO3'] == 'CAN') & (df['Subdivision'].isin(['Québec', 'Quebec'])), 'Language'] = 'French'
+        
+        # Special Language Logic for Puerto Rico
+        df.loc[(df['ISO3'] == 'USA') & (df['Subdivision'] == 'Puerto Rico'), 'Language'] = 'Spanish'
         
         # Special Logic for China Subdivisions (Overlapping Languages) -> Set to "Other"
         chn_subdivs_other = ['Hong Kong', 'Macau', 'Macao', 'Tibet', 'Xizang Zizhiqu', 'Xinjiang', 'Xinjiang Uygur Zizhiqu']
@@ -311,6 +313,9 @@ def load_map():
         
         # Special Map Logic for Quebec
         gdf.loc[(gdf['ISO3'] == 'CAN') & (gdf['NAME'] == 'Quebec'), 'Language'] = 'French'
+        
+        # Special Map Logic for Puerto Rico
+        gdf.loc[(gdf['ISO3'] == 'USA') & (gdf['NAME'] == 'Puerto Rico'), 'Language'] = 'Spanish'
         
         # Special Map Logic for China Subdivisions -> "Other"
         chn_map_names = ['Hong Kong', 'Macao', 'Xizang Zizhiqu', 'Xinjiang Uygur Zizhiqu']
@@ -663,6 +668,8 @@ def create_styled_table(df):
     return html
 
 # --- Sidebar ---
+tbd_display_list = [] # Init list for TBD display
+
 with st.sidebar:
     st.header("Map Settings")
 
@@ -694,6 +701,20 @@ with st.sidebar:
                     if not bad.empty: 
                         st.error(f"Unknown subdivision in {cfg['name']}: {bad['Subdivision'].unique()}")
                         st.stop()
+    
+    # Filter TBD Languages for Display
+    if view_mode == "Languages":
+        tbd_mask = filtered_data['Language'] == "Other"
+        if tbd_mask.any():
+            tbd_df = filtered_data[tbd_mask]
+            for _, r in tbd_df[['Country', 'Subdivision']].drop_duplicates().iterrows():
+                name = r['Country']
+                if pd.notna(r['Subdivision']) and str(r['Subdivision']).strip():
+                    name += f" ({r['Subdivision']})"
+                tbd_display_list.append(name)
+            
+            # Remove "Other" from the dataset used for calculation
+            filtered_data = filtered_data[~tbd_mask]
 
     # Main Calculation
     stats = calculate_stats(filtered_data, active_splits, view_mode, map_metric, score_mode)
@@ -703,6 +724,12 @@ with st.sidebar:
     
     stats = stats[stats['Total_Active'] >= min_count]
     stats = stats[stats['Total_Active'] > 0]
+
+st.markdown("## Locations")
+
+# Display TBD Languages Warning
+if tbd_display_list:
+    st.info(f"**TBD Languages:** The following locations are excluded from the map/stats because their language is not yet categorized: {', '.join(sorted(list(set(tbd_display_list))))}")
 
 # --- Map Generation ---
 
