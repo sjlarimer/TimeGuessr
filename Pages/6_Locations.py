@@ -91,9 +91,103 @@ import os
 import geopandas as gpd
 
 # --- Configuration & Constants ---
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="Map Stats")
 
 COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
+
+# ISO3 to Primary Language/Script Mapping
+ISO_LANGUAGE_MAP = {
+    # English
+    'USA': 'English', 'GBR': 'English', 'AUS': 'English', 'CAN': 'English', 'NZL': 'English', 
+    'IRL': 'English', 'ZAF': 'English', 'JAM': 'English', 'BHS': 'English', 
+    'BRB': 'English', 'GUY': 'English', 'TTO': 'English', 'ATG': 'English', 'DMA': 'English', 
+    'GRD': 'English', 'KNA': 'English', 'LCA': 'English', 'VCT': 'English', 'BLZ': 'English',
+    'NGA': 'English', 'GHA': 'English', 'SLE': 'English', 'LBR': 'English', 'GMB': 'English', 
+    'UGA': 'English', 'ZMB': 'English', 'ZWE': 'English', 'BWA': 'English', 'NAM': 'English',
+    'MLT': 'English', 
+    # Removed SGP (Singapore), PHL (Philippines) due to overlap
+    
+    # Spanish
+    'ESP': 'Spanish', 'MEX': 'Spanish', 'COL': 'Spanish', 'ARG': 'Spanish', 'PER': 'Spanish', 
+    'VEN': 'Spanish', 'CHL': 'Spanish', 'ECU': 'Spanish', 'GTM': 'Spanish', 'CUB': 'Spanish', 
+    'BOL': 'Spanish', 'DOM': 'Spanish', 'HND': 'Spanish', 'PRY': 'Spanish', 'SLV': 'Spanish', 
+    'NIC': 'Spanish', 'CRI': 'Spanish', 'PAN': 'Spanish', 'URY': 'Spanish', 'GNQ': 'Spanish',
+    
+    # Portuguese
+    'BRA': 'Portuguese', 'PRT': 'Portuguese', 'MOZ': 'Portuguese', 'AGO': 'Portuguese', 
+    'GNB': 'Portuguese', 'TLS': 'Portuguese', 'CPV': 'Portuguese', 'STP': 'Portuguese',
+    
+    # French
+    # Removed BEL, LUX, CMR due to language splits
+    'FRA': 'French', 'COD': 'French', 'MAD': 'French', 'CIV': 'French', 
+    'BFA': 'French', 'NER': 'French', 'SEN': 'French', 'MLI': 'French', 'RWA': 'French', 
+    'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 'BDI': 'French', 
+    'BEN': 'French', 'TGO': 'French', 'CAF': 'French', 'COG': 'French', 'GAB': 'French', 
+    'DJI': 'French', 'MCO': 'French', 'VUT': 'French', 'SYC': 'French',
+    
+    # Italian
+    'ITA': 'Italian', 'SMR': 'Italian', 'VAT': 'Italian',
+
+    # Germanic (Excluding English)
+    # Removed CHE (Switzerland) due to language splits
+    'DEU': 'Germanic', 'AUT': 'Germanic', 'LIE': 'Germanic', # German
+    'NLD': 'Germanic', 'SUR': 'Germanic', # Dutch
+    'SWE': 'Germanic', 'NOR': 'Germanic', 'DNK': 'Germanic', 'ISL': 'Germanic', # Nordic
+    
+    # Other European (Unique/Isolates/Uralic/Baltic)
+    'ALB': 'Other European', # Albanian
+    'HUN': 'Other European', # Hungarian
+    'FIN': 'Other European', 'EST': 'Other European', # Finnic
+    'LVA': 'Other European', 'LTU': 'Other European', # Baltic
+
+    # Slavic (Latin Script)
+    'POL': 'Slavic (Latin)', 'CZE': 'Slavic (Latin)', 'SVK': 'Slavic (Latin)',
+    'SVN': 'Slavic (Latin)', 'HRV': 'Slavic (Latin)',
+    
+    # Slavic (Cyrillic Script)
+    # Renamed from Cyrillic. Removed non-Slavic Cyrillic users (KAZ, KGZ, TJK)
+    'RUS': 'Slavic (Cyrillic)', 'BLR': 'Slavic (Cyrillic)', 'UKR': 'Slavic (Cyrillic)', 
+    'BGR': 'Slavic (Cyrillic)', 'MKD': 'Slavic (Cyrillic)', 
+
+    # Slavic (Mixed Script)
+    'BIH': 'Slavic (Mixed)', 'SRB': 'Slavic (Mixed)', 'MNE': 'Slavic (Mixed)',
+    'MKD': 'Slavic (Mixed)', 
+    
+    # East Asian Scripts
+    # Removed HKG, MAC, MNG due to overlap
+    'CHN': 'East Asian Scripts', 'TWN': 'East Asian Scripts', 
+    'JPN': 'East Asian Scripts', 'KOR': 'East Asian Scripts', 'PRK': 'East Asian Scripts',
+
+    # Asian Latin Script
+    # PHL removed from English, but excluded here too as requested ("put into other")
+    'VNM': 'Asian Latin Script', 'IDN': 'Asian Latin Script', 
+    'MYS': 'Asian Latin Script', 'BRN': 'Asian Latin Script',
+
+    # Brahmic Script (Indic family)
+    'IND': 'Brahmic Script', 'BGD': 'Brahmic Script', 'NPL': 'Brahmic Script',
+    'LKA': 'Brahmic Script', 'BTN': 'Brahmic Script', 'THA': 'Brahmic Script',
+    'LAO': 'Brahmic Script', 'KHM': 'Brahmic Script', 'MMR': 'Brahmic Script',
+    
+    # Arabic Script
+    'EGY': 'Arabic Script', 'DZA': 'Arabic Script', 'SDN': 'Arabic Script', 'IRQ': 'Arabic Script', 
+    'MAR': 'Arabic Script', 'SAU': 'Arabic Script', 'YEM': 'Arabic Script', 'SYR': 'Arabic Script', 
+    'TUN': 'Arabic Script', 'SOM': 'Arabic Script', 'JOR': 'Arabic Script', 'LBY': 'Arabic Script', 
+    'PSE': 'Arabic Script', 'LBN': 'Arabic Script', 'OMN': 'Arabic Script', 'KWT': 'Arabic Script', 
+    'MRT': 'Arabic Script', 'QAT': 'Arabic Script', 'BHR': 'Arabic Script', 'ARE': 'Arabic Script',
+    'IRN': 'Arabic Script', 'AFG': 'Arabic Script', 'PAK': 'Arabic Script',
+
+    # Greek Script
+    'GRC': 'Greek Script', 'CYP': 'Greek Script',
+
+    # Hebrew Script
+    'ISR': 'Hebrew Script',
+
+    # Georgian Script
+    'GEO': 'Georgian Script',
+
+    # Armenian Script
+    'ARM': 'Armenian Script'
+}
 
 # Split Configuration
 SPLIT_CONFIG = {
@@ -177,6 +271,17 @@ def load_data():
         df["ISO3"] = df["Country"].map(iso_map)
         df["Continent"] = df["Country"].map(cont_map)
         df["UN_Region"] = df["Country"].map(reg_map)
+        
+        # Language Map
+        df["Language"] = df["ISO3"].map(ISO_LANGUAGE_MAP).fillna("Other")
+        
+        # Special Language Logic for Quebec
+        df.loc[(df['ISO3'] == 'CAN') & (df['Subdivision'].isin(['Québec', 'Quebec'])), 'Language'] = 'French'
+        
+        # Special Logic for China Subdivisions (Overlapping Languages) -> Set to "Other"
+        chn_subdivs_other = ['Hong Kong', 'Macau', 'Macao', 'Tibet', 'Xizang Zizhiqu', 'Xinjiang', 'Xinjiang Uygur Zizhiqu']
+        df.loc[(df['ISO3'] == 'CHN') & (df['Subdivision'].isin(chn_subdivs_other)), 'Language'] = 'Other'
+        
         return df
     except FileNotFoundError:
         st.error("Stats file not found."); st.stop()
@@ -202,6 +307,14 @@ def load_map():
         clean_isos = [x for x in gdf['ISO3'].unique() if x != 'UNK']
         gdf['Continent'] = gdf['ISO3'].map(dict(zip(clean_isos, cc.convert(names=clean_isos, to="continent")))).fillna("Unknown")
         gdf['UN_Region'] = gdf['ISO3'].map(dict(zip(clean_isos, cc.convert(names=clean_isos, to="UNregion")))).fillna("Unknown")
+        gdf['Language'] = gdf['ISO3'].map(ISO_LANGUAGE_MAP).fillna("Other")
+        
+        # Special Map Logic for Quebec
+        gdf.loc[(gdf['ISO3'] == 'CAN') & (gdf['NAME'] == 'Quebec'), 'Language'] = 'French'
+        
+        # Special Map Logic for China Subdivisions -> "Other"
+        chn_map_names = ['Hong Kong', 'Macao', 'Xizang Zizhiqu', 'Xinjiang Uygur Zizhiqu']
+        gdf.loc[(gdf['ISO3'] == 'CHN') & (gdf['NAME'].isin(chn_map_names)), 'Language'] = 'Other'
         
         return gdf, set(gdf['NAME'].unique())
     except Exception as e:
@@ -245,6 +358,7 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
         iso = row['ISO3']
         if iso in UK_DEPS: return True # Always keep deps
         
+        # Keep all parts of a split country so they can be re-aggregated correctly by language/region
         if iso not in active_splits:
             return True
         allowed = active_subdivs.get(iso, set())
@@ -259,17 +373,26 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
         iso = row['ISO3']
         name = row['NAME']
         
+        # Determine current aggregate value based on view mode
+        attr_val = None
+        if view_mode == "Continents": attr_val = row['Continent']
+        elif view_mode == "UN Regions": attr_val = row['UN_Region']
+        elif view_mode == "Languages": attr_val = row['Language']
+        
         if iso in UK_DEPS: return 'GBR'
         
         if iso in active_splits:
-             return name if view_mode == "Countries" else iso
+             # If Country View, split by subdiv name
+             if view_mode == "Countries":
+                 return name
+             # If Aggregate View, split by composite key (ISO + Attribute) to differentiate parts (e.g., CAN_French vs CAN_English)
+             else:
+                 return f"{iso}___{attr_val}"
 
-        if view_mode == "Continents":
-            return row['Continent']
-        elif view_mode == "UN Regions":
-            return row['UN_Region']
-        else: 
-            return iso
+        # If not split, just return the aggregate group
+        if attr_val: return attr_val
+        
+        return iso
 
     work_gdf['Dissolve_Key'] = work_gdf.apply(get_dissolve_key, axis=1)
     return json.loads(work_gdf.dissolve(by='Dissolve_Key', as_index=False).to_json())
@@ -289,15 +412,23 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         
     df_work['Join_Key'] = df_work.apply(get_key, axis=1)
 
-    # 2. Handle View Mode Aggregation Mapping (Region/Continent)
+    # 2. Handle View Mode Aggregation Mapping (Region/Continent/Language)
     if view_mode != "Countries":
         def get_agg_key(row):
             iso = row['ISO3']
-            if iso in active_splits: return iso # Split countries stay as countries in region view
             
-            if view_mode == "Continents": return row['Continent']
-            if view_mode == "UN Regions": return row['UN_Region']
-            return iso
+            # Helper to get attribute
+            attr_val = None
+            if view_mode == "Continents": attr_val = row['Continent']
+            elif view_mode == "UN Regions": attr_val = row['UN_Region']
+            elif view_mode == "Languages": attr_val = row['Language']
+
+            if iso in active_splits: 
+                # Create unique key for split country parts in aggregate views
+                return f"{iso}___{attr_val}"
+            
+            # Otherwise return the standard aggregate group
+            return attr_val
         
         df_work['Join_Key'] = df_work.apply(get_agg_key, axis=1)
 
@@ -370,7 +501,8 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         'Country': 'first',
         'Continent': 'first',
         'UN_Region': 'first',
-        'ISO3': 'first'
+        'ISO3': 'first',
+        'Language': 'first'
     }
     
     grouped = df_work.groupby('Join_Key').agg(agg_cols).rename(columns={
@@ -380,7 +512,8 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         "Country": "Country_Name",
         "Continent": "Continent_Name",
         "UN_Region": "Region_Name",
-        "ISO3": "ISO_Code"
+        "ISO3": "ISO_Code",
+        "Language": "Language_Name"
     }).reset_index()
 
     # 8. Post-Aggregation Calcs
@@ -421,11 +554,17 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         # Fix for Vatican City if ISO is VAT
         if view_mode == "Countries" and iso == "VAT": return "Vatican City"
         
-        # 1. Split Country in Region/Continent View (Key is ISO)
-        if view_mode != "Countries" and iso in active_splits and key == iso:
+        # 1. Split Country in Region/Continent/Language View
+        # Check if ISO is in active_splits and view_mode is not Countries
+        if view_mode != "Countries" and iso in active_splits:
             base_name = SPLIT_CONFIG.get(iso, {}).get('name', simple_names.get(iso, str(iso)))
-            region_suffix = row['Region_Name'] if view_mode == "UN Regions" else row['Continent_Name']
-            return f"{base_name}, {region_suffix}"
+            
+            suffix = ""
+            if view_mode == "UN Regions": suffix = row['Region_Name']
+            elif view_mode == "Continents": suffix = row['Continent_Name']
+            elif view_mode == "Languages": suffix = row['Language_Name']
+            
+            return f"{base_name}, {suffix}"
             
         # 2. Split Subdivision in Country View (Key is Subdiv Name)
         if view_mode == "Countries" and iso in active_splits:
@@ -529,7 +668,7 @@ with st.sidebar:
 
     map_metric = st.radio("Metric:", ["Count", "Comparison", "Michael", "Sarah"])
     score_mode = st.radio("Score Type:", ["Total Score", "Geography Score", "Time Score"]) if map_metric != "Count" else "Total Score"
-    view_mode = st.radio("View Level:", ["Countries", "UN Regions", "Continents"])
+    view_mode = st.radio("View Level:", ["Countries", "UN Regions", "Continents", "Languages"])
     
     # Split Logic
     avail_splits = [cfg['name'] for cfg in SPLIT_CONFIG.values()]
@@ -577,11 +716,23 @@ if not filtered_data.empty:
             map_data.loc[mask_split, 'Join_Key'] = map_data.loc[mask_split, 'Subdivision']
     
     if view_mode != "Countries":
+        # Handle Non-Split (Aggregates)
         mask_not_split = ~map_data['ISO3'].isin(active_splits)
-        if view_mode == "Continents":
-            map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, 'Continent']
-        elif view_mode == "UN Regions":
-            map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, 'UN_Region']
+        
+        attr_col = None
+        if view_mode == "Continents": attr_col = "Continent"
+        elif view_mode == "UN Regions": attr_col = "UN_Region"
+        elif view_mode == "Languages": attr_col = "Language"
+        
+        if attr_col:
+            map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, attr_col]
+            
+            # Handle Split Countries in Aggregate View (Matches calculate_stats logic)
+            if active_splits:
+                mask_split = map_data['ISO3'].isin(active_splits)
+                if mask_split.any():
+                    # Format: ISO___Attribute (e.g., CAN___English)
+                    map_data.loc[mask_split, 'Join_Key'] = map_data.loc[mask_split, 'ISO3'] + "___" + map_data.loc[mask_split, attr_col].astype(str)
 
     # Filter map data by metric logic
     if 'Michael Round Score' in map_data.columns:
