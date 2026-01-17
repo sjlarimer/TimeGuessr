@@ -672,9 +672,9 @@ def generate_streak_thresholds(michael_scores: pd.Series, sarah_scores: pd.Serie
     return streak_thresholds
 
 def create_streaks_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
-                              michael_dates: pd.Series, sarah_dates: pd.Series,
-                              bin_size: int, date_format: str, ceiling: int, 
-                              change_threshold: int = 5000) -> str:
+                             michael_dates: pd.Series, sarah_dates: pd.Series,
+                             bin_size: int, date_format: str, ceiling: int, 
+                             change_threshold: int = 5000) -> str:
     """Create complete streaks table HTML."""
     streak_thresholds = generate_streak_thresholds(michael_scores, sarah_scores, bin_size, ceiling)
     
@@ -825,40 +825,37 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
 
     # Add vertical line for Score Tracking Start (October 20, 2025)
     score_tracking_date = pd.Timestamp('2025-10-20')
-    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
     
-    # Add vertical line for Score Tracking Start (October 20, 2025)
-    score_tracking_date = pd.Timestamp('2025-10-20')
-    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
-    
-    # Add vertical line for Score Tracking Start (October 20, 2025)
-    score_tracking_date = pd.Timestamp('2025-10-20')
-    date_matches = mask_filtered[mask_filtered['Date'] == score_tracking_date]
-    
-    if not date_matches.empty:
-        # Exact match found
-        score_tracking_idx = mask_filtered.index.get_loc(date_matches.index[0])
-    else:
-        # Find first date after October 20, 2025 that is visible
-        dates_after = mask_filtered[mask_filtered['Date'] > score_tracking_date]
-        if not dates_after.empty:
-            score_tracking_idx = mask_filtered.index.get_loc(dates_after.index[0])
-        else:
-            score_tracking_idx = None
-    
-    if score_tracking_idx is not None:
-        
-        fig.add_vline(
-            x=score_tracking_idx,
-            line=dict(color="gray", width=2, dash="dash"),
-            annotation_text="Score Tracking Start",
-            annotation_position="bottom",
-            annotation=dict(
-                font=dict(color=COLORS['text'], size=11),
-                textangle=0,
-                yshift=-10
+    # Only show if tracking date is within the visible range (and dataset is not empty)
+    if not mask_filtered.empty and mask_filtered['Date'].min() <= score_tracking_date <= mask_filtered['Date'].max():
+        # Find the first date >= tracking date
+        dates_ge = mask_filtered[mask_filtered['Date'] >= score_tracking_date]
+        if not dates_ge.empty:
+            # Get the index label
+            target_idx = dates_ge.index[0]
+            # Get integer position (0..N)
+            score_tracking_pos = mask_filtered.index.get_loc(target_idx)
+            
+            # Add vertical line
+            fig.add_vline(
+                x=score_tracking_pos,
+                line=dict(color="#696761", width=1.5, dash="dash"),
             )
-        )
+            
+            # Add to tick labels to format similarly to months and prevent overlap
+            if score_tracking_pos in tickvals:
+                # Append to existing label if it overlaps exactly
+                idx_pos = tickvals.index(score_tracking_pos)
+                ticktext[idx_pos] += "<br>Tracking Start"
+            else:
+                tickvals.append(score_tracking_pos)
+                ticktext.append("Tracking Start")
+            
+            # Sort ticks by position
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = zip(*combined)
+            tickvals = list(tickvals)
+            ticktext = list(ticktext)
 
     # Add shaded rectangles for single-player days if toggle is on
     if show_single_player_days:
@@ -1120,7 +1117,7 @@ def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series,
     
     # Calculate bin alignment
     min_score = min(michael_scores.min() if len(michael_scores) > 0 else ceiling, 
-                   sarah_scores.min() if len(sarah_scores) > 0 else ceiling)
+                    sarah_scores.min() if len(sarah_scores) > 0 else ceiling)
     bins_needed = int(np.ceil((ceiling - min_score) / bin_size))
     tick_start = ceiling - (bins_needed * bin_size)
     
@@ -1318,32 +1315,16 @@ start_date, end_date = st.slider(
     format="YYYY-MM-DD"
 )
 
-# Score range slider
-score_min, score_max = st.slider(
-    "Select Score Range:",
-    min_value=0,
-    max_value=ceiling,
-    value=(0, ceiling),
-    step=100 if ceiling == CEILING_TOTAL else 50
-)
-
 # Filter data by date range
 mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
 df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
-
-# Filter data by score range
-mask_filtered = filter_by_score_range(mask_filtered, score_min, score_max, score_type, include_single_player_days)
-df_daily_filtered = filter_by_score_range(df_daily_filtered, score_min, score_max, score_type, include_single_player_days)
-
-# Calculate averages
-mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
 
 # Calculate averages
 mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
 
 # Display main chart
 fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type, 
-                          show_single_player_days=include_single_player_days)
+                           show_single_player_days=include_single_player_days)
 st.plotly_chart(fig, use_container_width=True, key="main_chart")
 
 momentum_html = create_momentum_html(mask_filtered, window_length, score_type, ceiling)
