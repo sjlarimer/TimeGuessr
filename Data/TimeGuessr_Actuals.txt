@@ -417,3 +417,10 @@ TimeGuessr #959
 3. Minsk, Belarus, 2020
 4. Sao Paolo, Brazil, 1958
 5. Amsterdam, Netherlands, 1950
+
+TimeGuessr #960
+1. Paris (Ile-de-France), France, 1978
+2. Mexico City, Mexico, 1970
+3. Athens, Greece, 2024
+4. Dublin, Ireland, 1903
+5. Tokyo, Japan, 1957
