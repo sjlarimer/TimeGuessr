@@ -58,7 +58,7 @@ NEWS_STYLES = """
         .border-geo { border-top: 5px solid #27ae60; }
         
         /* DAILY FEED */
-        .daily-card { background: #fff; border: 1px solid #ddd; border-top: 4px solid #333; border-radius: 2px; margin-bottom: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); scroll-margin-top: 50px; overflow: hidden; }
+        .daily-card { background: #fff; border: 1px solid #ddd; border-top: 4px solid #333; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); scroll-margin-top: 50px; overflow: hidden; }
         .daily-header { background-color: #fcfcfc; padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .daily-date { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 18px; color: #111; }
         .daily-badge { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; background: #eee; color: #555; padding: 4px 10px; border: 1px solid #ccc; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
@@ -118,18 +118,18 @@ NEWS_STYLES = """
         .milestone-highlight { color: #6a1b9a; font-weight: 700; font-size: 18px; }
         .all-time-badge { background-color: #2c3e50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-left: 8px; vertical-align: middle; }
         
-        .discovery-stats-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-        .stat-chip { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 8px; background: white; border: 1px solid #e0e0e0; font-family: 'Inter', sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
-        .stat-chip.winner-michael { border-left: 4px solid #221e8f; }
-        .stat-chip.winner-sarah { border-left: 4px solid #8a005c; }
-        .stat-chip.winner-tie { border-left: 4px solid #999; }
-        .stat-chip.cat-total { background-color: #fffdf0; border-color: #f1c40f; }
-        .stat-chip.cat-geography { background-color: #f0fff4; border-color: #2ecc71; }
-        .stat-chip.cat-time { background-color: #f5f3ff; border-color: #a78bfa; }
-        .stat-icon { font-size: 18px; }
-        .stat-content { display: flex; flex-direction: column; }
-        .stat-type { font-size: 9px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 1px; line-height: 1; margin-bottom: 2px; }
-        .stat-winner { font-size: 12px; font-weight: 800; text-transform: uppercase; }
+        .discovery-stats-box { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .stat-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: white; border: 1px solid #e0e0e0; font-family: 'Inter', sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .stat-chip.winner-michael { border-left: 3px solid #221e8f; }
+        .stat-chip.winner-sarah { border-left: 3px solid #8a005c; }
+        .stat-chip.winner-tie { border-left: 3px solid #999; }
+        .stat-chip.cat-total { background-color: #fffdf0; }
+        .stat-chip.cat-geography { background-color: #f0fff4; }
+        .stat-chip.cat-time { background-color: #f5f3ff; }
+        .stat-icon { font-size: 14px; }
+        .stat-content { display: flex; flex-direction: column; justify-content: center; }
+        .stat-type { font-size: 8px; font-weight: 800; color: #888; text-transform: uppercase; line-height: 1; margin-bottom: 2px; }
+        .stat-winner { font-size: 11px; font-weight: 800; text-transform: uppercase; line-height: 1; }
         
         @media (max-width: 800px) { .forecast-container { grid-template-columns: 1fr; } }
     </style>
@@ -149,7 +149,6 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
                  data[t_col] = data[t_col].astype(str).str.replace(',', '')
             if t_col in data.columns: 
                 data[t_col] = pd.to_numeric(data[t_col], errors='coerce')
-                
             for cat in ["Geography", "Time"]:
                 min_c, max_c = f"{p} {cat} Score (Min)", f"{p} {cat} Score (Max)"
                 for col in [min_c, max_c]:
@@ -303,40 +302,40 @@ def generate_score_threshold_streaks(df):
     if df.empty: return []
     events = []
     configs = [
-        {"category": "Total Score", "col_fmt": "{p} Total Score", "thresholds": [{"id": "tot_gt_45k", "label": ">45k", "check": lambda s: s > 45000, "min_len": 2, "type": "hot"}, {"id": "tot_gt_40k", "label": ">40k", "check": lambda s: s > 40000, "min_len": 5, "type": "hot"}, {"id": "tot_lt_40k", "label": "<40k", "check": lambda s: s < 40000, "min_len": 5, "type": "cold"}, {"id": "tot_lt_35k", "label": "<35k", "check": lambda s: s < 35000, "min_len": 2, "type": "cold"}]},
-        {"category": "Time Score", "col_fmt": "{p} Time Score", "thresholds": [{"id": "time_gt_20k", "label": ">20k", "check": lambda s: s > 20000, "min_len": 2, "type": "hot"}, {"id": "time_lt_20k", "label": "<20k", "check": lambda s: s < 20000, "min_len": 5, "type": "cold"}]},
-        {"category": "Geography Score", "col_fmt": "{p} Geography Score", "thresholds": [{"id": "geo_gt_225k", "label": ">22.5k", "check": lambda s: s > 22500, "min_len": 5, "type": "hot"}, {"id": "geo_lt_225k", "label": "<22.5k", "check": lambda s: s < 22500, "min_len": 5, "type": "cold"}]}
+        {"cat": "Total Score", "fmt": "{p} Total Score", "th": [{"id": "tgt45", "lbl": ">45k", "chk": lambda s: s>45000, "min": 2, "typ": "hot"}, {"id": "tgt40", "lbl": ">40k", "chk": lambda s: s>40000, "min": 5, "typ": "hot"}, {"id": "tlt40", "lbl": "<40k", "chk": lambda s: s<40000, "min": 5, "typ": "cold"}, {"id": "tlt35", "lbl": "<35k", "chk": lambda s: s<35000, "min": 2, "typ": "cold"}]},
+        {"cat": "Time Score", "fmt": "{p} Time Score", "th": [{"id": "tmgt20", "lbl": ">20k", "chk": lambda s: s>20000, "min": 2, "typ": "hot"}, {"id": "time_lt_20k", "lbl": "<20k", "chk": lambda s: s<20000, "min": 5, "typ": "cold"}]},
+        {"cat": "Geography Score", "fmt": "{p} Geography Score", "th": [{"id": "ggt225", "lbl": ">22.5k", "chk": lambda s: s>22500, "min": 5, "typ": "hot"}, {"id": "geo_lt_225k", "lbl": "<22.5k", "chk": lambda s: s<22500, "min": 5, "typ": "cold"}]}
     ]
-    state = {}
-    for cfg in configs: state[cfg['category']] = {p: {t['id']: {'current': 0, 'max': 0} for t in cfg['thresholds']} for p in ["Michael", "Sarah"]}
+    stt = {}
+    for c in configs: stt[c['cat']] = {p: {t['id']: {'cur': 0, 'max': 0} for t in c['th']} for p in ["Michael", "Sarah"]}
     for idx, row in df.iterrows():
         date = row["Date"]
-        for cfg in configs:
-            cat = cfg['category']
+        for c in configs:
+            cat = c['cat']
             for p in ["Michael", "Sarah"]:
-                score_col = cfg['col_fmt'].format(p=p)
-                if score_col not in df.columns: continue
-                score = row[score_col]
-                for t in cfg['thresholds']:
-                    tid, tracker = t['id'], state[cat][p][t['id']]
-                    if t['check'](score):
-                        tracker['current'] += 1
-                        cur, rec = tracker['current'], tracker['max']
-                        if cur > rec:
-                            tracker['max'] = cur
-                            if cur >= t['min_len']: events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "new_record", "player": p, "count": cur, "threshold_label": t['label'], "streak_type": t['type']})
-                        elif cur == rec and cur >= t['min_len']:
-                             events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "matched_record", "player": p, "count": cur, "threshold_label": t['label'], "streak_type": t['type']})
-                        elif cur >= t['min_len']:
-                             events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "active", "player": p, "count": cur, "threshold_label": t['label'], "streak_type": t['type']})
+                col = c['fmt'].format(p=p)
+                if col not in df.columns: continue
+                s = row[col]
+                for t in c['th']:
+                    tid, trk = t['id'], stt[cat][p][t['id']]
+                    if t['chk'](s):
+                        trk['cur'] += 1
+                        cu, mx = trk['cur'], trk['max']
+                        if cu > mx:
+                            trk['max'] = cu
+                            if cu >= t['min']: events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "new_record", "player": p, "count": cu, "threshold_label": t['lbl'], "streak_type": t['typ']})
+                        elif cu == mx and cu >= t['min']:
+                             events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "matched_record", "player": p, "count": cu, "threshold_label": t['lbl'], "streak_type": t['typ']})
+                        elif cu >= t['min']:
+                             events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": "active", "player": p, "count": cu, "threshold_label": t['lbl'], "streak_type": t['typ']})
                     else:
-                        if tracker['current'] > 0:
-                            cur, rec = tracker['current'], tracker['max']
-                            if cur >= t['min_len'] or cur == rec or cur == rec - 1:
-                                sub = "denied_break" if cur == rec else ("denied_match" if cur == rec - 1 else "significant_break")
-                                if cur >= t['min_len'] or sub != "significant_break":
-                                    events.append({"date": date, "category": cat, "event_type": "score_streak_broken", "subtype": sub, "player": p, "count": cur, "record": rec, "threshold_label": t['label'], "streak_type": t['type']})
-                        tracker['current'] = 0
+                        if trk['cur'] > 0:
+                            cu, mx = trk['cur'], trk['max']
+                            if cu >= t['min'] or cu == mx or cu == mx - 1:
+                                sub = "denied_break" if cu == mx else ("denied_match" if cu == mx - 1 else "significant_break")
+                                if cu >= t['min'] or sub != "significant_break":
+                                    events.append({"date": date, "category": cat, "event_type": "score_streak_broken", "subtype": sub, "player": p, "count": cu, "record": mx, "threshold_label": t['lbl'], "streak_type": t['typ']})
+                        trk['cur'] = 0
     return events
 
 def generate_milestone_events(df):
@@ -357,15 +356,12 @@ def generate_milestone_events(df):
     
     for _, r in df.sort_values("Date").iterrows():
         dt = r["Date"]
-        
-        # Total Games based on unique dates
         if dt not in seen_dates:
             seen_dates.add(dt)
             total_days += 1
             if total_days > 0 and total_days % TH["total"] == 0:
                 evs.append({"date": dt, "category": "Milestone", "event_type": "milestone", "subtype": "total", "name": "Total Games", "count": total_days})
         
-        # Rest of logic is row-based (rounds)
         y = r.get("Year")
         if pd.notna(y):
             ystr = str(int(y))
@@ -623,7 +619,7 @@ def render_forecast_section(fs_list):
         if not f: continue
         cat = f['category']
         ic, bc = icons.get(cat, "📊"), borders.get(cat, "")
-        def lc(leader): return "#221e8f" if leader == "Michael" else ("#8a005c" if leader == "Sarah" else "#999")
+        def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
         html += f"""<div class="forecast-card {bc}"><div class="fc-header"><span class="fc-icon">{ic}</span><span class="fc-title">{cat}</span></div><div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Active Streaks</div>{f['streaks_html'] if f['streaks_html'] else '<div style="font-size:11px; color:#999; font-style:italic;">No active streaks.</div>'}</div></div>"""
     return html + '</div>'
 
