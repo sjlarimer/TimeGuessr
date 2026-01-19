@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy import stats
+import numpy as np
 
 # --- Configuration ---
 st.set_page_config(page_title="Analysis", layout="wide")
@@ -142,7 +143,7 @@ def load_data():
         df['Michael Total Score'] = clean_col('Michael Total Score')
         df['Sarah Total Score'] = clean_col('Sarah Total Score')
         
-        # Filter for valid rows (where both played)
+        # Filter for rows where data exists
         df = df[(df['Michael Total Score'] > 0) & (df['Sarah Total Score'] > 0)].copy()
         
         return df
@@ -201,30 +202,43 @@ def create_stat_card(label, value, sig_bool, sig_p, positive_msg, negative_msg):
 
 # --- Main Layout ---
 st.title("Analysis")
-st.markdown("### Day of the Week Performance")
-st.markdown("Analyzing performance patterns across weekdays (Mon-Fri).", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
 
-df = load_data()
+df_raw = load_data()
 
-if df is not None and not df.empty:
-    # --- Data Processing ---
+if df_raw is not None and not df_raw.empty:
+    
+    # --- CRITICAL STEP: Aggregate to Daily Level ---
+    # The raw data may contain multiple rows per date (rounds).
+    # We must aggregate to get 1 row per 1 calendar date.
+    df = df_raw.groupby('Date').agg({
+        'Michael Total Score': 'max', # Taking max assumes total score is cumulative or tracked daily
+        'Sarah Total Score': 'max'
+    }).reset_index()
+
+    # --- Data Processing on DAILY DataFrame ---
     df['Day'] = df['Date'].dt.day_name()
     
-    # Filter only Mon-Fri
+    # Filter only Mon-Fri for Day Analysis
     days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    df = df[df['Day'].isin(days_order)].copy()
-    df['Day'] = pd.Categorical(df['Day'], categories=days_order, ordered=True)
+    # We filter for the Day analysis, but keep full df for streaks if needed (though weekends might break streaks visually if excluded)
+    # For day analysis specifically:
+    df_weekdays = df[df['Day'].isin(days_order)].copy()
+    df_weekdays['Day'] = pd.Categorical(df_weekdays['Day'], categories=days_order, ordered=True)
     
     # Calculate Wins & Margins
     df['Michael Win'] = (df['Michael Total Score'] > df['Sarah Total Score']).astype(int)
     df['Sarah Win'] = (df['Sarah Total Score'] > df['Michael Total Score']).astype(int)
-    # Positive margin = Michael leads, Negative = Sarah leads
     df['Score Margin'] = df['Michael Total Score'] - df['Sarah Total Score'] 
     df['Abs Margin'] = df['Score Margin'].abs()
     
-    # Aggregation
-    daily_stats = df.groupby('Day', observed=False).agg({
+    # Sync cols to df_weekdays
+    df_weekdays['Michael Win'] = df['Michael Win']
+    df_weekdays['Sarah Win'] = df['Sarah Win']
+    df_weekdays['Score Margin'] = df['Score Margin']
+    df_weekdays['Abs Margin'] = df['Abs Margin']
+
+    # Aggregation for Charts
+    daily_stats = df_weekdays.groupby('Day', observed=False).agg({
         'Michael Total Score': 'mean',
         'Sarah Total Score': 'mean',
         'Michael Win': 'sum',
@@ -239,6 +253,13 @@ if df is not None and not df.empty:
         'Score Margin': 'Avg Margin',
         'Date': 'Games Played'
     }, inplace=True)
+
+    # ==========================================
+    # SECTION 1: DAY OF THE WEEK ANALYSIS
+    # ==========================================
+    st.markdown("### Day of the Week Performance")
+    st.markdown("Analyzing performance patterns across weekdays (Mon-Fri).", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 1. VISUALS (Plotly) ---
     
@@ -263,6 +284,7 @@ if df is not None and not df.empty:
             color_discrete_map={'Michael': '#221e8f', 'Sarah': '#8a005c'},
             height=350
         )
+        fig_avg.update_traces(textposition='none')
         fig_avg.update_layout(
             font=dict(color="black", family="Poppins"),
             plot_bgcolor="rgba(0,0,0,0)",
@@ -286,6 +308,7 @@ if df is not None and not df.empty:
             color_discrete_map={'Michael': '#221e8f', 'Sarah': '#8a005c'},
             height=350
         )
+        fig_wins.update_traces(textposition='none')
         fig_wins.update_layout(
             font=dict(color="black", family="Poppins"),
             plot_bgcolor="rgba(0,0,0,0)",
@@ -297,14 +320,19 @@ if df is not None and not df.empty:
         )
         st.plotly_chart(fig_wins, use_container_width=True)
 
-    # --- 2. STATISTICAL ANALYSIS ---
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-    st.markdown("#### 📐 Statistical Analysis")
+    # --- 2. DETAILED STATS (Integrated) ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size: 0.9rem; color: #555; margin-bottom: 20px;">
+    Statistical tests (Kruskal-Wallis & Mann-Whitney U) check if performance differences are real or just luck. 
+    A <b>significant</b> result (p < 0.05) means the day of the week likely matters.
+    </div>
+    """, unsafe_allow_html=True)
 
     # -- Global Tests --
-    m_p, m_sig = perform_kruskal_test(df, 'Michael Total Score')
-    s_p, s_sig = perform_kruskal_test(df, 'Sarah Total Score')
-    margin_p, margin_sig = perform_kruskal_test(df, 'Score Margin')
+    m_p, m_sig = perform_kruskal_test(df_weekdays, 'Michael Total Score')
+    s_p, s_sig = perform_kruskal_test(df_weekdays, 'Sarah Total Score')
+    margin_p, margin_sig = perform_kruskal_test(df_weekdays, 'Score Margin')
 
     # -- Identify Extremes (Michael) --
     m_best_row = daily_stats.loc[daily_stats['Michael Avg'].idxmax()]
@@ -312,8 +340,8 @@ if df is not None and not df.empty:
     m_worst_row = daily_stats.loc[daily_stats['Michael Avg'].idxmin()]
     m_worst_day = m_worst_row['Day']
     
-    m_best_p, m_best_sig = perform_mannwhitney_test(df, 'Michael Total Score', m_best_day)
-    m_worst_p, m_worst_sig = perform_mannwhitney_test(df, 'Michael Total Score', m_worst_day)
+    m_best_p, m_best_sig = perform_mannwhitney_test(df_weekdays, 'Michael Total Score', m_best_day)
+    m_worst_p, m_worst_sig = perform_mannwhitney_test(df_weekdays, 'Michael Total Score', m_worst_day)
 
     # -- Identify Extremes (Sarah) --
     s_best_row = daily_stats.loc[daily_stats['Sarah Avg'].idxmax()]
@@ -321,20 +349,15 @@ if df is not None and not df.empty:
     s_worst_row = daily_stats.loc[daily_stats['Sarah Avg'].idxmin()]
     s_worst_day = s_worst_row['Day']
     
-    s_best_p, s_best_sig = perform_mannwhitney_test(df, 'Sarah Total Score', s_best_day)
-    s_worst_p, s_worst_sig = perform_mannwhitney_test(df, 'Sarah Total Score', s_worst_day)
+    s_best_p, s_best_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Total Score', s_best_day)
+    s_worst_p, s_worst_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Total Score', s_worst_day)
 
     # -- Identify Extremes (Margin Gap - Based on Net Margin) --
-    # Largest Gap = Largest absolute value of Avg Margin
     gap_largest_day = daily_stats.loc[daily_stats['Avg Margin'].abs().idxmax()]['Day']
-    # Smallest Gap = Smallest absolute value of Avg Margin
     gap_smallest_day = daily_stats.loc[daily_stats['Avg Margin'].abs().idxmin()]['Day']
     
-    # Testing Absolute Margin distributions for these specific days vs others
-    # (Checking if the "tightness" of the game is significantly different on these days)
-    df['Abs Margin'] = df['Score Margin'].abs()
-    gap_largest_p, gap_largest_sig = perform_mannwhitney_test(df, 'Abs Margin', gap_largest_day)
-    gap_smallest_p, gap_smallest_sig = perform_mannwhitney_test(df, 'Abs Margin', gap_smallest_day)
+    gap_largest_p, gap_largest_sig = perform_mannwhitney_test(df_weekdays, 'Abs Margin', gap_largest_day)
+    gap_smallest_p, gap_smallest_sig = perform_mannwhitney_test(df_weekdays, 'Abs Margin', gap_smallest_day)
 
     # -- Display Cards --
     col1, col2, col3 = st.columns(3, gap="medium")
@@ -428,6 +451,409 @@ if df is not None and not df.empty:
             {daily_margin_html}
         </div>
         """, unsafe_allow_html=True)
+
+    # ==========================================
+    # SECTION 2: RUST FACTOR ANALYSIS
+    # ==========================================
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    st.markdown("### ⚙️ Rust Factor Analysis")
+    st.markdown("""
+    <div style="font-size: 0.9rem; color: #555; margin-bottom: 20px;">
+    Does taking a break affect performance? We analyze scores based on the gap since the last game played.
+    <br><b>Flow</b>: Consecutive business days (Weekends ignored). <b>Short Break</b>: 1-4 missed business days. <b>Long Break</b>: 5+ missed business days.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Sort by date
+    df_rust = df.sort_values('Date').copy()
+    
+    # Calculate Business Days Diff using numpy
+    dates = df_rust['Date'].values.astype('datetime64[D]')
+    # Create shifted array for previous dates
+    prev_dates = np.roll(dates, 1)
+    prev_dates[0] = dates[0] # Handle first element to avoid massive diff
+    
+    # np.busday_count calculates [start, end) excluding end.
+    # Consecutive days (Fri -> Mon) gives 1.
+    # Mon -> Tue gives 1.
+    # Mon -> Thu gives 3.
+    
+    # We apply busday_count to the full arrays
+    # Note: busday_count raises error if dates are not valid dates (NaT). data is clean here.
+    bus_diffs = np.busday_count(prev_dates, dates)
+    
+    # First element diff is invalid, set to 1 (Flow) or 0
+    bus_diffs[0] = 1 
+    
+    df_rust['Bus_Diff'] = bus_diffs
+
+    # Define categories based on business day difference
+    def get_break_category(diff):
+        if diff <= 1: return 'Flow' # Consecutive business days (0 missed)
+        if 2 <= diff <= 5: return 'Short Break' # 1 to 4 missed days
+        if diff >= 6: return 'Long Break' # 5+ missed days
+        return 'N/A'
+
+    df_rust['State'] = df_rust['Bus_Diff'].apply(get_break_category)
+    df_rust = df_rust[df_rust['State'] != 'N/A']
+    
+    # Define order
+    state_order = ['Flow', 'Short Break', 'Long Break']
+    df_rust['State'] = pd.Categorical(df_rust['State'], categories=state_order, ordered=True)
+
+    # Group Stats
+    rust_stats = df_rust.groupby('State', observed=False).agg({
+        'Michael Total Score': 'mean',
+        'Sarah Total Score': 'mean',
+        'Date': 'count'
+    }).reset_index()
+    
+    # Extract counts safely for display
+    def get_count(state_name):
+        row = rust_stats[rust_stats['State'] == state_name]
+        return row['Date'].values[0] if not row.empty else 0
+
+    n_flow = get_count('Flow')
+    n_short = get_count('Short Break')
+    n_long = get_count('Long Break')
+
+    st.markdown(f"""
+    <div style="font-size:0.85rem; color:#666; margin-bottom:15px;">
+        <span style="background:#eafaf1; padding:2px 6px; border-radius:4px; border:1px solid #2ECC71; margin-right:5px;">Flow: {n_flow} games</span>
+        <span style="background:#fef5e7; padding:2px 6px; border-radius:4px; border:1px solid #F39C12; margin-right:5px;">Short Break: {n_short} games</span>
+        <span style="background:#fdedec; padding:2px 6px; border-radius:4px; border:1px solid #E74C3C;">Long Break: {n_long} games</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Reshape for Plotly
+    rust_melted = rust_stats.melt(id_vars=['State'], value_vars=['Michael Total Score', 'Sarah Total Score'], var_name='Player', value_name='Avg Score')
+    rust_melted['Player'] = rust_melted['Player'].str.replace(' Total Score', '')
+
+    col_rust1, col_rust2 = st.columns([2, 1])
+
+    with col_rust1:
+        fig_rust = px.bar(
+            rust_melted,
+            x="Player",
+            y="Avg Score",
+            color="State",
+            barmode="group",
+            color_discrete_map={
+                'Flow': '#2ECC71', 
+                'Short Break': '#F39C12', 
+                'Long Break': '#E74C3C'
+            },
+            height=350
+        )
+        fig_rust.update_traces(textposition='none') # Removes text from bars
+        fig_rust.update_layout(
+            font=dict(color="black", family="Poppins"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(color="black")),
+            margin=dict(l=20, r=20, t=30, b=20),
+            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', title="Average Score", title_font=dict(color="black"), tickfont=dict(color="black")),
+            xaxis=dict(title=None, tickfont=dict(color="black"))
+        )
+        st.plotly_chart(fig_rust, use_container_width=True)
+
+    with col_rust2:
+        st.markdown("#### Impact Analysis")
+        
+        # We compare Breaks vs Flow
+        for player, col in [("Michael", "Michael Total Score"), ("Sarah", "Sarah Total Score")]:
+            # Determine player text class
+            player_class = "michael-text" if player == "Michael" else "sarah-text"
+            st.markdown(f'<div class="{player_class}" style="font-size:1rem; margin-top:10px; border-bottom:1px solid #eee;">{player}</div>', unsafe_allow_html=True)
+            
+            flow_scores = df_rust[df_rust['State'] == 'Flow'][col]
+            avg_flow = flow_scores.mean() if not flow_scores.empty else 0
+            
+            # Compare Short Break (Weekend-Long)
+            short_scores = df_rust[df_rust['State'] == 'Short Break'][col]
+            if len(flow_scores) > 1 and len(short_scores) > 1:
+                stat, p_val = stats.mannwhitneyu(short_scores, flow_scores)
+                diff = short_scores.mean() - avg_flow
+                color = "#d9534f" if diff < 0 else "#5cb85c"
+                sig_text = f"(p={p_val:.3f})" if p_val < 0.05 else ""
+                
+                st.markdown(f"""
+                <div style="font-size:0.85rem; display:flex; justify-content:space-between;">
+                    <span>vs Short:</span>
+                    <span style="color:{color}; font-weight:bold;">{diff:+,.0f} {sig_text}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Compare Long Break
+            long_scores = df_rust[df_rust['State'] == 'Long Break'][col]
+            if len(flow_scores) > 1 and len(long_scores) > 1:
+                stat, p_val = stats.mannwhitneyu(long_scores, flow_scores)
+                diff = long_scores.mean() - avg_flow
+                color = "#d9534f" if diff < 0 else "#5cb85c"
+                sig_text = f"(p={p_val:.3f})" if p_val < 0.05 else ""
+                
+                st.markdown(f"""
+                <div style="font-size:0.85rem; display:flex; justify-content:space-between;">
+                    <span>vs Long:</span>
+                    <span style="color:{color}; font-weight:bold;">{diff:+,.0f} {sig_text}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                 st.markdown(f"<div style='font-size:0.8rem; color:#999;'>Not enough data for long breaks</div>", unsafe_allow_html=True)
+
+    # ==========================================
+    # SECTION 3: HOT HAND FALLACY
+    # ==========================================
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    st.markdown("### 🎲 Hot Hand Fallacy Check")
+    st.markdown("""
+    <div style="font-size: 0.9rem; color: #555; margin-bottom: 20px;">
+    Does winning yesterday increase the chances of winning today (Momentum)? Or does it make a loss more likely (Bounce Back)?
+    We compare win rates immediately following a <b>Win</b> vs. immediately following a <b>Loss</b>.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Sort by date (using the DAILY df)
+    df_streak = df.sort_values('Date').copy()
+
+    # Calculate lagged wins (1 day)
+    df_streak['Michael Prev Win'] = df_streak['Michael Win'].shift(1)
+    df_streak['Sarah Prev Win'] = df_streak['Sarah Win'].shift(1)
+    
+    # Calculate lagged wins (2 days)
+    df_streak['Michael Prev Win 2'] = df_streak['Michael Win'].shift(2)
+    df_streak['Sarah Prev Win 2'] = df_streak['Sarah Win'].shift(2)
+
+    # Calculate lagged wins (3 days)
+    df_streak['Michael Prev Win 3'] = df_streak['Michael Win'].shift(3)
+    df_streak['Sarah Prev Win 3'] = df_streak['Sarah Win'].shift(3)
+
+    # Calculate lagged wins (4 days)
+    df_streak['Michael Prev Win 4'] = df_streak['Michael Win'].shift(4)
+    df_streak['Sarah Prev Win 4'] = df_streak['Sarah Win'].shift(4)
+
+    # Drop rows where lag 2 is NaN (first 2 rows) to ensure consistent data for all metrics if desired,
+    # but to maximize data for 1-lag, we can just filter. Let's just filter in loop.
+
+    col_hot1, col_hot2 = st.columns([2, 1])
+
+    hot_data = []
+    
+    # Calculate stats
+    for player, win_col, prev1, prev2, prev3, prev4 in [
+        ("Michael", "Michael Win", "Michael Prev Win", "Michael Prev Win 2", "Michael Prev Win 3", "Michael Prev Win 4"), 
+        ("Sarah", "Sarah Win", "Sarah Prev Win", "Sarah Prev Win 2", "Sarah Prev Win 3", "Sarah Prev Win 4")
+    ]:
+        # Helper function
+        def get_rate_count(mask):
+            subset = df_streak[mask]
+            count = len(subset)
+            rate = subset[win_col].mean() * 100 if count > 0 else 0
+            return rate, count
+
+        # 1. After 1 Win
+        rate_1w, count_1w = get_rate_count(df_streak[prev1] == 1)
+        
+        # 2. After 1 Loss
+        rate_1l, count_1l = get_rate_count(df_streak[prev1] == 0)
+        
+        # 3. After 2 Wins
+        rate_2w, count_2w = get_rate_count((df_streak[prev1] == 1) & (df_streak[prev2] == 1))
+        
+        # 4. After 2 Losses
+        rate_2l, count_2l = get_rate_count((df_streak[prev1] == 0) & (df_streak[prev2] == 0))
+
+        # 5. After 3 Wins
+        rate_3w, count_3w = get_rate_count((df_streak[prev1] == 1) & (df_streak[prev2] == 1) & (df_streak[prev3] == 1))
+
+        # 6. After 3 Losses
+        rate_3l, count_3l = get_rate_count((df_streak[prev1] == 0) & (df_streak[prev2] == 0) & (df_streak[prev3] == 0))
+        
+        # Helper to format text
+        def fmt(rate, count):
+            return f"{rate:.1f}% (n={count})"
+
+        hot_data.append({'Player': player, 'Context': 'After 1 Win', 'Win Rate': rate_1w, 'Label': fmt(rate_1w, count_1w)})
+        hot_data.append({'Player': player, 'Context': 'After 2 Wins', 'Win Rate': rate_2w, 'Label': fmt(rate_2w, count_2w)})
+        hot_data.append({'Player': player, 'Context': 'After 3 Wins', 'Win Rate': rate_3w, 'Label': fmt(rate_3w, count_3w)})
+        
+        hot_data.append({'Player': player, 'Context': 'After 1 Loss', 'Win Rate': rate_1l, 'Label': fmt(rate_1l, count_1l)})
+        hot_data.append({'Player': player, 'Context': 'After 2 Losses', 'Win Rate': rate_2l, 'Label': fmt(rate_2l, count_2l)})
+        hot_data.append({'Player': player, 'Context': 'After 3 Losses', 'Win Rate': rate_3l, 'Label': fmt(rate_3l, count_3l)})
+
+    hot_df = pd.DataFrame(hot_data)
+
+    # Force order of bars
+    cat_order = [
+        'After 1 Win', 'After 2 Wins', 'After 3 Wins',
+        'After 1 Loss', 'After 2 Losses', 'After 3 Losses'
+    ]
+    hot_df['Context'] = pd.Categorical(hot_df['Context'], categories=cat_order, ordered=True)
+    hot_df = hot_df.sort_values('Context')
+
+    with col_hot1:
+        fig_hot = px.bar(
+            hot_df,
+            x="Player",
+            y="Win Rate",
+            color="Context",
+            barmode="group",
+            text="Label",
+            color_discrete_map={
+                'After 1 Win': '#2ECC71', 
+                'After 2 Wins': '#27AE60', # Darker Green
+                'After 3 Wins': '#229954', # Even Darker Green
+                'After 1 Loss': '#E74C3C',
+                'After 2 Losses': '#C0392B', # Darker Red
+                'After 3 Losses': '#922B21' # Even Darker Red
+            },
+            height=500 
+        )
+        fig_hot.update_traces(textposition='outside', textfont_color="black")
+        fig_hot.update_layout(
+            font=dict(color="black", family="Poppins"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(color="black")),
+            margin=dict(l=20, r=20, t=30, b=20),
+            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', title="Win Rate (%)", title_font=dict(color="black"), tickfont=dict(color="black")),
+            xaxis=dict(title=None, tickfont=dict(color="black"))
+        )
+        st.plotly_chart(fig_hot, use_container_width=True)
+
+    with col_hot2:
+        st.markdown("#### Momentum Analysis")
+        st.markdown("<div style='font-size:0.8rem; color:#666; margin-bottom:10px;'>Comparing 1-day, 2-day, and 3-day lag effects.</div>", unsafe_allow_html=True)
+        
+        for player, win_col, prev_win_col, prev_win_col2, prev_win_col3 in [
+            ("Michael", "Michael Win", "Michael Prev Win", "Michael Prev Win 2", "Michael Prev Win 3"), 
+            ("Sarah", "Sarah Win", "Sarah Prev Win", "Sarah Prev Win 2", "Sarah Prev Win 3")
+        ]:
+            player_class = "michael-text" if player == "Michael" else "sarah-text"
+            st.markdown(f'<div class="{player_class}" style="font-size:1rem; margin-top:10px; border-bottom:1px solid #eee;">{player}</div>', unsafe_allow_html=True)
+            
+            # --- 1 Day Analysis ---
+            wins_after_win = df_streak[df_streak[prev_win_col] == 1][win_col]
+            wins_after_loss = df_streak[df_streak[prev_win_col] == 0][win_col]
+            
+            ww = wins_after_win.sum()
+            lw = wins_after_win.count() - ww
+            wl = wins_after_loss.sum()
+            ll = wins_after_loss.count() - wl
+            
+            contingency = [[ww, lw], [wl, ll]]
+            
+            n_after_win = ww + lw
+            n_after_loss = wl + ll
+            
+            rate_ww = (ww / n_after_win) * 100 if n_after_win > 0 else 0
+            rate_wl = (wl / n_after_loss) * 100 if n_after_loss > 0 else 0
+            diff = rate_ww - rate_wl
+            
+            try:
+                chi2, p_val, dof, ex = stats.chi2_contingency(contingency)
+            except:
+                p_val = 1.0
+            
+            trend = "Momentum" if diff > 0 else "Bounce Back"
+            color = "#2ECC71" if diff > 0 else "#E74C3C" 
+            
+            st.markdown(f"""
+            <div style="font-size:0.85rem; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #f0f0f0;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><b>1-Day Trend:</b></span>
+                    <span style="font-weight:bold; color:{color};">{trend}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Effect:</span>
+                    <span>{diff:+.1f}% (p={p_val:.3f})</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # --- 2 Day Analysis ---
+            mask_2w = (df_streak[prev_win_col] == 1) & (df_streak[prev_win_col2] == 1)
+            mask_2l = (df_streak[prev_win_col] == 0) & (df_streak[prev_win_col2] == 0)
+            
+            wins_after_2w = df_streak[mask_2w][win_col]
+            wins_after_2l = df_streak[mask_2l][win_col]
+            
+            w2w = wins_after_2w.sum()
+            l2w = wins_after_2w.count() - w2w
+            w2l = wins_after_2l.sum()
+            l2l = wins_after_2l.count() - w2l
+            
+            contingency2 = [[w2w, l2w], [w2l, l2l]]
+            
+            rate_2w = (w2w / (w2w + l2w)) * 100 if (w2w + l2w) > 0 else 0
+            rate_2l = (w2l / (w2l + l2l)) * 100 if (w2l + l2l) > 0 else 0
+            diff2 = rate_2w - rate_2l
+            
+            try:
+                chi2_2, p_val_2, dof_2, ex_2 = stats.chi2_contingency(contingency2)
+            except:
+                p_val_2 = 1.0
+                
+            trend2 = "Momentum" if diff2 > 0 else "Bounce Back"
+            color2 = "#2ECC71" if diff2 > 0 else "#E74C3C"
+            
+            st.markdown(f"""
+            <div style="font-size:0.85rem; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #f0f0f0;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><b>2-Day Trend:</b></span>
+                    <span style="font-weight:bold; color:{color2};">{trend2}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Effect:</span>
+                    <span>{diff2:+.1f}% (p={p_val_2:.3f})</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # --- 3 Day Analysis ---
+            mask_3w = (df_streak[prev_win_col] == 1) & (df_streak[prev_win_col2] == 1) & (df_streak[prev_win_col3] == 1)
+            mask_3l = (df_streak[prev_win_col] == 0) & (df_streak[prev_win_col2] == 0) & (df_streak[prev_win_col3] == 0)
+            
+            wins_after_3w = df_streak[mask_3w][win_col]
+            wins_after_3l = df_streak[mask_3l][win_col]
+            
+            w3w = wins_after_3w.sum()
+            l3w = wins_after_3w.count() - w3w
+            w3l = wins_after_3l.sum()
+            l3l = wins_after_3l.count() - w3l
+            
+            contingency3 = [[w3w, l3w], [w3l, l3l]]
+            
+            rate_3w = (w3w / (w3w + l3w)) * 100 if (w3w + l3w) > 0 else 0
+            rate_3l = (w3l / (w3l + l3l)) * 100 if (w3l + l3l) > 0 else 0
+            diff3 = rate_3w - rate_3l
+            
+            try:
+                chi2_3, p_val_3, dof_3, ex_3 = stats.chi2_contingency(contingency3)
+            except:
+                p_val_3 = 1.0
+                
+            trend3 = "Momentum" if diff3 > 0 else "Bounce Back"
+            color3 = "#2ECC71" if diff3 > 0 else "#E74C3C"
+            
+            st.markdown(f"""
+            <div style="font-size:0.85rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><b>3-Day Trend:</b></span>
+                    <span style="font-weight:bold; color:{color3};">{trend3}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Effect:</span>
+                    <span>{diff3:+.1f}% (p={p_val_3:.3f})</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Overall Sig Badge
+            if p_val < 0.05 or p_val_2 < 0.05 or p_val_3 < 0.05:
+                 st.markdown(f'<div class="sig-badge-yes" style="margin-top:5px;">Significant!</div>', unsafe_allow_html=True)
+            else:
+                 st.markdown(f'<div class="sig-badge-no" style="margin-top:5px;">Not Significant</div>', unsafe_allow_html=True)
 
 else:
     st.info("No data available to analyze.")
