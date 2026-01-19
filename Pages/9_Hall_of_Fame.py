@@ -17,7 +17,7 @@ st.markdown(
     """
     <style>
         /* Global Font & Colors */
-        .stMarkdown p, label, h1, h2, h3, h4, h5, h6 {
+        .stMarkdown p, label, h1, h2, h3, h4, h5, h6, .stTabs button {
             font-family: 'Poppins', sans-serif !important;
         }
         h1, h2, h3 {
@@ -31,33 +31,33 @@ st.markdown(
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
             border: 1px solid rgba(0,0,0,0.05);
-            min-height: 400px;
+            min-height: 250px; /* Reduced min-height for split cabinets */
         }
         
         .cabinet-header {
             font-family: 'Poppins', sans-serif;
             font-weight: 800;
-            font-size: 2rem;
+            font-size: 1.5rem; /* Slightly smaller for tabbed view */
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             text-transform: uppercase;
             letter-spacing: 1px;
             border-bottom: 2px solid rgba(0,0,0,0.1);
-            padding-bottom: 15px;
+            padding-bottom: 10px;
         }
 
         /* Grid for Trophies */
         .trophy-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Responsive grid */
+            gap: 12px;
         }
 
         /* Individual Trophy Card */
         .trophy-card {
             background: rgba(255, 255, 255, 0.7);
             border-radius: 10px;
-            padding: 15px 10px;
+            padding: 10px 5px;
             text-align: center;
             transition: transform 0.2s, background 0.2s;
             border: 1px solid rgba(0,0,0,0.05);
@@ -65,7 +65,7 @@ st.markdown(
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 160px;
+            height: 140px;
             cursor: default;
             position: relative;
         }
@@ -91,7 +91,7 @@ st.markdown(
             background: rgba(230, 230, 230, 0.9);
         }
 
-        /* Golden Rim for Dominant Wins (>= 2/3 Days) */
+        /* Golden Rim for Dominant Wins OR High Margins */
         .trophy-card.gold-rim {
             border: 3px solid #FFD700 !important;
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
@@ -102,34 +102,47 @@ st.markdown(
             transform: translateY(-3px) scale(1.02);
         }
 
-        /* Silver Rim for High Score Margin (>= 10%) */
-        .trophy-card.silver-rim {
-            border: 3px solid #C0C0C0 !important;
-            box-shadow: 0 0 15px rgba(192, 192, 192, 0.4);
-            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(245,245,250,0.95) 100%);
+        /* Ongoing / Live Period Styling */
+        .trophy-card.ongoing::after {
+            content: "LIVE";
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            font-size: 9px;
+            font-weight: 800;
+            color: white;
+            background-color: #db5049; /* Red Badge to match headers */
+            padding: 2px 5px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: pulse-live 2.5s infinite;
+            z-index: 10;
         }
-        .trophy-card.silver-rim:hover {
-            box-shadow: 0 0 20px rgba(192, 192, 192, 0.6);
-            transform: translateY(-3px) scale(1.02);
+        
+        @keyframes pulse-live {
+            0% { opacity: 0.85; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.85; transform: scale(1); }
         }
 
         .trophy-icon {
-            font-size: 3rem;
-            margin-bottom: 10px;
+            font-size: 2.5rem;
+            margin-bottom: 8px;
             filter: drop-shadow(0 2px 2px rgba(0,0,0,0.15));
             line-height: 1;
         }
 
         .trophy-title {
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             line-height: 1.2;
         }
 
         .trophy-desc {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #666;
             line-height: 1.2;
         }
@@ -165,7 +178,7 @@ st.markdown(
             width: 100%;
             height: 1px;
             background: rgba(0,0,0,0.1);
-            margin: 20px 0;
+            margin: 15px 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -174,10 +187,11 @@ st.markdown(
             background: rgba(255,255,255,0.8);
             padding: 0 10px;
             color: #888;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
+            border-radius: 4px;
         }
     </style>
     """,
@@ -214,15 +228,16 @@ def load_data():
 
         return df
     except Exception as e:
+        # In case file is missing for first run
         st.error(f"Error loading data: {e}")
         return None
 
-def check_silver(winner_score, loser_score):
-    """Helper to check Silver Rim (Score Margin >= 10%)"""
+def check_gold_margin(winner_score, loser_score):
+    """Helper to check Gold Rim Criteria (Score Margin >= 10%)"""
     if loser_score == 0: return True # Infinite margin
     return (winner_score - loser_score) / loser_score >= 0.10
 
-def generate_trophies_for_period(row, daily_data_for_period, period_label, is_yearly=False):
+def generate_trophies_for_period(row, daily_data_for_period, period_label, is_yearly=False, is_ongoing=False):
     """Generates the list of trophies for a specific period (Month, Quarter, or Year)."""
     t_m = []
     t_s = []
@@ -230,91 +245,37 @@ def generate_trophies_for_period(row, daily_data_for_period, period_label, is_ye
     total_days = row['DaysCount']
     dominance_threshold = total_days * (2/3)
 
-    # --- 1. Total Score Trophy (🌟) ---
+    # --- CATEGORY 1: TOTAL / OVERALL ---
+
+    # 1. Total Score Trophy (🌟)
     m_total = row['Michael Total Score']
     s_total = row['Sarah Total Score']
     
     if m_total > s_total:
-        is_silver = check_silver(m_total, s_total)
-        t_m.append({"icon": "🌟", "title": period_label, "desc": f"Total: {int(m_total):,}<br>Won by {int(m_total-s_total):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+        is_gold = check_gold_margin(m_total, s_total)
+        t_m.append({"icon": "🌟", "title": period_label, "desc": f"Total: {int(m_total):,}<br>Won by {int(m_total-s_total):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
     elif s_total > m_total:
-        is_silver = check_silver(s_total, m_total)
-        t_s.append({"icon": "🌟", "title": period_label, "desc": f"Total: {int(s_total):,}<br>Won by {int(s_total-m_total):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+        is_gold = check_gold_margin(s_total, m_total)
+        t_s.append({"icon": "🌟", "title": period_label, "desc": f"Total: {int(s_total):,}<br>Won by {int(s_total-m_total):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
     else:
-        t_m.append({"icon": "🌟", "title": period_label, "desc": f"Tie: {int(m_total):,}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "🌟", "title": period_label, "desc": f"Tie: {int(s_total):,}", "is_tie": True, "is_yearly": is_yearly})
+        t_m.append({"icon": "🌟", "title": period_label, "desc": f"Tie: {int(m_total):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        t_s.append({"icon": "🌟", "title": period_label, "desc": f"Tie: {int(s_total):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
 
-    # --- 2. Total Days Won Trophy (🏆) ---
+    # 2. Total Days Won Trophy (🏆)
     m_days = row['M_Total_Win']
     s_days = row['S_Total_Win']
     
     if m_days > s_days:
         is_gold = m_days >= dominance_threshold
-        t_m.append({"icon": "🏆", "title": period_label, "desc": f"Won {int(m_days)} days<br>(vs {int(s_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
+        t_m.append({"icon": "🏆", "title": period_label, "desc": f"Won {int(m_days)} days<br>(vs {int(s_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
     elif s_days > m_days:
         is_gold = s_days >= dominance_threshold
-        t_s.append({"icon": "🏆", "title": period_label, "desc": f"Won {int(s_days)} days<br>(vs {int(m_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
+        t_s.append({"icon": "🏆", "title": period_label, "desc": f"Won {int(s_days)} days<br>(vs {int(m_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
     else:
-        t_m.append({"icon": "🏆", "title": period_label, "desc": f"Days Tied: {int(m_days)}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "🏆", "title": period_label, "desc": f"Days Tied: {int(s_days)}", "is_tie": True, "is_yearly": is_yearly})
+        t_m.append({"icon": "🏆", "title": period_label, "desc": f"Days Tied: {int(m_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        t_s.append({"icon": "🏆", "title": period_label, "desc": f"Days Tied: {int(s_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
 
-    # --- 3. Geography Score Trophy (🗺️) ---
-    m_geo = row['M_Geo_Row']
-    s_geo = row['S_Geo_Row']
-    
-    if m_geo > s_geo:
-        is_silver = check_silver(m_geo, s_geo)
-        t_m.append({"icon": "🗺️", "title": period_label, "desc": f"Geo: {int(m_geo):,}<br>Won by {int(m_geo-s_geo):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
-    elif s_geo > m_geo:
-        is_silver = check_silver(s_geo, m_geo)
-        t_s.append({"icon": "🗺️", "title": period_label, "desc": f"Geo: {int(s_geo):,}<br>Won by {int(s_geo-m_geo):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
-    else:
-        t_m.append({"icon": "🗺️", "title": period_label, "desc": f"Tie: {int(m_geo):,}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "🗺️", "title": period_label, "desc": f"Tie: {int(s_geo):,}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 4. Geography Days Won Trophy (🌍) ---
-    m_geo_days = row['M_Geo_Win']
-    s_geo_days = row['S_Geo_Win']
-
-    if m_geo_days > s_geo_days:
-        is_gold = m_geo_days >= dominance_threshold
-        t_m.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days: {int(m_geo_days)}<br>(vs {int(s_geo_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
-    elif s_geo_days > m_geo_days:
-        is_gold = s_geo_days >= dominance_threshold
-        t_s.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days: {int(s_geo_days)}<br>(vs {int(m_geo_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
-    else:
-        t_m.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days Tied: {int(m_geo_days)}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days Tied: {int(s_geo_days)}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 5. Time Score Trophy (🕰️) ---
-    m_time = row['M_Time_Row']
-    s_time = row['S_Time_Row']
-    
-    if m_time > s_time:
-        is_silver = check_silver(m_time, s_time)
-        t_m.append({"icon": "🕰️", "title": period_label, "desc": f"Time: {int(m_time):,}<br>Won by {int(m_time-s_time):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
-    elif s_time > m_time:
-        is_silver = check_silver(s_time, m_time)
-        t_s.append({"icon": "🕰️", "title": period_label, "desc": f"Time: {int(s_time):,}<br>Won by {int(s_time-m_time):,}", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
-    else:
-        t_m.append({"icon": "🕰️", "title": period_label, "desc": f"Tie: {int(m_time):,}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "🕰️", "title": period_label, "desc": f"Tie: {int(s_time):,}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 6. Time Days Won Trophy (📆) ---
-    m_time_days = row['M_Time_Win']
-    s_time_days = row['S_Time_Win']
-
-    if m_time_days > s_time_days:
-        is_gold = m_time_days >= dominance_threshold
-        t_m.append({"icon": "📆", "title": period_label, "desc": f"Time Days: {int(m_time_days)}<br>(vs {int(s_time_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
-    elif s_time_days > m_time_days:
-        is_gold = s_time_days >= dominance_threshold
-        t_s.append({"icon": "📆", "title": period_label, "desc": f"Time Days: {int(s_time_days)}<br>(vs {int(m_time_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly})
-    else:
-        t_m.append({"icon": "📆", "title": period_label, "desc": f"Time Days Tied: {int(m_time_days)}", "is_tie": True, "is_yearly": is_yearly})
-        t_s.append({"icon": "📆", "title": period_label, "desc": f"Time Days Tied: {int(s_time_days)}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 7. Highest Daily Total Score (🚀) ---
+    # 7. Highest Daily Total Score (🚀)
     if not daily_data_for_period.empty:
         m_high_total = daily_data_for_period['Michael Total Score'].max()
         s_high_total = daily_data_for_period['Sarah Total Score'].max()
@@ -327,17 +288,63 @@ def generate_trophies_for_period(row, daily_data_for_period, period_label, is_ye
 
         if m_high_total > s_high_total:
             margin = int(m_high_total - s_high_total)
-            is_silver = check_silver(m_high_total, s_high_total)
-            t_m.append({"icon": "🚀", "title": period_label, "desc": f"High: {int(m_high_total):,}<br>+{margin:,} ({m_date_str})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(m_high_total, s_high_total)
+            t_m.append({"icon": "🚀", "title": period_label, "desc": f"High: {int(m_high_total):,}<br>+{margin:,} ({m_date_str})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
         elif s_high_total > m_high_total:
             margin = int(s_high_total - m_high_total)
-            is_silver = check_silver(s_high_total, m_high_total)
-            t_s.append({"icon": "🚀", "title": period_label, "desc": f"High: {int(s_high_total):,}<br>+{margin:,} ({s_date_str})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(s_high_total, m_high_total)
+            t_s.append({"icon": "🚀", "title": period_label, "desc": f"High: {int(s_high_total):,}<br>+{margin:,} ({s_date_str})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
         else:
-            t_m.append({"icon": "🚀", "title": period_label, "desc": f"Tie High: {int(m_high_total):,}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "🚀", "title": period_label, "desc": f"Tie High: {int(s_high_total):,}", "is_tie": True, "is_yearly": is_yearly})
+            t_m.append({"icon": "🚀", "title": period_label, "desc": f"Tie High: {int(m_high_total):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+            t_s.append({"icon": "🚀", "title": period_label, "desc": f"Tie High: {int(s_high_total):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
 
-        # --- 8. Highest Daily Geography Score (🏔️) ---
+    # 10. Most Perfect Rounds (Total) 🟩
+    m_perfect_total = row['M_Total_Perf']
+    s_perfect_total = row['S_Total_Perf']
+
+    if m_perfect_total > 0 or s_perfect_total > 0:
+        if m_perfect_total > s_perfect_total:
+            diff = int(m_perfect_total - s_perfect_total)
+            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(m_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        elif s_perfect_total > m_perfect_total:
+            diff = int(s_perfect_total - m_perfect_total)
+            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(s_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        else:
+            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(m_perfect_total)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(s_perfect_total)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+
+    # --- CATEGORY 2: GEOGRAPHY ---
+
+    # 3. Geography Score Trophy (🗺️)
+    m_geo = row['M_Geo_Row']
+    s_geo = row['S_Geo_Row']
+    
+    if m_geo > s_geo:
+        is_gold = check_gold_margin(m_geo, s_geo)
+        t_m.append({"icon": "🗺️", "title": period_label, "desc": f"Geo: {int(m_geo):,}<br>Won by {int(m_geo-s_geo):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    elif s_geo > m_geo:
+        is_gold = check_gold_margin(s_geo, m_geo)
+        t_s.append({"icon": "🗺️", "title": period_label, "desc": f"Geo: {int(s_geo):,}<br>Won by {int(s_geo-m_geo):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    else:
+        t_m.append({"icon": "🗺️", "title": period_label, "desc": f"Tie: {int(m_geo):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        t_s.append({"icon": "🗺️", "title": period_label, "desc": f"Tie: {int(s_geo):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # 4. Geography Days Won Trophy (🌍)
+    m_geo_days = row['M_Geo_Win']
+    s_geo_days = row['S_Geo_Win']
+
+    if m_geo_days > s_geo_days:
+        is_gold = m_geo_days >= dominance_threshold
+        t_m.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days: {int(m_geo_days)}<br>(vs {int(s_geo_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    elif s_geo_days > m_geo_days:
+        is_gold = s_geo_days >= dominance_threshold
+        t_s.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days: {int(s_geo_days)}<br>(vs {int(m_geo_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    else:
+        t_m.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days Tied: {int(m_geo_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        t_s.append({"icon": "🌍", "title": period_label, "desc": f"Geo Days Tied: {int(s_geo_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # 8. Highest Daily Geography Score (🏔️)
+    if not daily_data_for_period.empty:
         m_high_geo = daily_data_for_period['M_Geo_Row'].max()
         s_high_geo = daily_data_for_period['S_Geo_Row'].max()
         
@@ -346,17 +353,63 @@ def generate_trophies_for_period(row, daily_data_for_period, period_label, is_ye
 
         if m_high_geo > s_high_geo:
             margin = int(m_high_geo - s_high_geo)
-            is_silver = check_silver(m_high_geo, s_high_geo)
-            t_m.append({"icon": "🏔️", "title": period_label, "desc": f"High Geo: {int(m_high_geo):,}<br>+{margin:,} ({m_high_geo_date})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(m_high_geo, s_high_geo)
+            t_m.append({"icon": "🏔️", "title": period_label, "desc": f"High Geo: {int(m_high_geo):,}<br>+{margin:,} ({m_high_geo_date})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
         elif s_high_geo > m_high_geo:
             margin = int(s_high_geo - m_high_geo)
-            is_silver = check_silver(s_high_geo, m_high_geo)
-            t_s.append({"icon": "🏔️", "title": period_label, "desc": f"High Geo: {int(s_high_geo):,}<br>+{margin:,} ({s_high_geo_date})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(s_high_geo, m_high_geo)
+            t_s.append({"icon": "🏔️", "title": period_label, "desc": f"High Geo: {int(s_high_geo):,}<br>+{margin:,} ({s_high_geo_date})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
         else:
-            t_m.append({"icon": "🏔️", "title": period_label, "desc": f"Tie High Geo: {int(m_high_geo):,}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "🏔️", "title": period_label, "desc": f"Tie High Geo: {int(s_high_geo):,}", "is_tie": True, "is_yearly": is_yearly})
+            t_m.append({"icon": "🏔️", "title": period_label, "desc": f"Tie High Geo: {int(m_high_geo):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+            t_s.append({"icon": "🏔️", "title": period_label, "desc": f"Tie High Geo: {int(s_high_geo):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
 
-        # --- 9. Highest Daily Time Score (⏱️) ---
+    # 11. Most Perfect Geo Rounds 🌍🟩
+    m_perfect_geo = row['M_Geo_Perf']
+    s_perfect_geo = row['S_Geo_Perf']
+
+    if m_perfect_geo > 0 or s_perfect_geo > 0:
+        if m_perfect_geo > s_perfect_geo:
+            diff = int(m_perfect_geo - s_perfect_geo)
+            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(m_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        elif s_perfect_geo > m_perfect_geo:
+            diff = int(s_perfect_geo - m_perfect_geo)
+            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(s_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        else:
+            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(m_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(s_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # --- CATEGORY 3: TIME ---
+
+    # 5. Time Score Trophy (🕰️)
+    m_time = row['M_Time_Row']
+    s_time = row['S_Time_Row']
+    
+    if m_time > s_time:
+        is_gold = check_gold_margin(m_time, s_time)
+        t_m.append({"icon": "🕰️", "title": period_label, "desc": f"Time: {int(m_time):,}<br>Won by {int(m_time-s_time):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    elif s_time > m_time:
+        is_gold = check_gold_margin(s_time, m_time)
+        t_s.append({"icon": "🕰️", "title": period_label, "desc": f"Time: {int(s_time):,}<br>Won by {int(s_time-m_time):,}", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    else:
+        t_m.append({"icon": "🕰️", "title": period_label, "desc": f"Tie: {int(m_time):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        t_s.append({"icon": "🕰️", "title": period_label, "desc": f"Tie: {int(s_time):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+
+    # 6. Time Days Won Trophy (📆)
+    m_time_days = row['M_Time_Win']
+    s_time_days = row['S_Time_Win']
+
+    if m_time_days > s_time_days:
+        is_gold = m_time_days >= dominance_threshold
+        t_m.append({"icon": "📆", "title": period_label, "desc": f"Time Days: {int(m_time_days)}<br>(vs {int(s_time_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    elif s_time_days > m_time_days:
+        is_gold = s_time_days >= dominance_threshold
+        t_s.append({"icon": "📆", "title": period_label, "desc": f"Time Days: {int(s_time_days)}<br>(vs {int(m_time_days)})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    else:
+        t_m.append({"icon": "📆", "title": period_label, "desc": f"Time Days Tied: {int(m_time_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        t_s.append({"icon": "📆", "title": period_label, "desc": f"Time Days Tied: {int(s_time_days)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+
+    # 9. Highest Daily Time Score (⏱️)
+    if not daily_data_for_period.empty:
         m_high_time = daily_data_for_period['M_Time_Row'].max()
         s_high_time = daily_data_for_period['S_Time_Row'].max()
         
@@ -365,60 +418,30 @@ def generate_trophies_for_period(row, daily_data_for_period, period_label, is_ye
 
         if m_high_time > s_high_time:
             margin = int(m_high_time - s_high_time)
-            is_silver = check_silver(m_high_time, s_high_time)
-            t_m.append({"icon": "⏱️", "title": period_label, "desc": f"High Time: {int(m_high_time):,}<br>+{margin:,} ({m_high_time_date})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(m_high_time, s_high_time)
+            t_m.append({"icon": "⏱️", "title": period_label, "desc": f"High Time: {int(m_high_time):,}<br>+{margin:,} ({m_high_time_date})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
         elif s_high_time > m_high_time:
             margin = int(s_high_time - m_high_time)
-            is_silver = check_silver(s_high_time, m_high_time)
-            t_s.append({"icon": "⏱️", "title": period_label, "desc": f"High Time: {int(s_high_time):,}<br>+{margin:,} ({s_high_time_date})", "is_tie": False, "is_silver": is_silver, "is_yearly": is_yearly})
+            is_gold = check_gold_margin(s_high_time, m_high_time)
+            t_s.append({"icon": "⏱️", "title": period_label, "desc": f"High Time: {int(s_high_time):,}<br>+{margin:,} ({s_high_time_date})", "is_tie": False, "is_gold": is_gold, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
         else:
-            t_m.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(m_high_time):,}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(s_high_time):,}", "is_tie": True, "is_yearly": is_yearly})
+            t_m.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(m_high_time):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+            t_s.append({"icon": "⏱️", "title": period_label, "desc": f"Tie High Time: {int(s_high_time):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
 
-    # --- 10. Most Perfect Rounds (Total) 🟩 ---
-    m_perfect_total = row['M_Total_Perf']
-    s_perfect_total = row['S_Total_Perf']
-
-    if m_perfect_total > 0 or s_perfect_total > 0:
-        if m_perfect_total > s_perfect_total:
-            diff = int(m_perfect_total - s_perfect_total)
-            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(m_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
-        elif s_perfect_total > m_perfect_total:
-            diff = int(s_perfect_total - m_perfect_total)
-            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Perfect Rounds: {int(s_perfect_total)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
-        else:
-            t_m.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(m_perfect_total)}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "🟩", "title": period_label, "desc": f"Tie Perfect: {int(s_perfect_total)}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 11. Most Perfect Geo Rounds 🌍🟩 ---
-    m_perfect_geo = row['M_Geo_Perf']
-    s_perfect_geo = row['S_Geo_Perf']
-
-    if m_perfect_geo > 0 or s_perfect_geo > 0:
-        if m_perfect_geo > s_perfect_geo:
-            diff = int(m_perfect_geo - s_perfect_geo)
-            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(m_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
-        elif s_perfect_geo > m_perfect_geo:
-            diff = int(s_perfect_geo - m_perfect_geo)
-            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Perfect Geo: {int(s_perfect_geo)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
-        else:
-            t_m.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(m_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "🌍🟩", "title": period_label, "desc": f"Tie Perf Geo: {int(s_perfect_geo)}", "is_tie": True, "is_yearly": is_yearly})
-
-    # --- 12. Most Perfect Time Rounds 📆🟩 ---
+    # 12. Most Perfect Time Rounds 📆🟩
     m_perfect_time = row['M_Time_Perf']
     s_perfect_time = row['S_Time_Perf']
 
     if m_perfect_time > 0 or s_perfect_time > 0:
         if m_perfect_time > s_perfect_time:
             diff = int(m_perfect_time - s_perfect_time)
-            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(m_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(m_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
         elif s_perfect_time > m_perfect_time:
             diff = int(s_perfect_time - m_perfect_time)
-            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(s_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly})
+            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Perfect Time: {int(s_perfect_time)}<br>+{diff}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
         else:
-            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(m_perfect_time)}", "is_tie": True, "is_yearly": is_yearly})
-            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(s_perfect_time)}", "is_tie": True, "is_yearly": is_yearly})
+            t_m.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(m_perfect_time)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+            t_s.append({"icon": "📆🟩", "title": period_label, "desc": f"Tie Perf Time: {int(s_perfect_time)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
 
     return t_m, t_s
 
@@ -426,6 +449,12 @@ def calculate_trophies(df):
     """Calculates Monthly, Quarterly, and Yearly trophies."""
     if df is None or df.empty:
         return [], [], [], [], [], []
+
+    # Get Current Real-Time Date
+    current_now = pd.Timestamp.now()
+    current_year = current_now.year
+    current_quarter = current_now.to_period('Q')
+    current_month = current_now.to_period('M')
 
     # --- Step 1: Identify Valid Dates (Mutual Participation) ---
     daily_check = df.groupby('Date')[['Michael Total Score', 'Sarah Total Score']].first()
@@ -468,6 +497,11 @@ def calculate_trophies(df):
         'S_Total_Perf': 'sum'
     }).reset_index()
 
+    # Pre-calculate periods for filtering checks later
+    daily_stats['Year'] = daily_stats['Date'].dt.year
+    daily_stats['Quarter'] = daily_stats['Date'].dt.to_period('Q')
+    daily_stats['MonthPeriod'] = daily_stats['Date'].dt.to_period('M')
+
     # Calculate Wins
     daily_stats['M_Total_Win'] = (daily_stats['Michael Total Score'] > daily_stats['Sarah Total Score']).astype(int)
     daily_stats['S_Total_Win'] = (daily_stats['Sarah Total Score'] > daily_stats['Michael Total Score']).astype(int)
@@ -481,7 +515,6 @@ def calculate_trophies(df):
     monthly_m, monthly_s = [], []
 
     # --- YEARLY TROPHIES ---
-    daily_stats['Year'] = daily_stats['Date'].dt.year
     yearly_agg = daily_stats.groupby('Year').agg({
         'Michael Total Score': 'sum',
         'Sarah Total Score': 'sum',
@@ -510,12 +543,18 @@ def calculate_trophies(df):
         year_val = row['Year']
         daily_for_year = daily_stats[daily_stats['Year'] == year_val]
         
-        t_m, t_s = generate_trophies_for_period(row, daily_for_year, str(int(year_val)), is_yearly=True)
+        # VISIBILITY CHECK: Only show year if it has data from > 1 Quarter
+        if daily_for_year['Quarter'].nunique() < 2:
+            continue
+        
+        # Check if year is ongoing (Current Year)
+        is_ongoing = (year_val == current_year)
+
+        t_m, t_s = generate_trophies_for_period(row, daily_for_year, str(int(year_val)), is_yearly=True, is_ongoing=is_ongoing)
         yearly_m.extend(t_m)
         yearly_s.extend(t_s)
 
     # --- QUARTERLY TROPHIES ---
-    daily_stats['Quarter'] = daily_stats['Date'].dt.to_period('Q')
     quarterly_agg = daily_stats.groupby('Quarter').agg({
         'Michael Total Score': 'sum',
         'Sarah Total Score': 'sum',
@@ -543,14 +582,21 @@ def calculate_trophies(df):
     for _, row in quarterly_agg.iterrows():
         q_period = row['Quarter']
         daily_for_q = daily_stats[daily_stats['Quarter'] == q_period]
+        
+        # VISIBILITY CHECK: Only show quarter if it has data from > 1 Month
+        if daily_for_q['MonthPeriod'].nunique() < 2:
+            continue
+        
+        # Check if quarter is ongoing
+        is_ongoing = (q_period == current_quarter)
+        
         q_label = f"Q{q_period.quarter} {q_period.year}"
         
-        t_m, t_s = generate_trophies_for_period(row, daily_for_q, q_label, is_yearly=False)
+        t_m, t_s = generate_trophies_for_period(row, daily_for_q, q_label, is_yearly=False, is_ongoing=is_ongoing)
         quarterly_m.extend(t_m)
         quarterly_s.extend(t_s)
 
     # --- MONTHLY TROPHIES ---
-    daily_stats['MonthPeriod'] = daily_stats['Date'].dt.to_period('M')
     monthly_agg = daily_stats.groupby('MonthPeriod').agg({
         'Michael Total Score': 'sum',
         'Sarah Total Score': 'sum',
@@ -580,18 +626,81 @@ def calculate_trophies(df):
         month_period = row['MonthPeriod']
         daily_for_month = daily_stats[daily_stats['MonthPeriod'] == month_period]
         
-        t_m, t_s = generate_trophies_for_period(row, daily_for_month, row['MonthLabel'], is_yearly=False)
+        # Check if month is ongoing
+        is_ongoing = (month_period == current_month)
+        
+        t_m, t_s = generate_trophies_for_period(row, daily_for_month, row['MonthLabel'], is_yearly=False, is_ongoing=is_ongoing)
         monthly_m.extend(t_m)
         monthly_s.extend(t_s)
 
     return yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s
 
-def create_trophy_html(icon, title, desc, is_tie=False, is_gold=False, is_silver=False, is_yearly=False):
+def create_trophy_html(icon, title, desc, is_tie=False, is_gold=False, is_yearly=False, is_ongoing=False):
     tie_class = " tie" if is_tie else ""
     gold_class = " gold-rim" if is_gold else ""
-    silver_class = " silver-rim" if is_silver else ""
     yearly_class = " yearly" if is_yearly else ""
-    return f'<div class="trophy-card{tie_class}{gold_class}{silver_class}{yearly_class}"><div class="trophy-icon">{icon}</div><div class="trophy-title">{title}</div><div class="trophy-desc">{desc}</div></div>'
+    ongoing_class = " ongoing" if is_ongoing else ""
+    return f'<div class="trophy-card{tie_class}{gold_class}{yearly_class}{ongoing_class}"><div class="trophy-icon">{icon}</div><div class="trophy-title">{title}</div><div class="trophy-desc">{desc}</div></div>'
+
+def render_cabinet(player_name, trophies_yearly, trophies_quarterly, trophies_monthly, category_filter, theme_class, text_class):
+    """Renders a single cabinet for a specific player and category."""
+    
+    # Filter trophies by category
+    y_filtered = [t for t in trophies_yearly if t.get('category') == category_filter]
+    q_filtered = [t for t in trophies_quarterly if t.get('category') == category_filter]
+    m_filtered = [t for t in trophies_monthly if t.get('category') == category_filter]
+
+    html_content = ""
+    has_content = False
+
+    # Helper for Separator
+    def get_separator(text):
+        return f'<div class="trophy-divider"><span>{text}</span></div>'
+
+    # Helper to group by period title and render separate grids
+    def render_grouped_grids(trophies):
+        if not trophies:
+            return ""
+        
+        # Group by title (e.g., "2024", "Q1 2024", "Jan 2024")
+        # List is already sorted by date descending from calculate_trophies
+        groups = {}
+        for t in trophies:
+            title = t['title']
+            if title not in groups:
+                groups[title] = []
+            groups[title].append(t)
+        
+        html = ""
+        for title in groups:
+            # Render all trophies for this specific period
+            group_html = "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_yearly', False), t.get('is_ongoing', False)) for t in groups[title]])
+            # Wrap them in their own grid so they stand alone on a "line" (row block)
+            html += f'<div class="trophy-grid" style="margin-bottom: 15px;">{group_html}</div>'
+        return html
+
+    if y_filtered:
+         html_content += get_separator("Yearly")
+         html_content += render_grouped_grids(y_filtered)
+         has_content = True
+         
+    if q_filtered:
+         if has_content: html_content += get_separator("Quarterly")
+         html_content += render_grouped_grids(q_filtered)
+         has_content = True
+
+    if m_filtered:
+         if has_content: html_content += get_separator("Monthly")
+         html_content += render_grouped_grids(m_filtered)
+         has_content = True
+    
+    if not has_content:
+        html_content = "<div style='text-align:center; color:#666; width:100%; padding: 40px 20px; font-style: italic;'>No trophies in this category yet.</div>"
+    
+    st.markdown(
+        f'<div class="cabinet-container {theme_class}"><div class="cabinet-header {text_class}">{player_name}</div>{html_content}</div>',
+        unsafe_allow_html=True
+    )
 
 # --- Header ---
 st.title("Hall of Fame")
@@ -602,69 +711,29 @@ st.markdown("<br>", unsafe_allow_html=True)
 df = load_data()
 yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s = calculate_trophies(df)
 
-# --- Layout ---
-col1, col2 = st.columns(2, gap="large")
+# --- Tabs for Category Organization ---
+tab1, tab2, tab3 = st.tabs(["🏆 Overall & Total", "🌍 Geography", "🕰️ Time"])
 
-# --- Helper to create separator ---
-def get_separator(text):
-    return f"""
-    <div class="trophy-divider">
-        <span>{text}</span>
-    </div>
-    """
+# --- TAB 1: TOTAL ---
+with tab1:
+    col1, col2 = st.columns(2, gap="large")
+    with col1:
+        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "total", "michael-theme", "michael-text")
+    with col2:
+        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "total", "sarah-theme", "sarah-text")
 
-# --- Michael's Cabinet ---
-with col1:
-    m_html = ""
-    has_content = False
-    
-    if yearly_m:
-         m_html += get_separator("Yearly")
-         m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in yearly_m]) + '</div>'
-         has_content = True
-         
-    if quarterly_m:
-         if has_content: m_html += get_separator("Quarterly")
-         m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in quarterly_m]) + '</div>'
-         has_content = True
+# --- TAB 2: GEOGRAPHY ---
+with tab2:
+    col1, col2 = st.columns(2, gap="large")
+    with col1:
+        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "geo", "michael-theme", "michael-text")
+    with col2:
+        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "geo", "sarah-theme", "sarah-text")
 
-    if monthly_m:
-         if has_content: m_html += get_separator("Monthly")
-         m_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in monthly_m]) + '</div>'
-         has_content = True
-    
-    if not has_content:
-        m_html = "<div style='text-align:center; color:#666; width:100%; padding: 20px;'>No trophies yet.</div>"
-    
-    st.markdown(
-        f'<div class="cabinet-container michael-theme"><div class="cabinet-header michael-text">Michael</div>{m_html}</div>',
-        unsafe_allow_html=True
-    )
-
-# --- Sarah's Cabinet ---
-with col2:
-    s_html = ""
-    has_content = False
-    
-    if yearly_s:
-         s_html += get_separator("Yearly")
-         s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in yearly_s]) + '</div>'
-         has_content = True
-         
-    if quarterly_s:
-         if has_content: s_html += get_separator("Quarterly")
-         s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in quarterly_s]) + '</div>'
-         has_content = True
-
-    if monthly_s:
-         if has_content: s_html += get_separator("Monthly")
-         s_html += '<div class="trophy-grid">' + "".join([create_trophy_html(t['icon'], t['title'], t['desc'], t['is_tie'], t.get('is_gold', False), t.get('is_silver', False), t.get('is_yearly', False)) for t in monthly_s]) + '</div>'
-         has_content = True
-    
-    if not has_content:
-        s_html = "<div style='text-align:center; color:#666; width:100%; padding: 20px;'>No trophies yet.</div>"
-    
-    st.markdown(
-        f'<div class="cabinet-container sarah-theme"><div class="cabinet-header sarah-text">Sarah</div>{s_html}</div>',
-        unsafe_allow_html=True
-    )
+# --- TAB 3: TIME ---
+with tab3:
+    col1, col2 = st.columns(2, gap="large")
+    with col1:
+        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "time", "michael-theme", "michael-text")
+    with col2:
+        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "time", "sarah-theme", "sarah-text")
