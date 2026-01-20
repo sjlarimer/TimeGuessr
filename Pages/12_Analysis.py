@@ -20,7 +20,7 @@ st.markdown(
     """
     <style>
         /* Global Font */
-        .stMarkdown p, label, h1, h2, h3, h4, h5, h6, .stTabs button, .stDataFrame, .stPlotlyChart {
+        .stMarkdown p, label, h1, h2, h3, h4, h5, h6, .stTabs button, .stDataFrame, .stPlotlyChart, .stRadio label {
             font-family: 'Poppins', sans-serif !important;
         }
         h1, h2, h3 {
@@ -143,7 +143,24 @@ def load_data():
         df['Michael Total Score'] = clean_col('Michael Total Score')
         df['Sarah Total Score'] = clean_col('Sarah Total Score')
         
-        # Filter for rows where data exists
+        # Component Scores - Load and calculate Average of Min/Max
+        df['Michael Geography Score (Min)'] = clean_col('Michael Geography Score (Min)')
+        df['Michael Geography Score (Max)'] = clean_col('Michael Geography Score (Max)')
+        df['Sarah Geography Score (Min)'] = clean_col('Sarah Geography Score (Min)')
+        df['Sarah Geography Score (Max)'] = clean_col('Sarah Geography Score (Max)')
+        
+        df['M_Geo_Row'] = (df['Michael Geography Score (Min)'] + df['Michael Geography Score (Max)']) / 2
+        df['S_Geo_Row'] = (df['Sarah Geography Score (Min)'] + df['Sarah Geography Score (Max)']) / 2
+
+        df['Michael Time Score (Min)'] = clean_col('Michael Time Score (Min)')
+        df['Michael Time Score (Max)'] = clean_col('Michael Time Score (Max)')
+        df['Sarah Time Score (Min)'] = clean_col('Sarah Time Score (Min)')
+        df['Sarah Time Score (Max)'] = clean_col('Sarah Time Score (Max)')
+
+        df['M_Time_Row'] = (df['Michael Time Score (Min)'] + df['Michael Time Score (Max)']) / 2
+        df['S_Time_Row'] = (df['Sarah Time Score (Min)'] + df['Sarah Time Score (Max)']) / 2
+        
+        # Filter for rows where data exists (Based on Total Score Presence)
         df = df[(df['Michael Total Score'] > 0) & (df['Sarah Total Score'] > 0)].copy()
         
         return df
@@ -203,32 +220,47 @@ def create_stat_card(label, value, sig_bool, sig_p, positive_msg, negative_msg):
 # --- Main Layout ---
 st.title("Analysis")
 
+# --- Metric Selector ---
+metric_option = st.radio(
+    "Select Metric to Analyze:",
+    ("Total Score", "Geography Score", "Time Score"),
+    horizontal=True
+)
+
 df_raw = load_data()
 
 if df_raw is not None and not df_raw.empty:
     
-    # --- CRITICAL STEP: Aggregate to Daily Level ---
-    # The raw data may contain multiple rows per date (rounds).
-    # We must aggregate to get 1 row per 1 calendar date.
-    df = df_raw.groupby('Date').agg({
-        'Michael Total Score': 'max', # Taking max assumes total score is cumulative or tracked daily
-        'Sarah Total Score': 'max'
-    }).reset_index()
+    # --- CRITICAL STEP: Aggregate to Daily Level based on Selection ---
+    # The raw data contains rows per round. We aggregate to 1 row per Calendar Date.
+    
+    if metric_option == "Total Score":
+        # Total score is already a daily sum in the raw data (populated on every row)
+        agg_cols = {'Michael Total Score': 'max', 'Sarah Total Score': 'max'}
+        rename_map = {'Michael Total Score': 'Michael Score', 'Sarah Total Score': 'Sarah Score'}
+    elif metric_option == "Geography Score":
+        # Component scores are per-row, so we SUM them for the daily total
+        agg_cols = {'M_Geo_Row': 'sum', 'S_Geo_Row': 'sum'}
+        rename_map = {'M_Geo_Row': 'Michael Score', 'S_Geo_Row': 'Sarah Score'}
+    else: # Time Score
+        agg_cols = {'M_Time_Row': 'sum', 'S_Time_Row': 'sum'}
+        rename_map = {'M_Time_Row': 'Michael Score', 'S_Time_Row': 'Sarah Score'}
+
+    df = df_raw.groupby('Date').agg(agg_cols).reset_index()
+    df.rename(columns=rename_map, inplace=True)
 
     # --- Data Processing on DAILY DataFrame ---
     df['Day'] = df['Date'].dt.day_name()
     
     # Filter only Mon-Fri for Day Analysis
     days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    # We filter for the Day analysis, but keep full df for streaks if needed (though weekends might break streaks visually if excluded)
-    # For day analysis specifically:
     df_weekdays = df[df['Day'].isin(days_order)].copy()
     df_weekdays['Day'] = pd.Categorical(df_weekdays['Day'], categories=days_order, ordered=True)
     
     # Calculate Wins & Margins
-    df['Michael Win'] = (df['Michael Total Score'] > df['Sarah Total Score']).astype(int)
-    df['Sarah Win'] = (df['Sarah Total Score'] > df['Michael Total Score']).astype(int)
-    df['Score Margin'] = df['Michael Total Score'] - df['Sarah Total Score'] 
+    df['Michael Win'] = (df['Michael Score'] > df['Sarah Score']).astype(int)
+    df['Sarah Win'] = (df['Sarah Score'] > df['Michael Score']).astype(int)
+    df['Score Margin'] = df['Michael Score'] - df['Sarah Score'] 
     df['Abs Margin'] = df['Score Margin'].abs()
     
     # Sync cols to df_weekdays
@@ -239,8 +271,8 @@ if df_raw is not None and not df_raw.empty:
 
     # Aggregation for Charts
     daily_stats = df_weekdays.groupby('Day', observed=False).agg({
-        'Michael Total Score': 'mean',
-        'Sarah Total Score': 'mean',
+        'Michael Score': 'mean',
+        'Sarah Score': 'mean',
         'Michael Win': 'sum',
         'Sarah Win': 'sum',
         'Score Margin': 'mean', # Net Average Margin
@@ -248,8 +280,8 @@ if df_raw is not None and not df_raw.empty:
     }).reset_index()
     
     daily_stats.rename(columns={
-        'Michael Total Score': 'Michael Avg',
-        'Sarah Total Score': 'Sarah Avg',
+        'Michael Score': 'Michael Avg',
+        'Sarah Score': 'Sarah Avg',
         'Score Margin': 'Avg Margin',
         'Date': 'Games Played'
     }, inplace=True)
@@ -257,7 +289,7 @@ if df_raw is not None and not df_raw.empty:
     # ==========================================
     # SECTION 1: DAY OF THE WEEK ANALYSIS
     # ==========================================
-    st.markdown("### Day of the Week Performance")
+    st.markdown(f"### Day of the Week Performance ({metric_option})")
     st.markdown("Analyzing performance patterns across weekdays (Mon-Fri).", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -291,7 +323,7 @@ if df_raw is not None and not df_raw.empty:
             paper_bgcolor="rgba(0,0,0,0)",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(color="black")),
             margin=dict(l=20, r=20, t=30, b=20),
-            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', title="Average Score", title_font=dict(color="black"), tickfont=dict(color="black")),
+            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', title=f"Average {metric_option}", title_font=dict(color="black"), tickfont=dict(color="black")),
             xaxis=dict(title=None, tickfont=dict(color="black"))
         )
         st.plotly_chart(fig_avg, use_container_width=True)
@@ -330,8 +362,8 @@ if df_raw is not None and not df_raw.empty:
     """, unsafe_allow_html=True)
 
     # -- Global Tests --
-    m_p, m_sig = perform_kruskal_test(df_weekdays, 'Michael Total Score')
-    s_p, s_sig = perform_kruskal_test(df_weekdays, 'Sarah Total Score')
+    m_p, m_sig = perform_kruskal_test(df_weekdays, 'Michael Score')
+    s_p, s_sig = perform_kruskal_test(df_weekdays, 'Sarah Score')
     margin_p, margin_sig = perform_kruskal_test(df_weekdays, 'Score Margin')
 
     # -- Identify Extremes (Michael) --
@@ -340,8 +372,8 @@ if df_raw is not None and not df_raw.empty:
     m_worst_row = daily_stats.loc[daily_stats['Michael Avg'].idxmin()]
     m_worst_day = m_worst_row['Day']
     
-    m_best_p, m_best_sig = perform_mannwhitney_test(df_weekdays, 'Michael Total Score', m_best_day)
-    m_worst_p, m_worst_sig = perform_mannwhitney_test(df_weekdays, 'Michael Total Score', m_worst_day)
+    m_best_p, m_best_sig = perform_mannwhitney_test(df_weekdays, 'Michael Score', m_best_day)
+    m_worst_p, m_worst_sig = perform_mannwhitney_test(df_weekdays, 'Michael Score', m_worst_day)
 
     # -- Identify Extremes (Sarah) --
     s_best_row = daily_stats.loc[daily_stats['Sarah Avg'].idxmax()]
@@ -349,8 +381,8 @@ if df_raw is not None and not df_raw.empty:
     s_worst_row = daily_stats.loc[daily_stats['Sarah Avg'].idxmin()]
     s_worst_day = s_worst_row['Day']
     
-    s_best_p, s_best_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Total Score', s_best_day)
-    s_worst_p, s_worst_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Total Score', s_worst_day)
+    s_best_p, s_best_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Score', s_best_day)
+    s_worst_p, s_worst_sig = perform_mannwhitney_test(df_weekdays, 'Sarah Score', s_worst_day)
 
     # -- Identify Extremes (Margin Gap - Based on Net Margin) --
     gap_largest_day = daily_stats.loc[daily_stats['Avg Margin'].abs().idxmax()]['Day']
@@ -503,8 +535,8 @@ if df_raw is not None and not df_raw.empty:
 
     # Group Stats
     rust_stats = df_rust.groupby('State', observed=False).agg({
-        'Michael Total Score': 'mean',
-        'Sarah Total Score': 'mean',
+        'Michael Score': 'mean',
+        'Sarah Score': 'mean',
         'Date': 'count'
     }).reset_index()
     
@@ -526,8 +558,8 @@ if df_raw is not None and not df_raw.empty:
     """, unsafe_allow_html=True)
 
     # Reshape for Plotly
-    rust_melted = rust_stats.melt(id_vars=['State'], value_vars=['Michael Total Score', 'Sarah Total Score'], var_name='Player', value_name='Avg Score')
-    rust_melted['Player'] = rust_melted['Player'].str.replace(' Total Score', '')
+    rust_melted = rust_stats.melt(id_vars=['State'], value_vars=['Michael Score', 'Sarah Score'], var_name='Player', value_name='Avg Score')
+    rust_melted['Player'] = rust_melted['Player'].str.replace(' Score', '')
 
     col_rust1, col_rust2 = st.columns([2, 1])
 
@@ -561,7 +593,7 @@ if df_raw is not None and not df_raw.empty:
         st.markdown("#### Impact Analysis")
         
         # We compare Breaks vs Flow
-        for player, col in [("Michael", "Michael Total Score"), ("Sarah", "Sarah Total Score")]:
+        for player, col in [("Michael", 'Michael Score'), ("Sarah", 'Sarah Score')]:
             # Determine player text class
             player_class = "michael-text" if player == "Michael" else "sarah-text"
             st.markdown(f'<div class="{player_class}" style="font-size:1rem; margin-top:10px; border-bottom:1px solid #eee;">{player}</div>', unsafe_allow_html=True)
@@ -613,6 +645,14 @@ if df_raw is not None and not df_raw.empty:
     </div>
     """, unsafe_allow_html=True)
     
+    with st.expander("ℹ️ How to interpret these numbers?"):
+        st.markdown("""
+        * **The Comparison:** We compare **Win Rate after a Win** vs. **Win Rate after a Loss**.
+        * **Momentum (Green):** If you are *more likely* to win after winning than after losing (e.g., 30% vs 10%), that is a momentum effect, even if the absolute win rate (30%) is low.
+        * **Bounce Back (Red):** If you are *more likely* to win after losing than after winning (e.g., winning after a loss is 60%, but after a win is only 40%), that suggests an alternating pattern.
+        * **Why is it identical for both players?** In a zero-sum game (Win/Loss), momentum is mathematically symmetrical. If Player A has momentum (likely to win after winning), Player B must effectively be likely to lose after losing (which is the same state). The numbers mirror each other perfectly.
+        """)
+
     # Sort by date (using the DAILY df)
     df_streak = df.sort_values('Date').copy()
 
@@ -668,6 +708,12 @@ if df_raw is not None and not df_raw.empty:
 
         # 6. After 3 Losses
         rate_3l, count_3l = get_rate_count((df_streak[prev1] == 0) & (df_streak[prev2] == 0) & (df_streak[prev3] == 0))
+
+        # 7. After 4 Wins
+        rate_4w, count_4w = get_rate_count((df_streak[prev1] == 1) & (df_streak[prev2] == 1) & (df_streak[prev3] == 1) & (df_streak[prev4] == 1))
+
+        # 8. After 4 Losses
+        rate_4l, count_4l = get_rate_count((df_streak[prev1] == 0) & (df_streak[prev2] == 0) & (df_streak[prev3] == 0) & (df_streak[prev4] == 0))
         
         # Helper to format text
         def fmt(rate, count):
