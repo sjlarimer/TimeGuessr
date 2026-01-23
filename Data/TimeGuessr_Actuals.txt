@@ -445,3 +445,10 @@ TimeGuessr #966
 3. Jakarta, Indonesia, 1974
 4. Beamish (England), United Kingdom, 1990
 5. Oslo, Norway, 1939
+
+TimeGuessr #967
+1. Manila, Philippines, 1945
+2. Bogota, Colombia, 2025
+3. Johannesburg, South Africa, 1960
+4. Stockholm, Sweden, 1958
+5. Albuquerque (New Mexico), United States, 2014
