@@ -452,3 +452,10 @@ TimeGuessr #967
 3. Johannesburg, South Africa, 1960
 4. Stockholm, Sweden, 1958
 5. Albuquerque (New Mexico), United States, 2014
+
+TimeGuessr #970
+1. Athens, Greece, 1962
+2. Ciudad Juarez, Mexico, 1972
+3. Gyor, Hungary, 1948
+4. Washington DC (Washington DC), United States, 2025
+5. Oslo, Norway, 1954
