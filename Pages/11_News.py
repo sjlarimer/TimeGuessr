@@ -4,24 +4,23 @@ import numpy as np
 from pathlib import Path
 import datetime
 import country_converter as coco
-import streamlit.components.v1 as components
 
 # --- Configuration ---
 st.set_page_config(page_title="The Daily Guessr", layout="wide")
 
-# --- Load CSS ---
+# --- Load External CSS ---
 css_path = Path("styles.css")
 if css_path.exists():
     with open(css_path) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# --- Styling ---
+# --- Internal Styling ---
 NEWS_STYLES = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800;900&display=swap');
         
         html { scroll-behavior: smooth; }
-        .news-container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .news-container { max-width: 800px; margin: 0 auto; padding: 40_px 20px; }
         
         .back-to-top { position: fixed; bottom: 30px; right: 30px; background-color: #333; color: white !important; width: 50px; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; text-decoration: none !important; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; transition: transform 0.2s, background-color 0.2s; }
         .back-to-top:hover { transform: scale(1.1); background-color: #000; color: white !important; }
@@ -196,41 +195,67 @@ def prepare_geography_margins_data(df):
 def get_leader_state(d): return "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
 
 def generate_news_events(df, cat, window=5):
-    if df.empty: return []
+    """
+    Tracks Momentum Flips with added lead sizes.
+    """
+    if len(df) < window: return []
     t = df.copy()
     t["Rolling"] = t["Score Diff"].rolling(window=window).mean()
-    evs, prev = [], None
+    
+    evs, prev_state, prev_val = [], None, None
     for _, r in t.iterrows():
         if pd.isna(r["Rolling"]): continue
-        curr = get_leader_state(r["Rolling"])
-        if prev is not None and curr != prev:
-            evs.append({"date": r["Date"], "category": cat, "event_type": "flip", "window": window, "prev_state": prev, "current_state": curr, "value": r["Rolling"]})
-        prev = curr
+        curr_state = get_leader_state(r["Rolling"])
+        curr_val = r["Rolling"]
+        
+        if prev_state is not None and curr_state != prev_state:
+            evs.append({
+                "date": r["Date"], 
+                "category": cat, 
+                "event_type": "flip", 
+                "window": window, 
+                "prev_state": prev_state, 
+                "current_state": curr_state, 
+                "prev_val": prev_val,
+                "curr_val": curr_val
+            })
+        prev_state = curr_state
+        prev_val = curr_val
     return evs
 
 def generate_streak_events(df, cat, min_streak=3):
     if df.empty: return []
-    evs, ms, c_win, c_s = [], {"Michael": 0, "Sarah": 0}, None, 0
-    for _, r in df.iterrows():
-        d = r["Score Diff"]
-        w = "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
-        if w == "Tie": continue
-        if w == c_win:
-            c_s += 1
-            rec = ms[w]
-            if c_s > rec:
-                ms[w] = c_s
-                if c_s >= min_streak: evs.append({"date": r["Date"], "category": cat, "event_type": "streak", "subtype": "new_record", "player": w, "count": c_s})
-            elif c_s == rec and c_s >= min_streak:
-                evs.append({"date": r["Date"], "category": cat, "event_type": "streak", "subtype": "matched_record", "player": w, "count": c_s})
+    events = []
+    personal_bests = {"Michael": 0, "Sarah": 0}
+    current_winner = None
+    current_streak = 0
+    
+    for _, row in df.iterrows():
+        diff, date = row["Score Diff"], row["Date"]
+        winner = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
+            
+        if winner == current_winner and winner != "Tie":
+            current_streak += 1
+            pb = personal_bests[winner]
+            if current_streak > pb and pb > 0:
+                personal_bests[winner] = current_streak
+                events.append({"date": date, "category": cat, "event_type": "streak", "subtype": "new_record", "player": winner, "count": current_streak})
+            elif current_streak == pb and current_streak >= min_streak:
+                events.append({"date": date, "category": cat, "event_type": "streak", "subtype": "matched_record", "player": winner, "count": current_streak})
+            elif current_streak >= min_streak:
+                events.append({"date": date, "category": cat, "event_type": "streak", "subtype": "active", "player": winner, "count": current_streak})
         else:
-            if c_win:
-                rec = ms[c_win]
-                if c_s >= 5 or c_s == rec or c_s == rec - 1:
-                    sub = "denied_break" if c_s == rec else ("denied_match" if c_s == rec - 1 else "significant_break")
-                    evs.append({"date": r["Date"], "category": cat, "event_type": "streak_broken", "subtype": sub, "player": c_win, "breaker": w, "count": c_s, "record": rec})
-            c_win, c_s = w, 1
-    return evs
+            if current_winner and current_winner != "Tie":
+                pb = personal_bests[current_winner]
+                if current_streak >= min_streak or (pb > 0 and current_streak >= (pb - 1)):
+                    sub = "denied_break" if current_streak == pb else ("denied_match" if current_streak == pb - 1 else "significant_break")
+                    events.append({"date": date, "category": cat, "event_type": "streak_broken", "subtype": sub, "player": current_winner, "breaker": winner, "count": current_streak, "record": pb})
+            if winner != "Tie":
+                current_winner, current_streak = winner, 1
+                if personal_bests[winner] == 0: personal_bests[winner] = 1
+            else:
+                current_winner, current_streak = "Tie", 0
+    return events
 
 def generate_margin_record_events(df, category_name):
     if df.empty: return []
@@ -266,36 +291,62 @@ def generate_margin_record_events(df, category_name):
 def generate_score_record_events(df, category_name):
     if df.empty: return []
     events = []
-    records = {"Michael": {"max": 0, "min": float('inf')}, "Sarah": {"max": 0, "min": float('inf')}}
+    
+    # Store history for Top 10 logic
+    score_history = {"Michael": [], "Sarah": []}
+    rival_pb = {"Michael": 0, "Sarah": 0}
+
     for idx, row in df.iterrows():
         date = row["Date"]
         for player in ["Michael", "Sarah"]:
             score = row[f"{player} {category_name}"]
-            opponent = "Sarah" if player == "Michael" else "Michael"
-            p_max, p_min = records[player]["max"], records[player]["min"]
-            opp_max, opp_min = records[opponent]["max"], records[opponent]["min"]
+            if pd.isna(score): continue
             
-            if p_max == 0: records[player]["max"] = score
-            else:
-                if score > p_max:
-                    is_all_time = score > opp_max
-                    events.append({"date": date, "category": category_name, "event_type": "score_record", "subtype": "max_score", "player": player, "score": score, "is_all_time": is_all_time, "prev_record": p_max})
-                    records[player]["max"] = score
-                elif score >= (0.95 * p_max):
-                    events.append({"date": date, "category": category_name, "event_type": "score_near_record", "subtype": "near_max", "player": player, "score": score, "prev_record": p_max})
-                if opp_max > 0 and score > opp_max and score <= p_max:
-                     events.append({"date": date, "category": category_name, "event_type": "score_vs_opp", "subtype": "surpass_opp_max", "player": player, "score": score, "opponent": opponent, "opp_record": opp_max})
+            opponent = "Sarah" if player == "Michael" else "Michael"
+            
+            # --- Top 10 Logic ---
+            # Compare current score to player's history up to this date
+            # History is empty on the first day
+            current_leaderboard = sorted(score_history[player], reverse=True)
+            
+            # Calculate Rank
+            rank = 1
+            for prev_score in current_leaderboard:
+                if score < prev_score:
+                    rank += 1
+                else:
+                    break
+            
+            if rank <= 10:
+                events.append({
+                    "date": date, 
+                    "category": category_name, 
+                    "event_type": "score_top_10", 
+                    "player": player, 
+                    "score": score, 
+                    "rank": rank,
+                    "is_all_time": rank == 1 and len(score_history[player]) > 0
+                })
 
-            if p_min == float('inf'): records[player]["min"] = score
-            else:
-                if score < p_min:
-                    is_all_time = score < opp_min
-                    events.append({"date": date, "category": category_name, "event_type": "score_record", "subtype": "min_score", "player": player, "score": score, "is_all_time": is_all_time, "prev_record": p_min})
-                    records[player]["min"] = score
-                elif score <= (1.05 * p_min):
-                    events.append({"date": date, "category": category_name, "event_type": "score_near_record", "subtype": "near_min", "player": player, "score": score, "prev_record": p_min})
-                if opp_min != float('inf') and score < opp_min and score >= p_min:
-                    events.append({"date": date, "category": category_name, "event_type": "score_vs_opp", "subtype": "lower_opp_min", "player": player, "score": score, "opponent": opponent, "opp_record": opp_min})
+            # --- Beat Opponent's PB Logic ---
+            opp_record = rival_pb[opponent]
+            if opp_record > 0 and score > opp_record:
+                events.append({
+                    "date": date, 
+                    "category": category_name, 
+                    "event_type": "score_vs_opp", 
+                    "subtype": "surpass_opp_max", 
+                    "player": player, 
+                    "score": score, 
+                    "opponent": opponent, 
+                    "opp_record": opp_record
+                })
+
+            # Update histories for next day processing
+            score_history[player].append(score)
+            if score > rival_pb[player]:
+                rival_pb[player] = score
+                
     return events
 
 def generate_score_threshold_streaks(df):
@@ -341,7 +392,6 @@ def generate_score_threshold_streaks(df):
 def generate_milestone_events(df):
     if df.empty: return []
     evs = []
-    tot = 0
     dec, yr, loc = {}, {}, {}
     seen_dates = set()
     total_days = 0
@@ -404,7 +454,7 @@ def get_flag_html(name):
 
 def generate_location_events(df):
     if df.empty: return []
-    events, seen_c, seen_s, seen_r, seen_cont = [], set(), set(), set(), set()
+    events, seen_cont, seen_r = [], set(), set()
     perf_data = df.copy()
     for p in ["Michael", "Sarah"]: perf_data[f"{p} Total Score"] = perf_data[f"{p} Geography Score"] + perf_data[f"{p} Time Score"]
     
@@ -579,7 +629,6 @@ def get_full_category_forecast(df, cat):
         th = cth[cat]
         cmax = {p: {t['id']: 0 for t in th} for p in ["Michael", "Sarah"]}
         crun = {p: {t['id']: 0 for t in th} for p in ["Michael", "Sarah"]}
-        
         for _, r in df.iterrows():
             for p in ["Michael", "Sarah"]:
                 col_name = f"{p} {cat}"
@@ -587,28 +636,19 @@ def get_full_category_forecast(df, cat):
                 sc = r[col_name]
                 for t in th:
                     tid = t['id']
-                    if t['check'](sc):
-                        crun[p][tid] += 1
+                    if t['check'](sc): crun[p][tid] += 1
                     else:
                         if crun[p][tid] > cmax[p][tid]: cmax[p][tid] = crun[p][tid]
                         crun[p][tid] = 0
-        
         acts = []
         for p in ["Michael", "Sarah"]:
             for t in th:
-                tid = t['id']
-                cur = crun[p][tid]
-                rec = cmax[p][tid]
-                
+                tid, cur, rec = t['id'], crun[p][tid], cmax[p][tid]
                 if cur > 0:
                      c = "#e67e22" if ">" in tid else "#3498db"
-                     if cur > rec: rt = f"<span style='color:#27ae60; font-weight:700;'>New Record!</span>"
-                     elif cur == rec: rt = f"<span style='color:#d35400; font-weight:700;'>Matches PB!</span>"
-                     else: rt = f"Matches PB in {rec - cur}"
+                     rt = f"<span style='color:#27ae60; font-weight:700;'>New Record!</span>" if cur > rec else (f"<span style='color:#d35400; font-weight:700;'>Matches PB!</span>" if cur == rec else f"Matches PB in {rec - cur}")
                      acts.append(f"<div class='fc-streak-item'><span class='fc-streak-name' style='color:{c}'>{p} {t['label']}</span> <span class='fc-streak-val'>{cur}</span> <span class='fc-streak-meta'>{rt}</span></div>")
-        
         if acts: sh += f"""<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ccc;"><div style="font-size:10px; font-weight:700; color:#999; margin-bottom:5px; text-transform:uppercase;">Active Score Runs</div>{''.join(acts)}</div>"""
-
     return {"category": cat, "l5": l5, "m5": m5, "l10": l10, "m10": m10, "streaks_html": sh}
 
 def render_forecast_section(fs_list):
@@ -617,8 +657,7 @@ def render_forecast_section(fs_list):
     borders = {"Total Score": "border-total", "Time Score": "border-time", "Geography Score": "border-geo"}
     for f in fs_list:
         if not f: continue
-        cat = f['category']
-        ic, bc = icons.get(cat, "📊"), borders.get(cat, "")
+        cat, ic, bc = f['category'], icons.get(f['category'], "📊"), borders.get(f['category'], "")
         def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
         html += f"""<div class="forecast-card {bc}"><div class="fc-header"><span class="fc-icon">{ic}</span><span class="fc-title">{cat}</span></div><div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Active Streaks</div>{f['streaks_html'] if f['streaks_html'] else '<div style="font-size:11px; color:#999; font-style:italic;">No active streaks.</div>'}</div></div>"""
     return html + '</div>'
@@ -627,11 +666,17 @@ def render_daily_news(dt, evs):
     ds, ec, rh = dt.strftime("%A, %B %d, %Y"), len(evs), ""
     day_id = f"day-{dt.strftime('%Y-%m-%d')}"
     
-    rmap = {('milestone', 'total'): 1, ('milestone', 'continent'): 2, ('milestone', 'region'): 2, ('milestone', 'country'): 2, ('milestone', 'subdivision'): 2, ('milestone', 'decade'): 3, ('milestone', 'year'): 3, ('score_record', 'max_score'): 4, ('score_record', 'min_score'): 4, ('margin_record', 'max_win'): 5, ('margin_record', 'min_win'): 5, ('discovery', 'new_continent'): 6, ('discovery', 'new_un_region'): 6, ('discovery', 'new_country'): 6, ('discovery', 'new_subdivision'): 6, ('streak', 'new_record'): 7, ('streak', 'matched_record'): 8, ('streak_broken', ''): 9, ('score_streak', 'new_record'): 10, ('score_streak', 'matched_record'): 11, ('score_streak', 'active'): 12, ('score_streak_broken', ''): 13, ('flip', 10): 14, ('flip', 5): 15, ('score_vs_opp', ''): 16, ('location_flip', ''): 17, ('year_discovery', ''): 18, ('decade_discovery', ''): 18, ('year_flip', ''): 19, ('decade_flip', ''): 19, ('margin_near_record', ''): 20, ('score_near_record', ''): 21}
+    def get_ordinal(n):
+        if 11 <= (n % 100) <= 13: suffix = 'th'
+        else: suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
+
+    rmap = {('milestone', 'total'): 1, ('milestone', 'continent'): 2, ('milestone', 'region'): 2, ('milestone', 'country'): 2, ('milestone', 'subdivision'): 2, ('milestone', 'decade'): 3, ('milestone', 'year'): 3, ('score_top_10', ''): 4, ('margin_record', 'max_win'): 5, ('margin_record', 'min_win'): 5, ('discovery', 'new_continent'): 6, ('discovery', 'new_un_region'): 6, ('discovery', 'new_country'): 6, ('discovery', 'new_subdivision'): 6, ('streak', 'new_record'): 7, ('streak', 'matched_record'): 8, ('streak_broken', ''): 9, ('score_streak', 'new_record'): 10, ('score_streak', 'matched_record'): 11, ('score_streak', 'active'): 12, ('score_streak_broken', ''): 13, ('flip', 10): 14, ('flip', 5): 15, ('score_vs_opp', ''): 16, ('location_flip', ''): 17, ('year_discovery', ''): 18, ('decade_discovery', ''): 18, ('year_flip', ''): 19, ('decade_flip', ''): 19, ('margin_near_record', ''): 20}
+    
     def gr(e):
         t, s, w = e.get('event_type'), e.get('subtype', ''), e.get('window')
         if t == 'flip': return 14 if w == 10 else 15
-        if t in ['streak_broken', 'score_streak_broken', 'score_vs_opp', 'location_flip', 'year_discovery', 'decade_discovery', 'year_flip', 'decade_flip', 'margin_near_record', 'score_near_record']: return rmap.get((t, ''), 99)
+        if t in ['streak_broken', 'score_streak_broken', 'score_vs_opp', 'location_flip', 'year_discovery', 'decade_discovery', 'year_flip', 'decade_flip', 'margin_near_record', 'score_top_10']: return rmap.get((t, ''), 99)
         return rmap.get((t, s), 99)
     evs.sort(key=gr)
 
@@ -650,19 +695,27 @@ def render_daily_news(dt, evs):
 
         if et == 'flip':
             p, c, w = e['prev_state'], e['current_state'], e['window']
+            pv, cv = abs(e['prev_val']), abs(e['curr_val'])
             txt = "DROPS TO TIE" if c == "Tie" else ("BREAKS TIE" if p == "Tie" else "TAKES THE LEAD")
-            ct = f"""<div class="event-title">{w}-GAME AVG: {cs} Score &middot; {txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="arrow">➜</span><span class="player-name {pc(c)}">{c.upper()}</span></div>"""
+            lead_info = f"Lead was {int(pv):,} pts → now {int(cv):,} pts"
+            ct = f"""<div class="event-title">{w}-GAME AVG: {cs} Score &middot; {txt}</div>
+                     <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="arrow">➜</span><span class="player-name {pc(c)}">{c.upper()}</span></div>
+                     <div class="record-detail" style="margin-top:6px; font-size:13px;">
+                        <div>{lead_info}</div>
+                     </div>"""
             rc = f"row-winner-{c}"
         elif et == 'streak':
             p, cnt, sub = e['player'], e['count'], e['subtype']
-            txt = "NEW RECORD STREAK" if sub == "new_record" else "MATCHED RECORD STREAK"
+            txt = "NEW RECORD STREAK" if sub == "new_record" else ("MATCHED RECORD STREAK" if sub == "matched_record" else "ACTIVE STREAK")
             ic, rc = "🔥", "row-streak"
-            ct = f"""<div class="event-title event-title-streak">{cs} &middot; {txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="streak-highlight">&middot; {'First time reaching' if sub == 'new_record' else 'Matches record of'} <b>{cnt}</b> days</span></div>"""
+            ct = f"""<div class="event-title event-title-streak">{cs} &middot; {txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="streak-highlight">&middot; {'First time reaching' if sub == 'new_record' else ('Matches record of' if sub == 'matched_record' else 'Reached')} <b>{cnt}</b> days</span></div>"""
         elif et == 'streak_broken':
             p, b, cnt, sub = e['player'], e['breaker'], e['count'], e['subtype']
             ic, rc = "🛑", "row-broken"
-            det = f"Stops {p}'s <b>{cnt}</b>-day run ({'was about to break' if sub == 'denied_break' else 'was about to match' if sub == 'denied_match' else 'Ends significant run'})"
-            ct = f"""<div class="event-title event-title-broken">{cs} &middot; STREAK SNAPPED</div><div class="change-visual"><span class="player-name {pc(b)}">{b.upper()}</span><span class="broken-detail">{det}</span></div>"""
+            breaker_text = f"by {b.upper()}" if b != "Tie" else "by a TIE"
+            det = f"Ends {p}'s <b>{cnt}</b>-game run {breaker_text}."
+            if sub == 'denied_break': det += " One game short of a new record!"
+            ct = f"""<div class="event-title event-title-broken">{cs} &middot; STREAK SNAPPED</div><div class="change-visual"><span class="player-name {pc(b)}">{b.upper() if b != 'Tie' else 'TIE'}</span><span class="broken-detail">{det}</span></div>"""
         elif et == 'score_streak':
             p, cnt, sub, lbl, stype = e['player'], e['count'], e['subtype'], e['threshold_label'], e['streak_type']
             ic, rc = ("🔥", "row-score-streak-hot") if stype == "hot" else ("❄️", "row-score-streak-cold")
@@ -675,42 +728,34 @@ def render_daily_news(dt, evs):
             p, cnt, sub, lbl = e['player'], e['count'], e['subtype'], e['threshold_label']
             ic, rc = "🛑", "row-broken"
             det = f"Ends run of <b>{cnt}</b> days" + (" (was about to break record)" if sub == "denied_break" else (" (was about to match record)" if sub == "denied_match" else ""))
-            ct = f"""<div class="event-title event-title-broken">{txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="broken-detail">{det}</span></div>"""
+            ct = f"""<div class="event-title event-title-broken">{lbl} STREAK ENDED</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="broken-detail">{det}</span></div>"""
         elif et == 'margin_record':
             p, sub, m = e['player'], e['subtype'], e['margin']
             ic, rc = ("📈", "row-record-max") if sub == "max_win" else ("🤏", "row-record-min")
-            tt = "RECORD WIN MARGIN" if sub == "max_win" else "RECORD TIGHTEST WIN"
-            cl = "event-title-record-max" if sub == "max_win" else "event-title-record-min"
+            tt, cl = ("RECORD WIN MARGIN", "event-title-record-max") if sub == "max_win" else ("RECORD TIGHTEST WIN", "event-title-record-min")
             at_badge = '<span class="all-time-badge">ALL-TIME RECORD</span>' if e.get('is_all_time') else ""
             ct = f"""<div class="event-title {cl}">{cs} &middot; {tt} {at_badge}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">Margin: {int(m):,} pts (Beats {int(e['prev_record']):,})</span></div>"""
         elif et == 'margin_near_record':
             p, sub, m = e['player'], e['subtype'], e['margin']
             ic, rc = "🎯", "row-record-near"
-            tt = "NEAR RECORD MARGIN"
-            cl = "event-title-record-near"
-            det = "Tightest" if sub == "near_min" else "Largest"
+            tt, cl, det = "NEAR RECORD MARGIN", "event-title-record-near", ("Tightest" if sub == "near_min" else "Largest")
             ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">Margin: {int(m):,} pts (Near {det} PB: {int(e['prev_record']):,})</span></div>"""
-        elif et == 'score_record':
-            p, sub, s = e['player'], e['subtype'], e['score']
-            ic = "🏆" if sub == "max_score" else "📉"
-            rc = "row-score-max" if sub == "max_score" else "row-score-min"
-            tt = "RECORD HIGH SCORE" if sub == "max_score" else "RECORD LOW SCORE"
-            cl = "event-title-score-max" if sub == "max_score" else "event-title-score-min"
-            at_badge = '<span class="all-time-badge">ALL-TIME RECORD</span>' if e.get('is_all_time') else ""
-            ct = f"""<div class="event-title {cl}">{cs} &middot; {tt} {at_badge}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">Score: {int(s):,} pts (Beats {int(e['prev_record']):,})</span></div>"""
-        elif et == 'score_near_record':
-            p, sub, s = e['player'], e['subtype'], e['score']
-            ic, rc = "🎯", "row-record-near"
-            tt = "NEAR RECORD SCORE"
-            cl = "event-title-record-near"
-            p_rec_lbl = "High" if sub == "near_max" else "Low"
-            ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">Score: {int(s):,} pts (Near {p_rec_lbl} PB: {int(e['prev_record']):,})</span></div>"""
+        elif et == 'score_top_10':
+            p, s, r = e['player'], e['score'], e['rank']
+            is_pb = r == 1
+            ic = "👑" if is_pb else "🏅"
+            rc = "row-score-max" if is_pb else "row-score-min"
+            ord_rank = get_ordinal(r)
+            tt = "NEW ALL-TIME RECORD" if is_pb else f"TOP 10 PERFORMANCE ({ord_rank})"
+            cl = "event-title-score-max" if is_pb else "event-title-score-min"
+            ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div>
+                     <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span>
+                     <span class="record-detail">Score: {int(s):,} pts &middot; Ranked {ord_rank} highest all-time as of this date</span></div>"""
         elif et == 'score_vs_opp':
             p, sub, s = e['player'], e['subtype'], e['score']
             opp, opp_rec = e['opponent'], e['opp_record']
             ic, rc = "⚔️", "row-score-beat-opp"
-            tt = "BEAT OPPONENT'S PB" if sub == "surpass_opp_max" else "LOWER THAN OPPONENT'S WORST"
-            cl = "event-title-score-beat"
+            tt, cl = ("BEAT OPPONENT'S PB", "event-title-score-beat") if sub == "surpass_opp_max" else ("LOWER THAN OPPONENT'S WORST", "event-title-score-beat")
             det_txt = f"Score: {int(s):,} pts (Surpassed {opp}'s best of {int(opp_rec):,})" if sub == "surpass_opp_max" else f"Score: {int(s):,} pts (Lower than {opp}'s worst of {int(opp_rec):,})"
             ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">{det_txt}</span></div>"""
         elif et == 'discovery':
@@ -718,8 +763,7 @@ def render_daily_news(dt, evs):
             if sub in ["new_country", "new_subdivision"]:
                 txt = "NEW COUNTRY" if sub == "new_country" else "NEW SUBDIVISION"
                 ic = get_flag_html(n) if sub == "new_country" else f"{get_flag_html(e.get('country', ''))} 📍"
-                stats = e.get('perf', {})
-                lbls = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
+                stats, lbls = e.get('perf', {}), {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
                 sh = "".join([f'<div class="stat-chip cat-{m.lower()} winner-{stats[m].lower()}"><span class="stat-icon">{lbls[m][0]}</span> <div class="stat-content"><span class="stat-type">{lbls[m][1]}</span><span class="stat-winner {pc(stats[m])}">{stats[m].upper()}</span></div></div>' for m in ["Total", "Geography", "Time"]])
                 det_txt = f'<span class="discovery-subtext">in {e.get("country", "")}</span>' if sub == "new_subdivision" else ""
                 ct = f"""<div class="event-title event-title-discovery">{txt}</div><div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}</div><div class="discovery-stats-box">{sh}</div>"""
@@ -752,13 +796,9 @@ def render_daily_news(dt, evs):
             ct = f"""<div class="event-title event-title-capture">⏱️ CONTROL FLIP: DECADE {ctype.upper()}</div><div class="change-visual"><span class="discovery-highlight">{n}</span><span class="arrow" style="margin-left:10px;">➔</span> <span class="player-name {pc(p)}">{p.upper()}</span> <span class="arrow">➜</span> <span class="player-name {pc(c)}">{c.upper()}</span></div>"""
         elif et == 'location_flip':
             ctype, p, c, n, sub = e['cat_type'], e['prev_state'], e['current_state'], e['name'], e['subtype']
-            if "country" in sub: lt, ic = "COUNTRY", get_flag_html(n)
-            elif "subdivision" in sub: lt, ic = "SUBDIVISION", f"{get_flag_html(e.get('country', ''))} 📍"
-            elif "region" in sub: lt, ic = "REGION", "🌐"
-            elif "continent" in sub: lt, ic = "CONTINENT", "🌏"
-            else: lt, ic = "LOCATION", "📍"
-            icons = {"Total": "🏆", "Geography": "🌍", "Time": "⏱️"}
-            ico = icons.get(ctype, "📍")
+            lt = "COUNTRY" if "country" in sub else ("SUBDIVISION" if "subdivision" in sub else ("REGION" if "region" in sub else ("CONTINENT" if "continent" in sub else "LOCATION")))
+            ic = get_flag_html(n) if "country" in sub else (f"{get_flag_html(e.get('country', ''))} 📍" if "subdivision" in sub else ("🌐" if "region" in sub else "🌏"))
+            ico = {"Total": "🏆", "Geography": "🌍", "Time": "⏱️"}.get(ctype, "📍")
             ct = f"""<div class="event-title event-title-capture">{ico} CONTROL FLIP: {lt} {ctype.upper()}</div><div class="change-visual"><span class="discovery-highlight">{n}</span><span class="arrow" style="margin-left:10px;">➔</span> <span class="player-name {pc(p)}">{p.upper()}</span> <span class="arrow">➜</span> <span class="player-name {pc(c)}">{c.upper()}</span></div>"""
             rc = "row-capture"
         elif et == 'milestone':
@@ -799,9 +839,7 @@ if not raw_data.empty:
     
     with st.sidebar:
         st.header("Feed Settings")
-        fo = {
-            "Momentum Shifts": ["flip"], "Win Streak Updates": ["streak", "streak_broken"], "Score Threshold Streaks": ["score_streak", "score_streak_broken"], "Win Margin Records": ["margin_record", "margin_near_record"], "Raw Score Records": ["score_record", "score_near_record", "score_vs_opp"], "Location Updates": ["discovery", "location_flip"], "Year Updates": ["year_discovery", "year_flip", "decade_discovery", "decade_flip"], "Milestones": ["milestone"]
-        }
+        fo = {"Momentum Shifts": ["flip"], "Win Streak Updates": ["streak", "streak_broken"], "Score Threshold Streaks": ["score_streak", "score_streak_broken"], "Win Margin Records": ["margin_record", "margin_near_record"], "Leaderboard Records": ["score_top_10", "score_vs_opp"], "Location Updates": ["discovery", "location_flip"], "Year Updates": ["year_discovery", "year_flip", "decade_discovery", "decade_flip"], "Milestones": ["milestone"]}
         sf = st.multiselect("Filter Event Types:", options=list(fo.keys()), default=list(fo.keys()))
         at = set()
         for f in sf: at.update(fo[f])
