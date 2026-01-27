@@ -459,3 +459,10 @@ TimeGuessr #970
 3. Gyor, Hungary, 1948
 4. Washington DC (Washington DC), United States, 2025
 5. Oslo, Norway, 1954
+
+TimeGuessr #971
+1. Santiago, Chile, 2011
+2. Ljubljana, Slovenia, 1931
+3. Pretoria, South Africa, 1961
+4. St. Wolfgang im Salzkammergut, Austria, 1966
+5. Boston (Massachusetts), United States, 1906
