@@ -466,3 +466,17 @@ TimeGuessr #971
 3. Pretoria, South Africa, 1961
 4. St. Wolfgang im Salzkammergut, Austria, 1966
 5. Boston (Massachusetts), United States, 1906
+
+TimeGuessr #972
+1. Mauna Kea (Hawaii), United States, 2019
+2. Madrid (Community of Madrid), Spain, 1972
+3. Nablus, Palestine, 1941
+4. Katowice (Silesian), Poland, 1993
+5. Osaka, Japan, 1947
+
+TimeGuessr #973
+1. Høyanger, Norway, 1965
+2. Washington DC (Washington DC), United States, 2025
+3. Saint Petersburg (Saint Petersburg), Russia, 1935
+4. Dhaka, Bangladesh, 1981
+5. Amsterdam, Netherlands, 1971
