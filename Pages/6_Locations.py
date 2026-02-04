@@ -188,7 +188,8 @@ ISO_LANGUAGE_MAP = {
 SPLIT_CONFIG = {
     "AUS": {"name": "Australia", "map": {}},
     "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
-    "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng", "Taiwan": "Taiwan"}},
+    # Removed "Taiwan": "Taiwan" from CHN map to separate it
+    "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng"}},
     "FRA": {"name": "France", "map": {"Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne", "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire", "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France", "Ile-de-France": "Île-de-France", "Normandy": "Normandie", "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie", "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"}},
     "DEU": {"name": "Germany", "map": {"Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen", "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen", "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen", "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"}},
     "IND": {"name": "India", "map": {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"}},
@@ -251,6 +252,58 @@ def load_data():
     try:
         df = pd.read_csv("./Data/Timeguessr_Stats.csv")
         df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
+        
+        # --- SCORE IMPUTATION LOGIC (UPDATED) ---
+        # Logic: Use Min/Max columns to fill missing Geo/Time scores.
+        # Ensure that if we calculate Geo/Time, we also sum them up to fill the Round Score
+        # so that calculate_stats knows the player played.
+
+        def fill_missing_scores(prefix, round_col_name):
+            geo_col = f"{prefix} Geography Score"
+            time_col = f"{prefix} Time Score"
+            geo_min, geo_max = f"{geo_col} (Min)", f"{geo_col} (Max)"
+            time_min, time_max = f"{time_col} (Min)", f"{time_col} (Max)"
+            
+            # Check if necessary range columns exist
+            if not {geo_min, geo_max, time_min, time_max}.issubset(df.columns):
+                return
+
+            # 1. Impute Geo
+            mask_geo_missing = df[geo_col].isna() & df[geo_min].notna() & df[geo_max].notna()
+            if mask_geo_missing.any():
+                df.loc[mask_geo_missing, geo_col] = (df.loc[mask_geo_missing, geo_min] + df.loc[mask_geo_missing, geo_max]) / 2
+
+            # 2. Impute Time
+            mask_time_missing = df[time_col].isna() & df[time_min].notna() & df[time_max].notna()
+            if mask_time_missing.any():
+                df.loc[mask_time_missing, time_col] = (df.loc[mask_time_missing, time_min] + df.loc[mask_time_missing, time_max]) / 2
+            
+            # 3. Recalculate Round Score if missing (Round Score = Geo + Time)
+            # Crucially, we prioritize filling the column 'Michael Round Score' (or Sarah) 
+            # because that is what calculate_stats looks for.
+            if round_col_name and round_col_name in df.columns:
+                # We want to fill Round Score if it is NA, provided we have Geo and Time (either existing or just imputed)
+                mask_round_missing = df[round_col_name].isna() & df[geo_col].notna() & df[time_col].notna()
+                if mask_round_missing.any():
+                    df.loc[mask_round_missing, round_col_name] = df.loc[mask_round_missing, geo_col] + df.loc[mask_round_missing, time_col]
+
+        # Apply to Michael and Sarah
+        # Determine the primary 'Round' column name to fix. 
+        # We prioritize 'Round Score' because calculate_stats checks that first.
+        m_col = 'Michael Round Score' if 'Michael Round Score' in df.columns else ('Michael Total Score' if 'Michael Total Score' in df.columns else None)
+        s_col = 'Sarah Round Score' if 'Sarah Round Score' in df.columns else ('Sarah Total Score' if 'Sarah Total Score' in df.columns else None)
+
+        fill_missing_scores('Michael', m_col)
+        fill_missing_scores('Sarah', s_col)
+
+        # --- TAIWAN DATA FIX ---
+        # Explicitly handle cases where Country is China and Subdivision is Taiwan
+        # This prevents it from being lumped into China's stats or subdivisions
+        mask_tw_data = (df['Country'] == 'China') & (df['Subdivision'] == 'Taiwan')
+        df.loc[mask_tw_data, 'Country'] = 'Taiwan'
+        df.loc[mask_tw_data, 'Subdivision'] = np.nan # Clear subdivision as it is now the country
+        # -----------------------
+
         # Pre-calculate ISO, Continent, Region ONCE
         unique_c = df["Country"].dropna().unique()
         iso_map = dict(zip(unique_c, cc.convert(names=unique_c, to='ISO3', not_found=None)))
@@ -290,6 +343,27 @@ def load_map():
         gdf = gpd.read_file(target_file)
         gdf['geometry'] = gdf['geometry'].buffer(0) # Fix Topology Errors
         
+        # --- TAIWAN MAP FIX ---
+        # Identify Taiwan polygons based on NAME or ISO_SUB
+        # We perform this BEFORE standard ISO conversion to ensure it doesn't default to CHN
+        mask_tw = gdf['NAME'] == 'Taiwan'
+        if 'ISO_SUB' in gdf.columns:
+            mask_tw = mask_tw | (gdf['ISO_SUB'] == 'TW')
+            
+        # Enforce distinct ISO3 for Taiwan
+        # Check which ISO column exists or create one
+        iso_cols = [c for c in ['ISO3', 'iso3', 'adm0_a3'] if c in gdf.columns]
+        if iso_cols:
+            for col in iso_cols:
+                gdf.loc[mask_tw, col] = 'TWN'
+        else:
+            # If no ISO column exists yet, create ISO3
+            gdf.loc[mask_tw, 'ISO3'] = 'TWN'
+        
+        # Also ensure NAME is consistent
+        gdf.loc[mask_tw, 'NAME'] = 'Taiwan'
+        # ----------------------
+
         # Standardize
         iso_col = next((c for c in ['ISO3', 'iso3', 'adm0_a3'] if c in gdf.columns), None)
         if iso_col:
