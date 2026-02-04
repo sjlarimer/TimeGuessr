@@ -480,3 +480,31 @@ TimeGuessr #973
 3. Saint Petersburg (Saint Petersburg), Russia, 1935
 4. Dhaka, Bangladesh, 1981
 5. Amsterdam, Netherlands, 1971
+
+TimeGuessr #974
+1. Taipei, Taiwan, 2022
+2. Copenhagen, Denmark, 1960
+3. Istanbul, Türkiye, 1984
+4. Paris (Ile-de-France), France, 1999
+5. London (England), United Kingdom, 1940
+
+TimeGuessr #977
+1. Amsterdam, Netherlands, 1964
+2. Baltimore (Maryland), United States, 1954
+3. Tønsberg, Norway, 1906
+4. Brasilia, Brazil, 2023
+5. Tokyo, Japan, 1949
+
+TimeGuessr #978
+1. Venice (Veneto), Italy, 1927
+2. Sydney (New South Wales), Australia, 1980
+3. Tehran, Iran, 2008
+4. Thessaloniki, Greece, 1963
+5. Chicago (Illinois), United States, 1952
+
+TimeGuessr #979
+1. Vancouver (Washington), United States, 1960
+2. Capri (Campania), Italy, 1960
+3. Beijing (Beijing), China, 1998
+4. Zurich, Switzerland, 2010
+5. Vancouver (British Columbia), Canada, 1932
