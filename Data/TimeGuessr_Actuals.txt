@@ -508,3 +508,11 @@ TimeGuessr #979
 3. Beijing (Beijing), China, 1998
 4. Zurich, Switzerland, 2010
 5. Vancouver (British Columbia), Canada, 1932
+
+TimeGuessr #980
+1. New York (New York), United States, 2025
+2. New Delhi (Delhi), India, 1959
+3. Madrid (Community of Madrid), Spain, 1984
+4. Budapest, Hungary, 1961
+5. Katoomba (New South Wales), Australia, 1918
+
