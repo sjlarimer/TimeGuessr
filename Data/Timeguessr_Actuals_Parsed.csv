@@ -382,6 +382,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1000,1,Macao,Macao,China,2008
 1000,2,Helsinki,,Finland,1945
 1000,3,Paris,Ile-de-France,France,1978
+1000,4,Busan,,South Korea,1980
 1000,5,Seattle,Washington,United States,1925
 1001,1,Milan,Lombardy,Italy,1988
 1001,2,Washington DC,Washington DC,United States,2026
@@ -393,3 +394,18 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1002,3,Quito,,Ecuador,2009
 1002,4,Paris,Ile-de-France,France,1969
 1002,5,Toronto,Ontario,Canada,2019
+1005,1,Bangkok,,Thailand,2020
+1005,2,Copenhagen,,Denmark,1960
+1005,3,Yogyakarta,,Indonesia,1974
+1005,4,London,England,United Kingdom,1964
+1005,5,Stockholm,,Sweden,1941
+1006,1,Amersfoort,,Netherlands,1963
+1006,2,West Allis,Wisconsin,United States,2013
+1006,3,Helsinki,,Finland,1948
+1006,4,San Francisco,California,United States,1992
+1006,5,Dunedin,,New Zealand,1920
+1007,1,Phoenix,Arizona,United States,1940
+1007,2,Montreal,Quebec,Canada,1973
+1007,3,Sarajevo,,Bosnia and Herzegovina,1997
+1007,4,Feldkirch Austrian Border,,Liechtenstein,1978
+1007,5,Varanasi,Uttar Pradesh,India,2019

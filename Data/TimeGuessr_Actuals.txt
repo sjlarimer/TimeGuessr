@@ -534,7 +534,7 @@ TimeGuessr #1000
 1. Macao (Macao), China, 2008
 2. Helsinki, Finland, 1945
 3. Paris (Ile-de-France), France, 1978
-4. Busan, South Korea, 1980https://timeguessr.com/roundfivedaily
+4. Busan, South Korea, 1980
 5. Seattle (Washington), United States, 1925
 
 TimeGuessr #1001
@@ -550,3 +550,24 @@ TimeGuessr #1002
 3. Quito, Ecuador, 2009
 4. Paris (Ile-de-France), France, 1969
 5. Toronto (Ontario), Canada, 2019
+
+TimeGuessr #1005
+1. Bangkok, Thailand, 2020
+2. Copenhagen, Denmark, 1960
+3. Yogyakarta, Indonesia, 1974
+4. London (England), United Kingdom, 1964
+5. Stockholm, Sweden, 1941
+
+TimeGuessr #1006
+1. Amersfoort, Netherlands, 1963
+2. West Allis (Wisconsin), United States, 2013
+3. Helsinki, Finland, 1948
+4. San Francisco (California), United States, 1992
+5. Dunedin, New Zealand, 1920
+
+TimeGuessr #1007
+1. Phoenix (Arizona), United States, 1940
+2. Montreal (Quebec), Canada, 1973
+3. Sarajevo, Bosnia and Herzegovina, 1997
+4. Feldkirch Austrian Border, Liechtenstein, 1978
+5. Varanasi (Uttar Pradesh), India, 2019
