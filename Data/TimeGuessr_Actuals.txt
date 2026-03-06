@@ -571,3 +571,17 @@ TimeGuessr #1007
 3. Sarajevo, Bosnia and Herzegovina, 1997
 4. Feldkirch Austrian Border, Liechtenstein, 1978
 5. Varanasi (Uttar Pradesh), India, 2019
+
+TimeGuessr #1008
+1. Nampa (Idaho), United States, 1941
+2. Bratislava, Slovakia, 1960
+3. Oslo, Norway, 1951
+4. Hanoi, Vietnam, 1978
+5. Santiago, Chile, 2015
+
+TimeGuessr #1009
+1. Minsk, Belarus, 2020
+2. Amsterdam, Netherlands, 1950
+3. New York (New York), United States, 1985
+4. Bogota, Colombia, 2017
+5. Kozani, Greece, 1964
