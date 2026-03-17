@@ -449,3 +449,8 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1019,3,Berlin,Berlin,Germany,1975
 1019,4,Washington DC,Washington DC,United States,1981
 1019,5,London,England,United Kingdom,1919
+1020,1,Dublin,,Ireland,2016
+1020,2,St. Anton am Arlberg,,Austria,1955
+1020,3,Manila,,Philippines,1945
+1020,4,Riga,,Latvia,1991
+1020,5,Plymouth,New Hampshire,United States,1988

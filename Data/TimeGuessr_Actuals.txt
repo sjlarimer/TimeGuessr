@@ -627,3 +627,10 @@ TimeGuessr #1019
 3. Berlin (Berlin), Germany, 1975
 4. Washington DC (Washington DC), United States, 1981
 5. London (England), United Kingdom, 1919
+
+TimeGuessr #1020
+1. Dublin, Ireland, 2016
+2. St. Anton am Arlberg, Austria, 1955
+3. Manila, Philippines, 1945
+4. Riga, Latvia, 1991
+5. Plymouth (New Hampshire), United States, 1988
