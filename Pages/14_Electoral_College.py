@@ -73,12 +73,11 @@ STATE_CENTROIDS = {
     'WV': (38.49, -80.95), 'WI': (44.27, -89.62), 'WY': (43.08, -107.29),
 }
 
-# Distinct colors for all four outcomes — no shared hue with michael or sarah
 WIN_COLORS = {
-    'michael': '#221e8f',  # deep blue
-    'sarah':   '#8a005c',  # deep pink/magenta
-    'tied':    '#a09587',  # warm medium gray (clearly neutral)
-    'third':   '#ddd9d4',  # light warm gray
+    'michael': '#221e8f',
+    'sarah':   '#8a005c',
+    'tied':    '#a09587',
+    'third':   '#ddd9d4',
 }
 WIN_LABELS = {
     'michael': 'Michael',
@@ -210,7 +209,7 @@ def load_data():
         st.stop()
 
 # ──────────────────────────────────────────────────────────────────────────────
-# State Results Calculation
+# State Results (snapshot)
 # ──────────────────────────────────────────────────────────────────────────────
 def calculate_state_results(df, score_mode):
     us_df = df[
@@ -219,44 +218,36 @@ def calculate_state_results(df, score_mode):
     us_df['State'] = us_df['Subdivision'].replace(SUBDIV_NORMALIZATION)
     us_df = us_df[us_df['State'].notna()]
 
-    # Exclude rows where either player's total score is missing
     m_total_col = 'Michael Round Score' if 'Michael Round Score' in us_df.columns else None
     s_total_col = 'Sarah Round Score'   if 'Sarah Round Score'   in us_df.columns else None
     if m_total_col and s_total_col:
         us_df = us_df[us_df[m_total_col].notna() & us_df[s_total_col].notna()]
 
-    # Select score columns
     if score_mode == "Total Score":
-        # Use Round Score columns directly (post-imputation = geo + time)
         if 'Michael Round Score' in us_df.columns:
             us_df['_m'] = us_df['Michael Round Score']
         else:
-            us_df['_m'] = (us_df['Michael Geography Score'].fillna(0) +
-                           us_df['Michael Time Score'].fillna(0))
+            us_df['_m'] = us_df['Michael Geography Score'].fillna(0) + us_df['Michael Time Score'].fillna(0)
         if 'Sarah Round Score' in us_df.columns:
             us_df['_s'] = us_df['Sarah Round Score']
         else:
-            us_df['_s'] = (us_df['Sarah Geography Score'].fillna(0) +
-                           us_df['Sarah Time Score'].fillna(0))
+            us_df['_s'] = us_df['Sarah Geography Score'].fillna(0) + us_df['Sarah Time Score'].fillna(0)
     elif score_mode == "Geography Score":
         us_df['_m'] = us_df['Michael Geography Score']
         us_df['_s'] = us_df['Sarah Geography Score']
-    else:  # Time Score
+    else:
         us_df['_m'] = us_df['Michael Time Score']
         us_df['_s'] = us_df['Sarah Time Score']
 
-    # Determine participation (NaN = didn't play)
     m_played = us_df['_m'].notna()
     s_played = us_df['_s'].notna()
-
-    # Zero out non-players so sums work, but track rounds via count (ignores NaN)
     us_df['_m_clean'] = np.where(m_played, us_df['_m'], np.nan)
     us_df['_s_clean'] = np.where(s_played, us_df['_s'], np.nan)
 
     agg = us_df.groupby('State').agg(
         Michael_Score=('_m_clean', 'sum'),
         Sarah_Score=('_s_clean', 'sum'),
-        Michael_Rounds=('_m_clean', 'count'),   # count skips NaN
+        Michael_Rounds=('_m_clean', 'count'),
         Sarah_Rounds=('_s_clean', 'count'),
         Total_Rounds=('State', 'count'),
     ).reset_index()
@@ -273,6 +264,132 @@ def calculate_state_results(df, score_mode):
 
     agg['Winner'] = agg.apply(get_winner, axis=1)
     return agg
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EV Timeline
+# ──────────────────────────────────────────────────────────────────────────────
+@st.cache_data
+def calculate_ev_timeline(df_json, score_mode, is_tg):
+    """
+    Returns a DataFrame with columns:
+        Date, michael_votes, sarah_votes, tied_votes, third_votes, total_votes
+    one row per unique date on which the EV tally changes.
+
+    Strategy: replay rows chronologically, maintaining per-state running
+    score totals; after every new date boundary, recompute state winners
+    and EV sums — but only emit a row when something actually changed.
+    """
+    df = pd.read_json(df_json, orient='split')
+    df['Date'] = pd.to_datetime(df['Date'])
+
+    us_df = df[df['Country'].isin(['United States', 'USA', 'United States of America'])].copy()
+    us_df['State'] = us_df['Subdivision'].replace(SUBDIV_NORMALIZATION)
+    us_df = us_df[us_df['State'].notna()]
+
+    m_total_col = 'Michael Round Score' if 'Michael Round Score' in us_df.columns else None
+    s_total_col = 'Sarah Round Score'   if 'Sarah Round Score'   in us_df.columns else None
+    if m_total_col and s_total_col:
+        us_df = us_df[us_df[m_total_col].notna() & us_df[s_total_col].notna()]
+
+    # Pick the scoring column
+    if score_mode == "Total Score":
+        score_col_m = 'Michael Round Score' if 'Michael Round Score' in us_df.columns else None
+        score_col_s = 'Sarah Round Score'   if 'Sarah Round Score'   in us_df.columns else None
+        us_df['_m'] = us_df[score_col_m] if score_col_m else (
+            us_df['Michael Geography Score'].fillna(0) + us_df['Michael Time Score'].fillna(0))
+        us_df['_s'] = us_df[score_col_s] if score_col_s else (
+            us_df['Sarah Geography Score'].fillna(0) + us_df['Sarah Time Score'].fillna(0))
+    elif score_mode == "Geography Score":
+        us_df['_m'] = us_df['Michael Geography Score']
+        us_df['_s'] = us_df['Sarah Geography Score']
+    else:
+        us_df['_m'] = us_df['Michael Time Score']
+        us_df['_s'] = us_df['Sarah Time Score']
+
+    us_df = us_df.sort_values('Date').reset_index(drop=True)
+
+    # Running per-state accumulators
+    state_m_score  = {}   # state → cumulative michael score
+    state_s_score  = {}   # state → cumulative sarah score
+    state_m_rounds = {}   # state → michael round count
+    state_s_rounds = {}   # state → sarah round count
+
+    # Current winner per state (cached to detect changes)
+    state_winner = {}
+
+    def state_ev(state):
+        return ELECTORAL_VOTES.get(state, 0)
+
+    def compute_winner(state):
+        ms = state_m_score.get(state, 0)
+        ss = state_s_score.get(state, 0)
+        mr = state_m_rounds.get(state, 0)
+        sr = state_s_rounds.get(state, 0)
+        if mr == 0 and sr == 0: return 'third'
+        if mr > 0  and sr == 0: return 'michael'
+        if sr > 0  and mr == 0: return 'sarah'
+        if ms > ss: return 'michael'
+        if ss > ms: return 'sarah'
+        return 'tied'
+
+    def tally(is_tg_mode):
+        ev = {'michael': 0, 'sarah': 0, 'tied': 0, 'third': 0}
+        if is_tg_mode:
+            for state in ELECTORAL_VOTES:
+                mr = state_m_rounds.get(state, 0)
+                sr = state_s_rounds.get(state, 0)
+                w  = state_winner.get(state, 'third')
+                ev[w] += mr + sr
+            # Unplayed states have 0 rounds; add nothing — they just stay in 'third' with 0
+        else:
+            for state, votes in ELECTORAL_VOTES.items():
+                w = state_winner.get(state, 'third')
+                ev[w] += votes
+        return ev
+
+    rows = []
+    prev_ev = None
+
+    # Group by date — process all rounds that happened on the same day together
+    for date, group in us_df.groupby('Date', sort=True):
+        changed_states = set()
+        for _, row in group.iterrows():
+            state = row['State']
+            if state not in ELECTORAL_VOTES:
+                continue
+
+            m_val = row['_m']
+            s_val = row['_s']
+
+            if pd.notna(m_val):
+                state_m_score[state]  = state_m_score.get(state, 0)  + m_val
+                state_m_rounds[state] = state_m_rounds.get(state, 0) + 1
+            if pd.notna(s_val):
+                state_s_score[state]  = state_s_score.get(state, 0)  + s_val
+                state_s_rounds[state] = state_s_rounds.get(state, 0) + 1
+
+            changed_states.add(state)
+
+        # Recompute winner for every touched state
+        for state in changed_states:
+            state_winner[state] = compute_winner(state)
+
+        current_ev = tally(is_tg)
+        if current_ev != prev_ev:
+            rows.append({'Date': date, **current_ev})
+            prev_ev = current_ev.copy()
+
+    if not rows:
+        return pd.DataFrame(columns=['Date', 'michael', 'sarah', 'tied', 'third'])
+
+    timeline = pd.DataFrame(rows)
+    # Duplicate last point to today so line extends to right edge
+    last = timeline.iloc[-1].copy()
+    last['Date'] = pd.Timestamp.now().normalize()
+    if last['Date'] > timeline['Date'].iloc[-1]:
+        timeline = pd.concat([timeline, last.to_frame().T], ignore_index=True)
+
+    return timeline
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Sidebar
@@ -307,7 +424,7 @@ else:
     filtered_data = data.copy()
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Compute results
+# Compute snapshot results
 # ──────────────────────────────────────────────────────────────────────────────
 state_results = calculate_state_results(filtered_data, score_mode)
 
@@ -324,11 +441,9 @@ state_results['abbrev']       = state_results['State'].map(STATE_ABBREV)
 state_results['color']        = state_results['Winner'].map(WIN_COLORS)
 state_results['winner_label'] = state_results['Winner'].map(WIN_LABELS)
 
-# Assign vote weight per mode
 is_tg_college = (college_mode == "TimeGuessr College")
 if is_tg_college:
-    # Votes = total rounds played in that state (both players combined)
-    state_results['Votes'] = ((state_results['Michael_Rounds'] + state_results['Sarah_Rounds']).astype(int))/2 + 2
+    state_results['Votes'] = ((state_results['Michael_Rounds'] + state_results['Sarah_Rounds']).astype(int)) / 2 + 2
     vote_label   = "Rounds"
     vote_label_s = "rounds"
     mode_emoji   = "⏱️"
@@ -342,7 +457,7 @@ else:
 
 TOTAL_VOTES = int(state_results['Votes'].sum())
 ev = {k: int(state_results.loc[state_results['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
-threshold = TOTAL_VOTES // 2 + 1
+threshold    = TOTAL_VOTES // 2 + 1
 overall_winner = ('michael' if ev['michael'] >= threshold
                   else 'sarah' if ev['sarah'] >= threshold
                   else None)
@@ -356,13 +471,13 @@ threshold_desc = (f"{threshold:,} {vote_label_s} needed to win · {TOTAL_VOTES:,
                   if is_tg_college else
                   f"270 electoral votes needed to win · {TOTAL_VOTES:,} total")
 st.markdown(
-    f'<p style="color:#696761;font-size:0.87rem;margin-top:-0.4rem;margin-bottom:0.8rem;">' +
-    f'All-time {score_mode_label} decides each state · Winner-take-all · ' +
+    f'<p style="color:#696761;font-size:0.87rem;margin-top:-0.4rem;margin-bottom:0.8rem;">'
+    f'All-time {score_mode_label} decides each state · Winner-take-all · '
     f'Tied states award no votes · Unplayed states award no votes · {threshold:,} to win</p>',
     unsafe_allow_html=True
 )
 
-# ── EV / Votes progress bar ── Michael left | tied | third | Sarah right ─────
+# ── EV progress bar ───────────────────────────────────────────────────────────
 bar_total = TOTAL_VOTES if TOTAL_VOTES > 0 else 1
 segs = [
     (ev['michael'], WIN_COLORS['michael']),
@@ -375,10 +490,7 @@ bar_inner = "".join(
     for v, c in segs if v > 0
 )
 st.markdown(f'<div class="ev-bar-wrap">{bar_inner}</div>', unsafe_allow_html=True)
-st.markdown(
-    f'<div class="threshold-note">{threshold_desc}</div>',
-    unsafe_allow_html=True
-)
+st.markdown(f'<div class="threshold-note">{threshold_desc}</div>', unsafe_allow_html=True)
 
 # ── Popular vote bar ──────────────────────────────────────────────────────────
 pv_michael = int(state_results['Michael_Score'].sum())
@@ -456,7 +568,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Map — one choropleth trace per outcome for truly discrete colors
+# Map
 # ──────────────────────────────────────────────────────────────────────────────
 fig = go.Figure()
 
@@ -467,8 +579,8 @@ for winner_key, color in WIN_COLORS.items():
 
     hover_texts = []
     for _, row in subset.iterrows():
-        mr, sr   = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
-        ms, ss   = int(row['Michael_Score']),  int(row['Sarah_Score'])
+        mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
+        ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
         votes_val = int(row['Votes'])
         ev_val    = int(row['EV'])
 
@@ -506,7 +618,6 @@ for winner_key, color in WIN_COLORS.items():
         showlegend=False,
     ))
 
-# Vote / EV number labels
 lats, lons, labels = [], [], []
 for _, row in state_results.iterrows():
     abbr = row['abbrev']
@@ -565,6 +676,126 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
+# EV Timeline
+# ──────────────────────────────────────────────────────────────────────────────
+st.markdown(f'<div class="section-header">{vote_label} Over Time</div>', unsafe_allow_html=True)
+
+# Serialize filtered_data → JSON for cache-safe passing
+df_json = filtered_data.to_json(orient='split', date_format='iso')
+timeline = calculate_ev_timeline(df_json, score_mode, is_tg_college)
+
+if not timeline.empty and len(timeline) > 1:
+    # Compute threshold line — for TG mode it changes over time, so just use
+    # the current snapshot threshold for simplicity (a horizontal reference line)
+    tl_threshold = 270 if not is_tg_college else threshold
+
+    fig_tl = go.Figure()
+
+    # Shaded fill under Michael's line
+    fig_tl.add_trace(go.Scatter(
+        x=timeline['Date'], y=timeline['michael'],
+        mode='lines',
+        line=dict(color=COLORS['michael'], width=2.5),
+        fill='tozeroy',
+        fillcolor='rgba(34,30,143,0.10)',
+        name='Michael',
+        hovertemplate='<b>Michael</b>: %{y:,}<br>%{x|%b %d, %Y}<extra></extra>',
+    ))
+
+    # Shaded fill under Sarah's line (drawn on top, different fill direction)
+    fig_tl.add_trace(go.Scatter(
+        x=timeline['Date'], y=timeline['sarah'],
+        mode='lines',
+        line=dict(color=COLORS['sarah'], width=2.5),
+        fill='tozeroy',
+        fillcolor='rgba(138,0,92,0.10)',
+        name='Sarah',
+        hovertemplate='<b>Sarah</b>: %{y:,}<br>%{x|%b %d, %Y}<extra></extra>',
+    ))
+
+    # Threshold line
+    fig_tl.add_hline(
+        y=tl_threshold,
+        line_dash='dot',
+        line_color='#696761',
+        line_width=1.5,
+        annotation_text=f'{tl_threshold:,} to win',
+        annotation_position='right',
+        annotation_font_color='#696761',
+        annotation_font_size=11,
+    )
+
+    # Annotate final values
+    last_row = timeline.iloc[-1]
+    for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14)]:
+        fig_tl.add_annotation(
+            x=last_row['Date'],
+            y=last_row[player],
+            text=f"  {int(last_row[player]):,}",
+            showarrow=False,
+            font=dict(color=col, size=11, family='Arial'),
+            xanchor='left',
+            yanchor='middle',
+            yshift=yshift,
+        )
+
+    # Detect flip events — dates where the leading player changed
+    lead = (timeline['michael'] > timeline['sarah']).map({True: 'michael', False: 'sarah'})
+    # Pad with a sentinel so we catch the first real lead
+    prev_lead = lead.shift(1, fill_value=lead.iloc[0])
+    flip_mask = lead != prev_lead
+    flips = timeline[flip_mask & (timeline.index > 0)]
+
+    for _, flip_row in flips.iterrows():
+        new_leader = 'michael' if flip_row['michael'] > flip_row['sarah'] else 'sarah'
+        fig_tl.add_vline(
+            x=flip_row['Date'].timestamp() * 1000,
+            line_dash='dash',
+            line_color=WIN_COLORS[new_leader],
+            line_width=1,
+            opacity=0.45,
+        )
+
+    fig_tl.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=20, b=40, l=50, r=80),
+        height=320,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom', y=1.02,
+            xanchor='left',   x=0,
+            font=dict(size=12),
+        ),
+        xaxis=dict(
+            showgrid=False,
+            showline=True, linecolor='#d9d7cc',
+            tickfont=dict(color='#696761', size=11),
+            title=None,
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor='#ede9e4', gridwidth=1,
+            showline=False,
+            tickfont=dict(color='#696761', size=11),
+            title=dict(text=vote_label, font=dict(color='#696761', size=11)),
+            rangemode='tozero',
+        ),
+        hoverlabel=dict(bgcolor='white', font_size=12, bordercolor='#d9d7cc'),
+        hovermode='x unified',
+    )
+
+    st.plotly_chart(fig_tl, use_container_width=True)
+    st.markdown(
+        f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:-0.5rem;">'
+        f'Dashed vertical lines mark moments when the lead changed · '
+        f'Each point reflects the cumulative {score_mode_label} through that date'
+        f'</p>',
+        unsafe_allow_html=True
+    )
+else:
+    st.info("Not enough data points to render a timeline.")
+
+# ──────────────────────────────────────────────────────────────────────────────
 # State Results Table
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-header">State Results</div>', unsafe_allow_html=True)
@@ -607,8 +838,8 @@ badge_html = {
 
 rows_html = ""
 for _, row in disp.iterrows():
-    mr, sr = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
-    ms, ss = int(row['Michael_Score']),  int(row['Sarah_Score'])
+    mr, sr     = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
+    ms, ss     = int(row['Michael_Score']),  int(row['Sarah_Score'])
     votes_disp = int(row['Votes'])
 
     m_str = (f"{ms:,}&nbsp;<span style='font-size:0.71rem;opacity:0.65;'>({mr}r)</span>"
