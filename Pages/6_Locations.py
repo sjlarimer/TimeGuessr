@@ -89,11 +89,36 @@ from plotly.colors import sample_colorscale
 import json
 import os
 import geopandas as gpd
+from shapely.geometry import shape as shp_shape
+import math
+from shapely.ops import unary_union
 
 # --- Configuration & Constants ---
 st.set_page_config(layout="wide", page_title="Map Stats")
 
 COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
+
+LANGUAGE_EMOJIS = {
+    'English':           '🇬🇧',
+    'Spanish':           '🇪🇸',
+    'French':            '🇫🇷',
+    'Portuguese':        '🇵🇹',
+    'Germanic':          '🇩🇪',
+    'Other Romance':     '🇮🇹',
+    'Slavic (Latin)':    '🇵🇱',
+    'Slavic (Cyrillic)': '🇷🇺',
+    'Slavic (Mixed)':    '🇧🇦',
+    'East Asian Scripts':'🇨🇳',
+    'Arabic Script':     '🇸🇦',
+    'Brahmic Script':    '🇮🇳',
+    'Hebrew Script':     '🇮🇱',
+    'Greek Script':      '🇬🇷',
+    'Georgian Script':   '🇬🇪',
+    'Armenian Script':   '🇦🇲',
+    'Turkic':            '🇹🇷',
+    'Other European':    '🇫🇮',
+    'Asian Latin Script':'🇮🇩',
+}
 
 # ISO3 to Primary Language/Script Mapping
 ISO_LANGUAGE_MAP = {
@@ -120,17 +145,19 @@ ISO_LANGUAGE_MAP = {
     # Removed BEL, LUX, CMR due to language splits
     'FRA': 'French', 'COD': 'French', 'MAD': 'French', 'CIV': 'French', 
     'BFA': 'French', 'NER': 'French', 'SEN': 'French', 'MLI': 'French', 'RWA': 'French', 
-    'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 
+    'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 'MDG': 'French', 
     'BEN': 'French', 'TGO': 'French', 'CAF': 'French', 'COG': 'French', 'GAB': 'French', 
-    'DJI': 'French', 'MCO': 'French', 'VUT': 'French', 'SYC': 'French',
+    'DJI': 'French', 'MCO': 'French', 'VUT': 'French', 'SYC': 'French', 'BDI': 'French',
     
-    # Italian
-    'ITA': 'Italian', 'SMR': 'Italian', 'VAT': 'Italian',
+    # Other Romance
+    'ITA': 'Other Romance', 'SMR': 'Other Romance', 'VAT': 'Other Romance', 
+    'AND': 'Other Romance', 'ROU': 'Other Romance', 'MDA': 'Other Romance',
 
     # Germanic (Excluding English)
     'DEU': 'Germanic', 'AUT': 'Germanic', 'LIE': 'Germanic', # German
     'NLD': 'Germanic', 'SUR': 'Germanic', # Dutch
     'SWE': 'Germanic', 'NOR': 'Germanic', 'DNK': 'Germanic', 'ISL': 'Germanic', # Nordic
+    'LUX': 'Germanic',
     
     # Other European (Unique/Isolates/Uralic/Baltic)
     'ALB': 'Other European', # Albanian
@@ -138,24 +165,25 @@ ISO_LANGUAGE_MAP = {
     'FIN': 'Other European', 'EST': 'Other European', # Finnic
     'LVA': 'Other European', 'LTU': 'Other European', # Baltic
 
+    # Turkic
+    'TUR': 'Turkic', 'AZE': 'Turkic', 'KAZ': 'Turkic',
+
     # Slavic (Latin Script)
     'POL': 'Slavic (Latin)', 'CZE': 'Slavic (Latin)', 'SVK': 'Slavic (Latin)',
     'SVN': 'Slavic (Latin)', 'HRV': 'Slavic (Latin)',
+    'BIH': 'Slavic (Latin)', 'SRB': 'Slavic (Latin)', 'MNE': 'Slavic (Latin)',
+    'MKD': 'Slavic (Latin)', 
     
     # Slavic (Cyrillic Script)
     'RUS': 'Slavic (Cyrillic)', 'BLR': 'Slavic (Cyrillic)', 'UKR': 'Slavic (Cyrillic)', 
     'BGR': 'Slavic (Cyrillic)', 'MKD': 'Slavic (Cyrillic)', 
-
-    # Slavic (Mixed Script)
-    'BIH': 'Slavic (Mixed)', 'SRB': 'Slavic (Mixed)', 'MNE': 'Slavic (Mixed)',
-    'MKD': 'Slavic (Mixed)', 
     
     # East Asian Scripts
     'CHN': 'East Asian Scripts', 'TWN': 'East Asian Scripts', 
     'JPN': 'East Asian Scripts', 'KOR': 'East Asian Scripts', 'PRK': 'East Asian Scripts',
 
     # Asian Latin Script
-    'VNM': 'Asian Latin Script', 'IDN': 'Asian Latin Script', 
+    'VNM': 'Asian Latin Script', 'IDN': 'Asian Latin Script', 'PHL': 'Asian Latin Script',
     'MYS': 'Asian Latin Script', 'BRN': 'Asian Latin Script',
 
     # Brahmic Script (Indic family)
@@ -202,6 +230,39 @@ SPLIT_CONFIG = {
     }},
     "GBR": {"name": "United Kingdom", "map": {}},
     "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia", "Puerto Rico": "Puerto Rico"}},
+    "BEL": {"name": "Belgium", "map": {
+        "Brussels": "Bruxelles-Capitale: Région de",
+        "Flanders": "Vlaamse Gewest",
+        "Wallonia": "wallonne, Région"
+    }},
+    "CHE": {"name": "Switzerland", "map": {
+        "Aargau": "Aargau",
+        "Appenzell Ausserrhoden": "Appenzell Ausserrhoden",
+        "Appenzell Innerrhoden": "Appenzell Innerrhoden",
+        "Basel-Landschaft": "Basel-Landschaft",
+        "Basel-Stadt": "Basel-Stadt",
+        "Bern": "Bern",
+        "Fribourg": "Freiburg",         
+        "Geneva": "Genève",          
+        "Glarus": "Glarus",
+        "Graubünden": "Graubünden",
+        "Jura": "Jura",
+        "Lucerne": "Luzern",            
+        "Neuchâtel": "Neuchâtel",
+        "Nidwalden": "Nidwalden",
+        "Obwalden": "Obwalden",
+        "Schaffhausen": "Schaffhausen",
+        "Schwyz": "Schwyz",
+        "Solothurn": "Solothurn",
+        "St. Gallen": "Sankt Gallen", 
+        "Thurgau": "Thurgau",
+        "Ticino": "Ticino",
+        "Uri": "Uri",
+        "Valais": "Valais",          
+        "Vaud": "Vaud",
+        "Zug": "Zug",
+        "Zurich": "Zürich",        
+    }},
 }
 
 # Microstates
@@ -240,6 +301,8 @@ except FileNotFoundError: pass
 
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+    
     .stRadio [role=radiogroup] { align-items: start; justify-content: start; }
     div[data-testid="stMetric"] { background-color: #f0f2f6; padding: 10px; border-radius: 5px; }
     .main .block-container { max-width: 98%; padding-left: 1rem; padding-right: 1rem; }
@@ -326,6 +389,24 @@ def load_data():
         
         # Special Language Logic for Puerto Rico
         df.loc[(df['ISO3'] == 'USA') & (df['Subdivision'] == 'Puerto Rico'), 'Language'] = 'Spanish'
+
+        # Special Language Logic for Belgium
+        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Flanders'), 'Language'] = 'Germanic'
+        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Wallonia'), 'Language'] = 'French'
+        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Brussels'), 'Language'] = 'French'  # placeholder
+
+        # Special Language Logic for Switzerland
+        _che_french   = ['Geneva', 'Vaud', 'Neuchâtel', 'Jura', 'Fribourg', 'Valais']
+        _che_italian_romansch  = ['Ticino','Graubünden']
+        _che_germanic = [
+            'Aargau', 'Appenzell Ausserrhoden', 'Appenzell Innerrhoden',
+            'Basel-Landschaft', 'Basel-Stadt', 'Bern', 'Glarus', 
+            'Lucerne', 'Nidwalden', 'Obwalden', 'Schaffhausen', 'Schwyz',
+            'Solothurn', 'St. Gallen', 'Thurgau', 'Uri', 'Zug', 'Zurich'
+        ]
+        df.loc[(df['ISO3'] == 'CHE') & (df['Subdivision'].isin(_che_french)),   'Language'] = 'French'
+        df.loc[(df['ISO3'] == 'CHE') & (df['Subdivision'].isin(_che_italian_romansch)),  'Language'] = 'Other Romance'
+        df.loc[(df['ISO3'] == 'CHE') & (df['Subdivision'].isin(_che_germanic)), 'Language'] = 'Germanic'
         
         # Special Logic for China Subdivisions (Overlapping Languages) -> Set to "Other"
         chn_subdivs_other = ['Hong Kong', 'Macau', 'Macao', 'Tibet', 'Xizang Zizhiqu', 'Xinjiang', 'Xinjiang Uygur Zizhiqu']
@@ -388,7 +469,25 @@ def load_map():
         # Special Map Logic for China Subdivisions -> "Other"
         chn_map_names = ['Hong Kong', 'Macao', 'Xizang Zizhiqu', 'Xinjiang Uygur Zizhiqu']
         gdf.loc[(gdf['ISO3'] == 'CHN') & (gdf['NAME'].isin(chn_map_names)), 'Language'] = 'Other'
+
+        # Special Map Logic for Belgium
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Vlaamse Gewest'), 'Language'] = 'Germanic'
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'wallonne, Région'), 'Language'] = 'French'
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de'), 'Language'] = 'French'  # placeholder
         
+        # Special Map Logic for Switzerland
+        _che_map_french   = ['Genève', 'Vaud', 'Neuchâtel', 'Jura', 'Freiburg', 'Valais']
+        _che_map_italian_romansch  = ['Ticino','Graubünden']
+        _che_map_germanic = [
+            'Aargau', 'Appenzell Ausserrhoden', 'Appenzell Innerrhoden',
+            'Basel-Landschaft', 'Basel-Stadt', 'Bern', 'Glarus', 
+            'Luzern', 'Nidwalden', 'Obwalden', 'Schaffhausen', 'Schwyz',
+            'Solothurn', 'Sankt Gallen', 'Thurgau', 'Uri', 'Zug', 'Zürich'
+        ]
+        gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_french)),   'Language'] = 'French'
+        gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_italian_romansch)),  'Language'] = 'Other Romance'
+        gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_germanic)), 'Language'] = 'Germanic'
+
         return gdf, set(gdf['NAME'].unique())
     except Exception as e:
         st.error(f"Map error: {e}"); return None, set()
@@ -956,6 +1055,80 @@ if map_geojson and not stats.empty:
                         line=dict(width=1, color=ms_df['BorderColor'])),
             text=ms_df['Hover_Name'], customdata=ms_custom, hovertemplate=hover_t_ms
         ))
+
+# --- Language Emoji Markers (Languages view only) ---
+    if view_mode == "Languages" and map_geojson and not stats.empty:
+        key_to_lang = dict(zip(stats['Join_Key'], stats['Language_Name']))
+        MIN_AREA_DEG2 = 0.05 
+        
+        # 69 miles / 69 miles per degree = ~1 degrees. 
+        # Divide by 2 to get the buffer radius (0.5 degrees).
+        BUFFER_DEG = 0.5
+
+        emoji_lats, emoji_lons, emoji_texts = [], [], []
+        polys_by_lang = {}
+
+        # 1. Group all valid polygons by their assigned language
+        for feature in map_geojson.get('features', []):
+            dissolve_key = feature['properties'].get('Dissolve_Key', '')
+            lang = key_to_lang.get(dissolve_key)
+            emoji = LANGUAGE_EMOJIS.get(lang) if lang else None
+            if not emoji:
+                continue
+
+            geom = shp_shape(feature['geometry'])
+            polys = list(geom.geoms) if geom.geom_type == 'MultiPolygon' else ([geom] if geom.geom_type == 'Polygon' else [])
+
+            for poly in polys:
+                if poly.area >= MIN_AREA_DEG2:
+                    if lang not in polys_by_lang:
+                        polys_by_lang[lang] = {'emoji': emoji, 'polygons': []}
+                    polys_by_lang[lang]['polygons'].append(poly)
+
+        # 2. Cluster the shapes using buffers
+        for lang, data in polys_by_lang.items():
+            emoji = data['emoji']
+            original_polys = data['polygons']
+            
+            # Expand every polygon by 125 miles (1.81 degrees)
+            buffers = [p.buffer(BUFFER_DEG) for p in original_polys]
+            
+            # Melt overlapping buffers together into continuous clusters
+            merged_buffers = unary_union(buffers)
+            
+            # Extract the distinct clusters
+            clusters = list(merged_buffers.geoms) if merged_buffers.geom_type == 'MultiPolygon' else [merged_buffers]
+            
+            # 3. Place a flag on the largest original landmass inside each cluster
+            for cluster in clusters:
+                # Find which original polygons fall into this specific cluster
+                cluster_polys = [p for p in original_polys if p.intersects(cluster)]
+                
+                if not cluster_polys:
+                    continue
+                    
+                # Identify the largest actual piece of land in the cluster
+                largest_poly = max(cluster_polys, key=lambda p: p.area)
+                pt = largest_poly.representative_point()
+                
+                emoji_lons.append(pt.x)
+                emoji_lats.append(pt.y)
+                emoji_texts.append(emoji)
+
+        if emoji_lats:
+            fig.add_trace(go.Scattergeo(
+                lat=emoji_lats,
+                lon=emoji_lons,
+                mode='text',
+                text=emoji_texts,
+                textfont=dict(
+                    size=11,
+                    color='rgba(0,0,0,0.7)',
+                    family='"Noto Color Emoji", "Apple Color Emoji", "Twemoji Mozilla", sans-serif'
+                ),
+                hoverinfo='skip',
+                showlegend=False,
+            ))
 
 fig.update_layout(
     geo=dict(showframe=False, showcoastlines=False, projection_type="robinson", 
