@@ -350,9 +350,19 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
     rows = []
     prev_ev = None
 
+    total_rounds = 0
+
     # Group by date — process all rounds that happened on the same day together
     for date, group in us_df.groupby('Date', sort=True):
         changed_states = set()
+        group_rounds = 0
+        for _, row in group.iterrows():
+            state = row['State']
+            if state not in ELECTORAL_VOTES:
+                continue
+            changed_states.add(state)
+            group_rounds += 1
+        total_rounds += group_rounds
         for _, row in group.iterrows():
             state = row['State']
             if state not in ELECTORAL_VOTES:
@@ -375,15 +385,22 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
             state_winner[state] = compute_winner(state)
 
         current_ev = tally(is_tg)
+
+        # Dynamic threshold: for TG mode, total votes = sum of rounds played so far
+        if is_tg:
+            total_so_far = sum(current_ev.values())
+            current_threshold = total_so_far // 2 + 1
+        else:
+            current_threshold = 270
+
         if current_ev != prev_ev:
-            rows.append({'Date': date, **current_ev})
+            rows.append({'Date': date, **current_ev, 'threshold': current_threshold, 'round_num': total_rounds})
             prev_ev = current_ev.copy()
 
     if not rows:
-        return pd.DataFrame(columns=['Date', 'michael', 'sarah', 'tied', 'third'])
+        return pd.DataFrame(columns=['Date', 'michael', 'sarah', 'tied', 'third', 'threshold', 'round_num'])
 
     timeline = pd.DataFrame(rows)
-    # Duplicate last point to today so line extends to right edge
     last = timeline.iloc[-1].copy()
     last['Date'] = pd.Timestamp.now().normalize()
     if last['Date'] > timeline['Date'].iloc[-1]:
@@ -685,97 +702,101 @@ df_json = filtered_data.to_json(orient='split', date_format='iso')
 timeline = calculate_ev_timeline(df_json, score_mode, is_tg_college)
 
 if not timeline.empty and len(timeline) > 1:
-    # Compute threshold line — for TG mode it changes over time, so just use
-    # the current snapshot threshold for simplicity (a horizontal reference line)
-    tl_threshold = 270 if not is_tg_college else threshold
+
+    # ── Build month-based tick labels mapped to round positions ──────────────
+    tl = timeline.copy()
+    tl['round_num'] = pd.to_numeric(tl['round_num'], errors='coerce').fillna(0).astype(int)
+    tl['Date'] = pd.to_datetime(tl['Date'])
+
+    monthly_dates = pd.date_range(tl['Date'].min(), tl['Date'].max(), freq='MS')
+    if len(tl) > 1 and len(monthly_dates) > 0:
+        tick_rounds = np.interp(
+            [d.timestamp() for d in monthly_dates],
+            [d.timestamp() for d in tl['Date']],
+            tl['round_num'].astype(float)
+        ).astype(int)
+        tick_labels = [d.strftime('%b %Y') for d in monthly_dates]
+    else:
+        tick_rounds = tl['round_num'].tolist()
+        tick_labels = tl['Date'].dt.strftime('%b %Y').tolist()
 
     fig_tl = go.Figure()
 
-    # Shaded fill under Michael's line
     fig_tl.add_trace(go.Scatter(
-        x=timeline['Date'], y=timeline['michael'],
+        x=tl['round_num'], y=tl['michael'],
+        customdata=tl['Date'],
         mode='lines',
         line=dict(color=COLORS['michael'], width=2.5),
-        fill='tozeroy',
-        fillcolor='rgba(34,30,143,0.10)',
+        fill='tozeroy', fillcolor='rgba(34,30,143,0.10)',
         name='Michael',
-        hovertemplate='<b>Michael</b>: %{y:,}<br>%{x|%b %d, %Y}<extra></extra>',
+        hovertemplate='<b>Michael</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
     ))
 
-    # Shaded fill under Sarah's line (drawn on top, different fill direction)
     fig_tl.add_trace(go.Scatter(
-        x=timeline['Date'], y=timeline['sarah'],
+        x=tl['round_num'], y=tl['sarah'],
+        customdata=tl['Date'],
         mode='lines',
         line=dict(color=COLORS['sarah'], width=2.5),
-        fill='tozeroy',
-        fillcolor='rgba(138,0,92,0.10)',
+        fill='tozeroy', fillcolor='rgba(138,0,92,0.10)',
         name='Sarah',
-        hovertemplate='<b>Sarah</b>: %{y:,}<br>%{x|%b %d, %Y}<extra></extra>',
+        hovertemplate='<b>Sarah</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
     ))
 
     # Threshold line
-    fig_tl.add_hline(
-        y=tl_threshold,
-        line_dash='dot',
-        line_color='#696761',
-        line_width=1.5,
-        annotation_text=f'{tl_threshold:,} to win',
-        annotation_position='right',
-        annotation_font_color='#696761',
-        annotation_font_size=11,
-    )
-
-    # Annotate final values
-    last_row = timeline.iloc[-1]
-    for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14)]:
+    if is_tg_college and 'threshold' in tl.columns:
+        fig_tl.add_trace(go.Scatter(
+            x=tl['round_num'], y=pd.to_numeric(tl['threshold']),
+            customdata=tl['Date'],
+            mode='lines',
+            line=dict(color='#696761', width=1.5, dash='dot'),
+            name='Threshold',
+            hovertemplate='<b>Threshold</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
+        ))
         fig_tl.add_annotation(
-            x=last_row['Date'],
-            y=last_row[player],
-            text=f"  {int(last_row[player]):,}",
-            showarrow=False,
-            font=dict(color=col, size=11, family='Arial'),
-            xanchor='left',
-            yanchor='middle',
-            yshift=yshift,
+            x=int(tl['round_num'].iloc[-1]), y=float(pd.to_numeric(tl['threshold']).iloc[-1]),
+            text=f"  {int(pd.to_numeric(tl['threshold']).iloc[-1]):,} to win",
+            showarrow=False, font=dict(color='#696761', size=11, family='Arial'),
+            xanchor='left', yanchor='middle',
+        )
+    else:
+        fig_tl.add_hline(
+            y=270, line_dash='dot', line_color='#696761', line_width=1.5,
+            annotation_text='270 to win', annotation_position='right',
+            annotation_font_color='#696761', annotation_font_size=11,
         )
 
-    # Detect flip events — dates where the leading player changed
-    lead = (timeline['michael'] > timeline['sarah']).map({True: 'michael', False: 'sarah'})
-    # Pad with a sentinel so we catch the first real lead
-    prev_lead = lead.shift(1, fill_value=lead.iloc[0])
-    flip_mask = lead != prev_lead
-    flips = timeline[flip_mask & (timeline.index > 0)]
+    last_row = tl.iloc[-1]
+    for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14)]:
+        fig_tl.add_annotation(
+            x=int(last_row['round_num']), y=float(last_row[player]),
+            text=f"  {int(last_row[player]):,}",
+            showarrow=False, font=dict(color=col, size=11, family='Arial'),
+            xanchor='left', yanchor='middle', yshift=yshift,
+        )
 
+    # Flip lines — now at round_num instead of timestamp
+    lead = (tl['michael'] > tl['sarah']).map({True: 'michael', False: 'sarah'})
+    prev_lead = lead.shift(1, fill_value=lead.iloc[0])
+    flips = tl[(lead != prev_lead) & (tl.index > 0)]
     for _, flip_row in flips.iterrows():
         new_leader = 'michael' if flip_row['michael'] > flip_row['sarah'] else 'sarah'
         fig_tl.add_vline(
-            x=flip_row['Date'].timestamp() * 1000,
-            line_dash='dash',
-            line_color=WIN_COLORS[new_leader],
-            line_width=1,
-            opacity=0.45,
+            x=int(flip_row['round_num']),
+            line_dash='dash', line_color=WIN_COLORS[new_leader],
+            line_width=1, opacity=0.45,
         )
 
     fig_tl.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=20, b=40, l=50, r=80),
-        height=320,
-        legend=dict(
-            orientation='h',
-            yanchor='bottom', y=1.02,
-            xanchor='left',   x=0,
-            font=dict(size=12),
-        ),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=20, b=40, l=50, r=80), height=320,
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0, font=dict(size=12)),
         xaxis=dict(
-            showgrid=False,
-            showline=True, linecolor='#d9d7cc',
-            tickfont=dict(color='#696761', size=11),
-            title=None,
+            tickvals=tick_rounds, ticktext=tick_labels,
+            showgrid=False, showline=True, linecolor='#d9d7cc',
+            tickfont=dict(color='#696761', size=11), title=None,
         ),
         yaxis=dict(
-            showgrid=True, gridcolor='#ede9e4', gridwidth=1,
-            showline=False,
+            showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
             tickfont=dict(color='#696761', size=11),
             title=dict(text=vote_label, font=dict(color='#696761', size=11)),
             rangemode='tozero',
@@ -787,11 +808,102 @@ if not timeline.empty and len(timeline) > 1:
     st.plotly_chart(fig_tl, use_container_width=True)
     st.markdown(
         f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:-0.5rem;">'
-        f'Dashed vertical lines mark moments when the lead changed · '
-        f'Each point reflects the cumulative {score_mode_label} through that date'
-        f'</p>',
+        f'X-axis spacing proportional to rounds played · tick labels show calendar month · '
+        f'dashed lines mark lead changes</p>', unsafe_allow_html=True
+    )
+
+    # ── Rounds as President ──────────────────────────────────────────────
+    st.markdown('<div class="section-header">Time in Office</div>', unsafe_allow_html=True)
+
+    pres_x, michael_pres, sarah_pres = [0], [0], [0]
+    m_total_pres = s_total_pres = 0
+
+    for i in range(len(tl)):
+        r_i = int(tl.loc[i, 'round_num'])
+        pres_x.append(r_i)
+        michael_pres.append(m_total_pres)
+        sarah_pres.append(s_total_pres)
+
+        if i < len(tl) - 1:
+            r_next = int(tl.loc[i + 1, 'round_num'])
+            span = r_next - r_i
+            thresh = float(pd.to_numeric(tl.loc[i, 'threshold']))
+            if float(tl.loc[i, 'michael']) >= thresh:
+                m_total_pres += span
+            if float(tl.loc[i, 'sarah']) >= thresh:
+                s_total_pres += span
+
+    total_pres_rounds = max(pres_x) if pres_x else 1
+    m_pres_pct = m_total_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
+    s_pres_pct = s_total_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
+    neither_pres = total_pres_rounds - m_total_pres - s_total_pres
+    neither_pct = neither_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
+
+    st.markdown(f"""
+    <div style="display:flex;gap:1.2rem;margin:0.4rem 0 0.8rem 0;">
+      <span style="font-size:0.82rem;font-weight:600;color:{COLORS['michael']};">
+        Michael: {m_total_pres:,} days ({m_pres_pct:.1f}%)
+      </span>
+      <span style="font-size:0.82rem;color:#c8c3bc;">·</span>
+      <span style="font-size:0.82rem;font-weight:600;color:{COLORS['sarah']};">
+        Sarah: {s_total_pres:,} days ({s_pres_pct:.1f}%)
+      </span>
+      <span style="font-size:0.82rem;color:#c8c3bc;">·</span>
+      <span style="font-size:0.82rem;color:#a09587;">
+        No president: {neither_pres:,} days ({neither_pct:.1f}%)
+      </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    fig_pres = go.Figure()
+
+    fig_pres.add_trace(go.Scatter(
+        x=pres_x, y=michael_pres,
+        mode='lines', line=dict(color=COLORS['michael'], width=2.5),
+        fill='tozeroy', fillcolor='rgba(34,30,143,0.10)',
+        name='Michael',
+        hovertemplate='<b>Michael</b>: %{y:,} days as president<br>After day %{x:,}<extra></extra>',
+    ))
+    fig_pres.add_trace(go.Scatter(
+        x=pres_x, y=sarah_pres,
+        mode='lines', line=dict(color=COLORS['sarah'], width=2.5),
+        fill='tozeroy', fillcolor='rgba(138,0,92,0.10)',
+        name='Sarah',
+        hovertemplate='<b>Sarah</b>: %{y:,} days as president<br>After day %{x:,}<extra></extra>',
+    ))
+    fig_pres.add_trace(go.Scatter(
+        x=[0, total_pres_rounds], y=[0, total_pres_rounds],
+        mode='lines', line=dict(color='#d9d7cc', width=1, dash='dot'),
+        name='Max possible', hoverinfo='skip',
+    ))
+
+    fig_pres.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=20, b=40, l=50, r=80), height=260,
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0, font=dict(size=12)),
+        xaxis=dict(
+            tickvals=tick_rounds, ticktext=tick_labels,
+            showgrid=False, showline=True, linecolor='#d9d7cc',
+            tickfont=dict(color='#696761', size=11), title=None,
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
+            tickfont=dict(color='#696761', size=11),
+            title=dict(text='Cumulative days', font=dict(color='#696761', size=11)),
+            rangemode='tozero',
+        ),
+        hoverlabel=dict(bgcolor='white', font_size=12, bordercolor='#d9d7cc'),
+        hovermode='x unified',
+    )
+
+    st.plotly_chart(fig_pres, use_container_width=True)
+    st.markdown(
+        '<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:-0.5rem;">'
+        'A player is president when their votes ≥ threshold · '
+        'dotted diagonal = every day spent as president</p>',
         unsafe_allow_html=True
     )
+
 else:
     st.info("Not enough data points to render a timeline.")
 
