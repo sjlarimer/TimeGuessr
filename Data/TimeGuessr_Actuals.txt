@@ -676,3 +676,31 @@ TimeGuessr #1028
 3. Havana, Cuba, 1993
 4. Timisoara, Romania, 1989
 5. Washington DC (Washington DC), United States, 1971
+
+TimeGuessr #1029
+1. New York (New York), United States, 1974
+2. Paris (Ile-de-France), France, 1982
+3. Edmonton (Alberta), Canada, 2014
+4. Sydney (New South Wales), Australia, 1932
+5. Copenhagen, Denmark, 1907
+
+TimeGuessr #1030
+1. Lisbon, Portugal, 1917
+2. Hong Kong (Hong Kong), China, 1998
+3. Istanbul, Türkiye, 1988
+4. Tenerife (Canary Islands), Spain, 2010
+5. Rutland (Vermont), United States, 1941
+
+TimeGuessr #1033
+1. Guatemala City, Guatemala, 2018
+2. Lisbon, Portugal, 1918
+3. Montreal (Quebec), Canada, 1973
+4. New Orleans (Louisiana), United States, 1995
+5. Zurich (Zurich), Switzerland, 1959 
+
+TimeGuessr #1034
+1. Rome (Lazio), Italy, 1947
+2. Dublin, Ireland, 1932
+3. New York (New York), United States, 2010
+4. Moscow (Moscow), Russia, 1967
+5. Kigali, Rwanda, 2025
