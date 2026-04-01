@@ -704,3 +704,10 @@ TimeGuessr #1034
 3. New York (New York), United States, 2010
 4. Moscow (Moscow), Russia, 1967
 5. Kigali, Rwanda, 2025
+
+TimeGuessr #1035
+1. London (England), United Kingdom, 2018
+2. Paris (Ile-de-France), France, 1965
+3. Washington DC (Washington DC), United States, 1993
+4. Gdansk (Pomeranian), Poland, 2010
+5. Zurich (Zurich), Switzerland, 1952
