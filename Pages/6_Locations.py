@@ -162,6 +162,7 @@ ISO_LANGUAGE_MAP = {
     # Other European (Unique/Isolates/Uralic/Baltic)
     'ALB': 'Other European', # Albanian
     'HUN': 'Other European', # Hungarian
+    'MLT': 'Other European', # Maltese
     'FIN': 'Other European', 'EST': 'Other European', # Finnic
     'LVA': 'Other European', 'LTU': 'Other European', # Baltic
 

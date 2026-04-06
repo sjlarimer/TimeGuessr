@@ -711,3 +711,24 @@ TimeGuessr #1035
 3. Washington DC (Washington DC), United States, 1993
 4. Gdansk (Pomeranian), Poland, 2010
 5. Zurich (Zurich), Switzerland, 1952
+
+TimeGuessr #1036
+1. London (England), United Kingdom, 1947
+2. Munich (Bavaria), Germany, 1970
+3. Vienna, Austria, 1966
+4. Houston (Texas), United States, 1943
+5. Buenos Aires, Argentina, 2020
+
+TimeGuessr #1037
+1. Amsterdam, Netherlands, 1969
+2. New Delhi (Delhi), India, 1978
+3. Budapest, Hungary, 1930
+4. Stockholm, Sweden, 1940
+5. Cape Canaveral (Florida), United States, 2026
+
+TimeGuessr #1040
+1. Milan (Lombardy), Italy, 2000
+2. Paris (Ile-de-France), France, 1982
+3. Algiers, Algeria, 1960
+4. Boston (Massachusetts), United States, 1906
+5. Caracas, Venezuela, 2026

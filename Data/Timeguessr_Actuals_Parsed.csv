@@ -509,3 +509,18 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1035,3,Washington DC,Washington DC,United States,1993
 1035,4,Gdansk,Pomeranian,Poland,2010
 1035,5,Zurich,Zurich,Switzerland,1952
+1036,1,London,England,United Kingdom,1947
+1036,2,Munich,Bavaria,Germany,1970
+1036,3,Vienna,,Austria,1966
+1036,4,Houston,Texas,United States,1943
+1036,5,Buenos Aires,,Argentina,2020
+1037,1,Amsterdam,,Netherlands,1969
+1037,2,New Delhi,Delhi,India,1978
+1037,3,Budapest,,Hungary,1930
+1037,4,Stockholm,,Sweden,1940
+1037,5,Cape Canaveral,Florida,United States,2026
+1040,1,Milan,Lombardy,Italy,2000
+1040,2,Paris,Ile-de-France,France,1982
+1040,3,Algiers,,Algeria,1960
+1040,4,Boston,Massachusetts,United States,1906
+1040,5,Caracas,,Venezuela,2026
