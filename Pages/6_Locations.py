@@ -1,62 +1,44 @@
 import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+import country_converter as coco
+import numpy as np
+import json
+import os
+import geopandas as gpd
+from shapely.geometry import shape as shp_shape
+import math
+from shapely.ops import unary_union
 import base64
+import io
 from PIL import Image
 
+# --- Configuration & Constants ---
+st.set_page_config(layout="wide", page_title="Map Stats")
+
+@st.cache_data
 def get_base64_image(image_path):
-    """
-    Encodes an image to a Base64 string, using its detected format (e.g., PNG or JPEG) 
-    when saving to the in-memory buffer.
-
-    Args:
-        image_path (str): Path to the image file (e.g., "Images/Sarah.jpg").
-
-    Returns:
-        str or None: The Base64 encoded string, or None if the file is not found.
-    """
+    """Encodes an image to a Base64 string."""
     try:
-        # Open the image using PIL
         img = Image.open(image_path)
-        
-        # Determine the saving format. PIL reports 'JPEG' for .jpg/.jpeg files 
-        # and 'PNG' for .png files. We use the detected format.
         file_format = img.format if img.format is not None else 'PNG'
-        
         buffer = io.BytesIO()
-        # Save the image into the buffer using its original format
         img.save(buffer, format=file_format)
-        
-        # Encode the buffer content to Base64
         return base64.b64encode(buffer.getvalue()).decode()
-        
     except FileNotFoundError:
-        print(f"Error: Image file not found at {image_path}")
         return None
     except Exception as e:
         print(f"An error occurred during image processing: {e}")
         return None
 
 def set_lighter_background_image(base64_string, lightness_level=0.7):
-    """
-    Injects CSS to set the background image and applies a semi-transparent 
-    white overlay using linear-gradient to make the image appear lighter.
-
-    Args:
-        base64_string (str): The Base64 encoded image string.
-        lightness_level (float): The transparency/lightness of the white overlay (0.0=no overlay, 1.0=pure white).
-    """
+    """Injects CSS to set the background image with a semi-transparent white overlay."""
     if not base64_string:
-        st.error("Could not load image for background.")
         return
-
-    # Calculate the alpha value for the RGBA overlay
-    # We use lightness_level for the alpha (A) component of RGBA(R, G, B, A)
-    # The 'white' color is represented by 255, 255, 255
     rgba_overlay = f"rgba(255, 255, 255, {lightness_level})"
-
     css = f"""
     <style>
     .stApp {{
-        /* Use linear-gradient to layer a semi-transparent white color over the image. */
         background-image: linear-gradient({rgba_overlay}, {rgba_overlay}), 
                           url("data:image/png;base64,{base64_string}");
         background-size: cover;
@@ -68,33 +50,9 @@ def set_lighter_background_image(base64_string, lightness_level=0.7):
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# --- Main Streamlit Script ---
-import io
-
-image_file_path = "Images/Sarah4.jpg"
-
-# 1. Get the base64 string
-base64_img = get_base64_image(image_file_path)
-
-# 2. Inject the CSS with a 70% lightness overlay
-# Try adjusting the second argument (e.g., 0.3 for slightly lighter, 0.9 for very light)
+# Set the background image
+base64_img = get_base64_image("Images/Sarah4.jpg")
 set_lighter_background_image(base64_img, lightness_level=0.7)
-
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-import country_converter as coco
-import numpy as np
-from plotly.colors import sample_colorscale
-import json
-import os
-import geopandas as gpd
-from shapely.geometry import shape as shp_shape
-import math
-from shapely.ops import unary_union
-
-# --- Configuration & Constants ---
-st.set_page_config(layout="wide", page_title="Map Stats")
 
 COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
 
@@ -142,7 +100,6 @@ ISO_LANGUAGE_MAP = {
     'GNB': 'Portuguese', 'TLS': 'Portuguese', 'CPV': 'Portuguese', 'STP': 'Portuguese',
     
     # French
-    # Removed BEL, LUX, CMR due to language splits
     'FRA': 'French', 'COD': 'French', 'MAD': 'French', 'CIV': 'French', 
     'BFA': 'French', 'NER': 'French', 'SEN': 'French', 'MLI': 'French', 'RWA': 'French', 
     'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 'MDG': 'French', 
@@ -210,14 +167,58 @@ ISO_LANGUAGE_MAP = {
     'GEO': 'Georgian Script',
 
     # Armenian Script
-    'ARM': 'Armenian Script'
+    'ARM': 'Armenian Script',
+
+    # --- Overseas Territories & Dependencies ---
+    # UK
+    'GIB': 'English', 'BMU': 'English', 'CYM': 'English', 'VGB': 'English', 'TCA': 'English', 'AIA': 'English', 'MSR': 'English', 'FLK': 'English', 'SHN': 'English', 'IOT': 'English', 'SGS': 'English', 'PCN': 'English', 'IMN': 'English', 'JEY': 'English', 'GGY': 'English',
+    # USA
+    'GUM': 'English', 'VIR': 'English', 'ASM': 'English', 'MNP': 'English',
+    # France
+    'GLP': 'French', 'MTQ': 'French', 'GUF': 'French', 'REU': 'French', 'MYT': 'French', 'PYF': 'French', 'NCL': 'French', 'MAF': 'French', 'BLM': 'French', 'SPM': 'French', 'WLF': 'French',
+    # Netherlands
+    'ABW': 'Germanic', 'CUW': 'Germanic', 'SXM': 'Germanic', 'BES': 'Germanic',
+    # Denmark
+    'GRL': 'Germanic', 'FRO': 'Germanic',
+    # Australia
+    'CXR': 'English', 'CCK': 'English', 'NFK': 'English',
+    # Norway
+    'SJM': 'Germanic',
+    # China
+    'HKG': 'East Asian Scripts', 'MAC': 'East Asian Scripts',
+    # New Zealand
+    'COK': 'English', 'NIU': 'English', 'TKL': 'English'
+}
+
+# --- Universal Territory to Parent Map ---
+TERRITORY_PARENT_MAP = {
+    # United Kingdom
+    'JEY': 'GBR', 'GGY': 'GBR', 'IMN': 'GBR', 'GIB': 'GBR', 'AIA': 'GBR', 'BMU': 'GBR',
+    'CYM': 'GBR', 'FLK': 'GBR', 'IOT': 'GBR', 'MSR': 'GBR', 'PCN': 'GBR', 'SGS': 'GBR',
+    'SHN': 'GBR', 'TCA': 'GBR', 'VGB': 'GBR',
+    # France
+    'GLP': 'FRA', 'MTQ': 'FRA', 'GUF': 'FRA', 'REU': 'FRA', 'MYT': 'FRA', 'PYF': 'FRA',
+    'NCL': 'FRA', 'MAF': 'FRA', 'BLM': 'FRA', 'SPM': 'FRA', 'WLF': 'FRA',
+    # United States
+    'PRI': 'USA', 'GUM': 'USA', 'VIR': 'USA', 'ASM': 'USA', 'MNP': 'USA',
+    # Netherlands
+    'ABW': 'NLD', 'CUW': 'NLD', 'SXM': 'NLD', 'BES': 'NLD',
+    # Denmark
+    'GRL': 'DNK', 'FRO': 'DNK',
+    # Australia
+    'CXR': 'AUS', 'CCK': 'AUS', 'NFK': 'AUS',
+    # Norway
+    'SJM': 'NOR',
+    # China
+    'HKG': 'CHN', 'MAC': 'CHN',
+    # New Zealand
+    'COK': 'NZL', 'NIU': 'NZL', 'TKL': 'NZL',
 }
 
 # Split Configuration
 SPLIT_CONFIG = {
     "AUS": {"name": "Australia", "map": {}},
     "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
-    # Removed "Taiwan": "Taiwan" from CHN map to separate it
     "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng"}},
     "FRA": {"name": "France", "map": {"Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne", "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire", "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France", "Ile-de-France": "Île-de-France", "Normandy": "Normandie", "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie", "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"}},
     "DEU": {"name": "Germany", "map": {"Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen", "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen", "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen", "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"}},
@@ -293,7 +294,11 @@ MICROSTATES = {
     "New Caledonia": (-20.9043, 165.6180), "Falkland Islands": (-51.7963, -59.5236)
 }
 
-cc = coco.CountryConverter()
+@st.cache_resource
+def get_country_converter():
+    return coco.CountryConverter()
+
+cc = get_country_converter()
 
 # --- CSS & Styles ---
 try:
@@ -318,17 +323,12 @@ def load_data():
         df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
         
         # --- SCORE IMPUTATION LOGIC (UPDATED) ---
-        # Logic: Use Min/Max columns to fill missing Geo/Time scores.
-        # Ensure that if we calculate Geo/Time, we also sum them up to fill the Round Score
-        # so that calculate_stats knows the player played.
-
         def fill_missing_scores(prefix, round_col_name):
             geo_col = f"{prefix} Geography Score"
             time_col = f"{prefix} Time Score"
             geo_min, geo_max = f"{geo_col} (Min)", f"{geo_col} (Max)"
             time_min, time_max = f"{time_col} (Min)", f"{time_col} (Max)"
             
-            # Check if necessary range columns exist
             if not {geo_min, geo_max, time_min, time_max}.issubset(df.columns):
                 return
 
@@ -343,17 +343,11 @@ def load_data():
                 df.loc[mask_time_missing, time_col] = (df.loc[mask_time_missing, time_min] + df.loc[mask_time_missing, time_max]) / 2
             
             # 3. Recalculate Round Score if missing (Round Score = Geo + Time)
-            # Crucially, we prioritize filling the column 'Michael Round Score' (or Sarah) 
-            # because that is what calculate_stats looks for.
             if round_col_name and round_col_name in df.columns:
-                # We want to fill Round Score if it is NA, provided we have Geo and Time (either existing or just imputed)
                 mask_round_missing = df[round_col_name].isna() & df[geo_col].notna() & df[time_col].notna()
                 if mask_round_missing.any():
                     df.loc[mask_round_missing, round_col_name] = df.loc[mask_round_missing, geo_col] + df.loc[mask_round_missing, time_col]
 
-        # Apply to Michael and Sarah
-        # Determine the primary 'Round' column name to fix. 
-        # We prioritize 'Round Score' because calculate_stats checks that first.
         m_col = 'Michael Round Score' if 'Michael Round Score' in df.columns else ('Michael Total Score' if 'Michael Total Score' in df.columns else None)
         s_col = 'Sarah Round Score' if 'Sarah Round Score' in df.columns else ('Sarah Total Score' if 'Sarah Total Score' in df.columns else None)
 
@@ -361,12 +355,9 @@ def load_data():
         fill_missing_scores('Sarah', s_col)
 
         # --- TAIWAN DATA FIX ---
-        # Explicitly handle cases where Country is China and Subdivision is Taiwan
-        # This prevents it from being lumped into China's stats or subdivisions
         mask_tw_data = (df['Country'] == 'China') & (df['Subdivision'] == 'Taiwan')
         df.loc[mask_tw_data, 'Country'] = 'Taiwan'
         df.loc[mask_tw_data, 'Subdivision'] = np.nan # Clear subdivision as it is now the country
-        # -----------------------
 
         # Pre-calculate ISO, Continent, Region ONCE
         unique_c = df["Country"].dropna().unique()
@@ -394,7 +385,7 @@ def load_data():
         # Special Language Logic for Belgium
         df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Flanders'), 'Language'] = 'Germanic'
         df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Wallonia'), 'Language'] = 'French'
-        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Brussels'), 'Language'] = 'French'  # placeholder
+        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Brussels'), 'Language'] = 'French'
 
         # Special Language Logic for Switzerland
         _che_french   = ['Geneva', 'Vaud', 'Neuchâtel', 'Jura', 'Fribourg', 'Valais']
@@ -417,7 +408,7 @@ def load_data():
     except FileNotFoundError:
         st.error("Stats file not found."); st.stop()
 
-@st.cache_data
+@st.cache_resource
 def load_map():
     target_file = "./Data/Custom_World_Map_New.json"
     if not os.path.exists(target_file): return None, set()
@@ -426,25 +417,18 @@ def load_map():
         gdf['geometry'] = gdf['geometry'].buffer(0) # Fix Topology Errors
         
         # --- TAIWAN MAP FIX ---
-        # Identify Taiwan polygons based on NAME or ISO_SUB
-        # We perform this BEFORE standard ISO conversion to ensure it doesn't default to CHN
         mask_tw = gdf['NAME'] == 'Taiwan'
         if 'ISO_SUB' in gdf.columns:
             mask_tw = mask_tw | (gdf['ISO_SUB'] == 'TW')
             
-        # Enforce distinct ISO3 for Taiwan
-        # Check which ISO column exists or create one
         iso_cols = [c for c in ['ISO3', 'iso3', 'adm0_a3'] if c in gdf.columns]
         if iso_cols:
             for col in iso_cols:
                 gdf.loc[mask_tw, col] = 'TWN'
         else:
-            # If no ISO column exists yet, create ISO3
             gdf.loc[mask_tw, 'ISO3'] = 'TWN'
         
-        # Also ensure NAME is consistent
         gdf.loc[mask_tw, 'NAME'] = 'Taiwan'
-        # ----------------------
 
         # Standardize
         iso_col = next((c for c in ['ISO3', 'iso3', 'adm0_a3'] if c in gdf.columns), None)
@@ -454,6 +438,11 @@ def load_map():
         
         name_col = next((c for c in ['NAME', 'name', 'NAME_1', 'COUNTRY'] if c in gdf.columns), 'NAME')
         gdf['NAME'] = gdf[name_col].astype(str).str.strip()
+        
+        # Clean up territory suffixes to ensure they match standard subdivision/country names
+        suffixes_to_remove = [' (UK)', ' (France)', ' (US)', ' (Netherlands)', ' (Denmark)', ' (Australia)', ' (New Zealand)', ' (China)']
+        for suffix in suffixes_to_remove:
+            gdf['NAME'] = gdf['NAME'].str.replace(suffix, '', regex=False)
         
         # Enrich Map Data
         clean_isos = [x for x in gdf['ISO3'].unique() if x != 'UNK']
@@ -474,7 +463,7 @@ def load_map():
         # Special Map Logic for Belgium
         gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Vlaamse Gewest'), 'Language'] = 'Germanic'
         gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'wallonne, Région'), 'Language'] = 'French'
-        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de'), 'Language'] = 'French'  # placeholder
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de'), 'Language'] = 'French'
         
         # Special Map Logic for Switzerland
         _che_map_french   = ['Genève', 'Vaud', 'Neuchâtel', 'Jura', 'Freiburg', 'Valais']
@@ -500,41 +489,67 @@ base_gdf, valid_map_names = load_map()
 
 @st.cache_data
 def get_background_layer(_gdf):
-    """Restored: Creates a single unified shape for the whole world."""
+    """Creates a single unified shape for the whole world."""
     if _gdf is None: return None
     _gdf['World_Group'] = 1
     bg_gdf = _gdf.dissolve(by='World_Group', as_index=False)
     return json.loads(bg_gdf.to_json())
 
 @st.cache_data
-def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_subdivs, view_mode):
+def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_subdivs_tuple, view_mode):
     """
     Generates map geometry only for active locations.
-    Only colors in parts of split countries for which there are subdivisions.
+    Overseas territories automatically merge into their parent country if they 
+    lack their own data but the parent country has data.
     """
     if _gdf is None: return None
     
-    # 1. Define UK Dependencies
-    UK_DEPS = {'JEY', 'GGY', 'IMN', 'GIB', 'AIA', 'BMU', 'CYM', 'FLK', 'IOT', 'MSR', 'PCN', 'SGS', 'SHN', 'TCA', 'VGB'}
+    active_subdivs = {k: set(v) for k, v in active_subdivs_tuple}
     
-    # 2. Expand active ISOs to include UK deps if GBR is present
+    # 1. Expand active ISOs to include dependencies if parent is present
     isos_to_fetch = set(active_iso_tuple)
-    if 'GBR' in isos_to_fetch:
-        isos_to_fetch.update(UK_DEPS)
+    for dep_iso, parent_iso in TERRITORY_PARENT_MAP.items():
+        if parent_iso in isos_to_fetch:
+            isos_to_fetch.add(dep_iso)
     
     work_gdf = _gdf[_gdf['ISO3'].isin(isos_to_fetch)].copy()
-    
     if work_gdf.empty: return None
 
-    # Filter subdivisions for split countries
-    def filter_subdivs(row):
+    # 2. Assign effective ISOs and properties to dependencies acting as parents
+    def apply_parent_attributes(row):
         iso = row['ISO3']
-        if iso in UK_DEPS: return True # Always keep deps
+        # If this is a territory, AND the territory itself has no stats, BUT the parent does:
+        if iso in TERRITORY_PARENT_MAP and iso not in active_iso_tuple:
+            parent_iso = TERRITORY_PARENT_MAP[iso]
+            if parent_iso in active_iso_tuple:
+                row['ISO3_Effective'] = parent_iso
+                
+                # Grab parent's Continent, Region, Language to ensure aggregate views match
+                parent_rows = _gdf[_gdf['ISO3'] == parent_iso]
+                if not parent_rows.empty:
+                    parent_row = parent_rows.iloc[0]
+                    row['Continent'] = parent_row['Continent']
+                    row['UN_Region'] = parent_row['UN_Region']
+                    row['Language'] = parent_row['Language']
+                return row
+        row['ISO3_Effective'] = iso
+        return row
         
-        # Keep all parts of a split country so they can be re-aggregated correctly by language/region
-        if iso not in active_splits:
+    work_gdf = work_gdf.apply(apply_parent_attributes, axis=1)
+
+    # 3. Filter subdivisions for split countries
+    def filter_subdivs(row):
+        orig_iso = row['ISO3']
+        eff_iso = row['ISO3_Effective']
+        
+        # Keep territories acting as their parent (e.g. Martinique acting as France)
+        if orig_iso != eff_iso: return True
+        
+        # Keep all parts of a split country so they can be re-aggregated correctly
+        if eff_iso not in active_splits:
             return True
-        allowed = active_subdivs.get(iso, set())
+            
+        allowed = active_subdivs.get(eff_iso, set())
         return row['NAME'] in allowed
 
     if active_splits:
@@ -542,23 +557,19 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
 
     if work_gdf.empty: return None
 
+    # 4. Dissolve geometries together based on the view level
     def get_dissolve_key(row):
-        iso = row['ISO3']
+        iso = row['ISO3_Effective']
         name = row['NAME']
         
-        # Determine current aggregate value based on view mode
         attr_val = None
         if view_mode == "Continents": attr_val = row['Continent']
         elif view_mode == "UN Regions": attr_val = row['UN_Region']
         elif view_mode == "Languages": attr_val = row['Language']
         
-        if iso in UK_DEPS: return 'GBR'
-        
         if iso in active_splits:
-             # If Country View, split by subdiv name
              if view_mode == "Countries":
                  return name
-             # If Aggregate View, split by composite key (ISO + Attribute) to differentiate parts (e.g., CAN_French vs CAN_English)
              else:
                  return f"{iso}___{attr_val}"
 
@@ -572,6 +583,7 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
 
 # --- Stats Calculation ---
 
+@st.cache_data
 def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     df_work = df.copy()
     
@@ -589,18 +601,13 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     if view_mode != "Countries":
         def get_agg_key(row):
             iso = row['ISO3']
-            
-            # Helper to get attribute
             attr_val = None
             if view_mode == "Continents": attr_val = row['Continent']
             elif view_mode == "UN Regions": attr_val = row['UN_Region']
             elif view_mode == "Languages": attr_val = row['Language']
 
             if iso in active_splits: 
-                # Create unique key for split country parts in aggregate views
                 return f"{iso}___{attr_val}"
-            
-            # Otherwise return the standard aggregate group
             return attr_val
         
         df_work['Join_Key'] = df_work.apply(get_agg_key, axis=1)
@@ -616,7 +623,7 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     else:
         s_played = df_work['Sarah Geography Score'].notna()
 
-    # 4. Filter Data based on Metric (Pre-aggregation)
+    # 4. Filter Data based on Metric
     if metric == "Comparison":
         df_work = df_work[m_played & s_played]
         m_played = m_played[df_work.index]
@@ -630,7 +637,7 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         m_played = m_played[df_work.index]
         s_played = s_played[df_work.index]
 
-    # 5. Calculate Scores (Create Columns)
+    # 5. Calculate Scores
     max_p = 10000 if score_mode == "Total Score" else 5000
     
     df_work['Michael Selected'] = 0
@@ -656,13 +663,12 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     df_work['Michael Win'] = ((df_work['Michael Selected'] > df_work['Sarah Selected']) & m_played & s_played).astype(int)
     df_work['Sarah Win'] = ((df_work['Sarah Selected'] > df_work['Michael Selected']) & m_played & s_played).astype(int)
 
-    # 6. Row-Level Exclusivity Calculation
+    # 6. Row-Level Exclusivity
     df_work['Row_Michael_Only'] = (m_played & ~s_played).astype(int)
     df_work['Row_Sarah_Only'] = (s_played & ~m_played).astype(int)
     df_work['Row_Shared'] = (m_played & s_played).astype(int)
 
     # 7. Aggregate
-    # Add metadata columns for labels
     agg_cols = {
         'Row_Shared': 'sum', 
         'Michael Selected': 'sum', 
@@ -690,8 +696,6 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     }).reset_index()
 
     # 8. Post-Aggregation Calcs
-    
-    # Calculate Total Active Games (valid games)
     grouped['Total_Active'] = grouped['Shared_Count'] + grouped['Michael_Only_Count'] + grouped['Sarah_Only_Count']
     
     if metric == "Count":
@@ -706,12 +710,12 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
     grouped['Michael Share Ratio'] = grouped.apply(lambda x: x['Michael Selected'] / x['Combined'] if x['Combined'] > 0 else 0.5, axis=1)
     grouped['Sarah Share Ratio'] = 1 - grouped['Michael Share Ratio']
 
-    # New: Calculate Max/Min Scores per location
+    # Max/Min Scores
     mm = df_work.groupby('Join_Key')[['Michael Selected', 'Sarah Selected']].agg(['max', 'min'])
     mm.columns = [f"{c[0]}_{c[1]}" for c in mm.columns]
     grouped = grouped.merge(mm, on='Join_Key', how='left')
 
-    # 9. Hover Names / Location Labels
+    # 9. Hover Names
     unique_keys = grouped['Join_Key'].unique()
     iso_keys = [k for k in unique_keys if isinstance(k, str) and len(k) == 3 and k.isupper()]
     simple_names = {}
@@ -724,29 +728,21 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         key = row['Join_Key']
         iso = row['ISO_Code']
 
-        # Fix for Vatican City if ISO is VAT
         if view_mode == "Countries" and iso == "VAT": return "Vatican City"
         
-        # 1. Split Country in Region/Continent/Language View
-        # Check if ISO is in active_splits and view_mode is not Countries
         if view_mode != "Countries" and iso in active_splits:
             base_name = SPLIT_CONFIG.get(iso, {}).get('name', simple_names.get(iso, str(iso)))
-            
             suffix = ""
             if view_mode == "UN Regions": suffix = row['Region_Name']
             elif view_mode == "Continents": suffix = row['Continent_Name']
             elif view_mode == "Languages": suffix = row['Language_Name']
-            
             return f"{base_name}, {suffix}"
             
-        # 2. Split Subdivision in Country View (Key is Subdiv Name)
         if view_mode == "Countries" and iso in active_splits:
-            # If key is Subdivision, it won't equal ISO (unless sub is missing/same)
             if key != iso:
                 country_nice = SPLIT_CONFIG.get(iso, {}).get('name', row['Country_Name'])
                 return f"{key}, {country_nice}"
         
-        # 3. Standard
         if key in SPLIT_CONFIG: return SPLIT_CONFIG[key]['name']
         if key in simple_names: return simple_names[key]
         return str(key)
@@ -808,7 +804,6 @@ def create_styled_table(df):
                     content = "-"
                 else:
                     content = f"{val:.1%}"
-                    # Bold higher win rate
                     m_rate = row.get("Michael Win Rate", 0)
                     s_rate = row.get("Sarah Win Rate", 0)
                     
@@ -836,7 +831,7 @@ def create_styled_table(df):
     return html
 
 # --- Sidebar ---
-tbd_display_list = [] # Init list for TBD display
+tbd_display_list = []
 
 with st.sidebar:
     st.header("Map Settings")
@@ -845,7 +840,6 @@ with st.sidebar:
     score_mode = st.radio("Score Type:", ["Total Score", "Geography Score", "Time Score"]) if map_metric != "Count" else "Total Score"
     view_mode = st.radio("View Level:", ["Countries", "UN Regions", "Continents", "Languages"])
     
-    # Split Logic
     avail_splits = [cfg['name'] for cfg in SPLIT_CONFIG.values()]
     sel_splits = st.multiselect("Split Countries:", avail_splits, default=[])
     
@@ -860,7 +854,6 @@ with st.sidebar:
     for iso, cfg in SPLIT_CONFIG.items():
         if cfg['name'] in sel_splits:
             active_splits.add(iso)
-            # Apply Cleanups
             mask = filtered_data['ISO3'] == iso
             if mask.any() and cfg['map']:
                 filtered_data.loc[mask, 'Subdivision'] = filtered_data.loc[mask, 'Subdivision'].replace(cfg['map'])
@@ -881,11 +874,12 @@ with st.sidebar:
                     name += f" ({r['Subdivision']})"
                 tbd_display_list.append(name)
             
-            # Remove "Other" from the dataset used for calculation
             filtered_data = filtered_data[~tbd_mask]
 
+    active_splits_frozen = frozenset(active_splits)
+
     # Main Calculation
-    stats = calculate_stats(filtered_data, active_splits, view_mode, map_metric, score_mode)
+    stats = calculate_stats(filtered_data, active_splits_frozen, view_mode, map_metric, score_mode)
     
     max_games = int(stats['Total_Active'].max()) if not stats.empty else 0
     min_count = st.slider("Min Games:", 0, max_games, 0)
@@ -895,7 +889,6 @@ with st.sidebar:
 
 st.markdown("## Locations")
 
-# Display TBD Languages Warning
 if tbd_display_list:
     st.info(f"**TBD Languages:** The following locations are excluded from the map/stats because their language is not yet categorized: {', '.join(sorted(list(set(tbd_display_list))))}")
 
@@ -911,7 +904,6 @@ if not filtered_data.empty:
             map_data.loc[mask_split, 'Join_Key'] = map_data.loc[mask_split, 'Subdivision']
     
     if view_mode != "Countries":
-        # Handle Non-Split (Aggregates)
         mask_not_split = ~map_data['ISO3'].isin(active_splits)
         
         attr_col = None
@@ -922,14 +914,11 @@ if not filtered_data.empty:
         if attr_col:
             map_data.loc[mask_not_split, 'Join_Key'] = map_data.loc[mask_not_split, attr_col]
             
-            # Handle Split Countries in Aggregate View (Matches calculate_stats logic)
             if active_splits:
                 mask_split = map_data['ISO3'].isin(active_splits)
                 if mask_split.any():
-                    # Format: ISO___Attribute (e.g., CAN___English)
                     map_data.loc[mask_split, 'Join_Key'] = map_data.loc[mask_split, 'ISO3'] + "___" + map_data.loc[mask_split, attr_col].astype(str)
 
-    # Filter map data by metric logic
     if 'Michael Round Score' in map_data.columns:
         m_played = map_data['Michael Round Score'].notna()
     else:
@@ -950,18 +939,17 @@ if not filtered_data.empty:
         map_data = map_data[m_played | s_played]
 
 active_keys = set(stats['Join_Key'].unique())
-# Only extract ISOs for valid map data rows that match the filtered stats keys
 active_iso_tuple = tuple(map_data[map_data['Join_Key'].isin(active_keys)]['ISO3'].unique()) if not stats.empty else ()
 
-# Calculate Active Subdivs for Split Countries using filtered map_data
 active_subdivs = {}
 if active_splits:
     for iso in active_splits:
-        # Clean and filter subdivisions
         subs = map_data[(map_data['ISO3'] == iso) & map_data['Subdivision'].notna()]['Subdivision'].astype(str).str.strip().unique()
-        active_subdivs[iso] = set(subs)
+        active_subdivs[iso] = tuple(subs)
 
-map_geojson = generate_dynamic_map_layer(base_gdf, active_iso_tuple, active_splits, active_subdivs, view_mode)
+active_subdivs_tuple = tuple(active_subdivs.items())
+
+map_geojson = generate_dynamic_map_layer(base_gdf, active_iso_tuple, active_splits_frozen, active_subdivs_tuple, view_mode)
 bg_geojson = get_background_layer(base_gdf)
 
 fig = go.Figure()
@@ -974,7 +962,6 @@ if bg_geojson:
     ))
 
 if map_geojson and not stats.empty:
-    # Scales
     max_val = stats['Count'].max() if map_metric != "Comparison" else 0.6
     if max_val == 0: max_val = 1
     
@@ -1037,17 +1024,21 @@ if map_geojson and not stats.empty:
             z=[1]*len(stats_exclusive)
         ))
 
-    ms_df = stats[stats['Hover_Name'].isin(MICROSTATES)].copy()
+    # Fix: Check both Hover_Name (standard) and Join_Key (for split subdivisions with appended parent names)
+    ms_mask = stats['Hover_Name'].isin(MICROSTATES) | stats['Join_Key'].isin(MICROSTATES)
+    ms_df = stats[ms_mask].copy()
     if not ms_df.empty:
-        coords = ms_df['Hover_Name'].map(MICROSTATES)
+        def get_ms_coord(r):
+            if r['Hover_Name'] in MICROSTATES: return MICROSTATES[r['Hover_Name']]
+            if r['Join_Key'] in MICROSTATES: return MICROSTATES[r['Join_Key']]
+            return None
+            
+        coords = ms_df.apply(get_ms_coord, axis=1).tolist()
         
-        # Prepare customdata specifically for scatter to fix %{z} issues in hover
         ms_custom = ms_df[custom_cols].copy()
-        ms_custom['z_val'] = ms_df[z_col] # Add z value as extra column
+        ms_custom['z_val'] = ms_df[z_col] 
         
-        # Adjust hovertemplate to reference the last customdata column instead of %{z}
         z_idx = len(custom_cols)
-        # REMOVED CLOSING BRACE } from replacement string to fix format bug
         hover_t_ms = hover_t.replace("%{z", f"%{{customdata[{z_idx}]")
         
         fig.add_trace(go.Scattergeo(
@@ -1057,25 +1048,19 @@ if map_geojson and not stats.empty:
             text=ms_df['Hover_Name'], customdata=ms_custom, hovertemplate=hover_t_ms
         ))
 
-# --- Language Emoji Markers (Languages view only) ---
     if view_mode == "Languages" and map_geojson and not stats.empty:
         key_to_lang = dict(zip(stats['Join_Key'], stats['Language_Name']))
         MIN_AREA_DEG2 = 0.05 
-        
-        # 69 miles / 69 miles per degree = ~1 degrees. 
-        # Divide by 2 to get the buffer radius (0.5 degrees).
         BUFFER_DEG = 0.5
 
         emoji_lats, emoji_lons, emoji_texts = [], [], []
         polys_by_lang = {}
 
-        # 1. Group all valid polygons by their assigned language
         for feature in map_geojson.get('features', []):
             dissolve_key = feature['properties'].get('Dissolve_Key', '')
             lang = key_to_lang.get(dissolve_key)
             emoji = LANGUAGE_EMOJIS.get(lang) if lang else None
-            if not emoji:
-                continue
+            if not emoji: continue
 
             geom = shp_shape(feature['geometry'])
             polys = list(geom.geoms) if geom.geom_type == 'MultiPolygon' else ([geom] if geom.geom_type == 'Polygon' else [])
@@ -1086,29 +1071,18 @@ if map_geojson and not stats.empty:
                         polys_by_lang[lang] = {'emoji': emoji, 'polygons': []}
                     polys_by_lang[lang]['polygons'].append(poly)
 
-        # 2. Cluster the shapes using buffers
-        for lang, data in polys_by_lang.items():
-            emoji = data['emoji']
-            original_polys = data['polygons']
+        for lang, data_dict in polys_by_lang.items():
+            emoji = data_dict['emoji']
+            original_polys = data_dict['polygons']
             
-            # Expand every polygon by 125 miles (1.81 degrees)
             buffers = [p.buffer(BUFFER_DEG) for p in original_polys]
-            
-            # Melt overlapping buffers together into continuous clusters
             merged_buffers = unary_union(buffers)
-            
-            # Extract the distinct clusters
             clusters = list(merged_buffers.geoms) if merged_buffers.geom_type == 'MultiPolygon' else [merged_buffers]
             
-            # 3. Place a flag on the largest original landmass inside each cluster
             for cluster in clusters:
-                # Find which original polygons fall into this specific cluster
                 cluster_polys = [p for p in original_polys if p.intersects(cluster)]
-                
-                if not cluster_polys:
-                    continue
+                if not cluster_polys: continue
                     
-                # Identify the largest actual piece of land in the cluster
                 largest_poly = max(cluster_polys, key=lambda p: p.area)
                 pt = largest_poly.representative_point()
                 
@@ -1148,21 +1122,16 @@ st.subheader(f"Statistics by {view_mode}")
 if not stats.empty:
     disp = stats.sort_values("Count", ascending=False).copy()
     
-    # Pre-format the date column (used in Count view)
     if 'Last_Date' in disp.columns:
         disp['Most Recent Date'] = disp['Last_Date'].dt.strftime('%Y-%m-%d')
     else:
         disp['Most Recent Date'] = ""
 
-    # Default columns (Metric = Count usually falls through here)
     cols = ['Hover_Name', 'Count', 'Most Recent Location', 'Most Recent Date']
-    
-    # Defaults
     def_sort_col = "Count"
-    def_sort_idx = 0 # Descending
+    def_sort_idx = 0 
 
     if map_metric == "Comparison":
-        # Calculate Separate Win Rates
         def get_win_rates(row):
             total = row['Count']
             if total == 0: return 0.0, 0.0
@@ -1174,17 +1143,12 @@ if not stats.empty:
         
         disp['Score Advantage'] = disp['Michael Accuracy'] - disp['Sarah Accuracy']
         
-        # Bayesian Logic
         v = disp['Total Possible']
-        R = disp['Score Advantage'].abs() # Use absolute advantage
-        
+        R = disp['Score Advantage'].abs() 
         m_total = disp['Michael Selected'].sum()
         s_total = disp['Sarah Selected'].sum()
         p_total = disp['Total Possible'].sum()
-        
-        # Global Absolute Advantage
         C = abs(m_total - s_total) / p_total if p_total > 0 else 0
-        
         m = v.mean()
         
         if m > 0:
@@ -1197,9 +1161,8 @@ if not stats.empty:
         disp['Discrepancy Rank'] = range(1, len(disp) + 1)
         
         cols = ['Discrepancy Rank', 'Hover_Name', 'Count', 'Score Advantage', 'Michael Win Rate', 'Sarah Win Rate']
-        
         def_sort_col = "Discrepancy Rank"
-        def_sort_idx = 1 # Ascending
+        def_sort_idx = 1 
         
     elif map_metric in ["Michael", "Sarah"]:
         cols = ['Hover_Name', 'Count']
@@ -1207,11 +1170,9 @@ if not stats.empty:
         disp['Score'] = disp.apply(lambda x: f"{int(x[f'{prefix} Selected']):,}/{int(x['Total Possible']):,}", axis=1)
         acc_col = f'{map_metric} Accuracy'
         
-        # New: Highest/Lowest Scores
         disp['Highest Score'] = disp[f'{prefix} Selected_max']
         disp['Lowest Score'] = disp[f'{prefix} Selected_min']
 
-        # Bayesian Logic for Michael/Sarah
         v = disp['Total Possible']
         R = disp[acc_col]
         total_sel = disp[f'{prefix} Selected'].sum()
@@ -1229,7 +1190,7 @@ if not stats.empty:
         cols = ['Rank'] + cols + ['Score', 'Highest Score', 'Lowest Score', acc_col]
         
         def_sort_col = "Rank"
-        def_sort_idx = 1 # Ascending
+        def_sort_idx = 1 
         
     final_df = disp[cols].rename(columns={'Hover_Name': 'Location'})
     
