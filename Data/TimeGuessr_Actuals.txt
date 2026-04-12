@@ -732,3 +732,24 @@ TimeGuessr #1040
 3. Algiers, Algeria, 1960
 4. Boston (Massachusetts), United States, 1906
 5. Caracas, Venezuela, 2026
+
+TimeGuessr #1041
+1. Burkburnett (Texas), United States, 1919
+2. The Hague, Netherlands, 1943
+3. Yokosuka, Japan, 1967
+4. Blaenau Ffestiniog (Wales), United Kingdom, 1980
+5. Cape Town, South Africa, 2020
+
+TimeGuessr #1042
+1. Seoul, South Korea, 2026
+2. Stockholm, Sweden, 1941
+3. Paris (Ile-de-France), France, 1960
+4. Vienna, Austria, 1989
+5. Philadelphia (Pennsylvania), United States, 1914
+
+TimeGuessr #1043
+1. Albuquerque (New Mexico), United States, 1943
+2. London (England), United Kingdom, 1986
+3. Brno, Czechia, 1921
+4. Berlin (Berlin), Germany, 2001
+5. Pyongyang, North Korea, 2017
