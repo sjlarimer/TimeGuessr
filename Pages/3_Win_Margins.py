@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 from PIL import Image
+import io
 
 def get_base64_image(image_path):
     """
@@ -68,19 +69,6 @@ def set_lighter_background_image(base64_string, lightness_level=0.7):
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# --- Main Streamlit Script ---
-import io
-
-image_file_path = "Images/Sarah.jpg"
-
-# 1. Get the base64 string
-base64_img = get_base64_image(image_file_path)
-
-# 2. Inject the CSS with a 70% lightness overlay
-# Try adjusting the second argument (e.g., 0.3 for slightly lighter, 0.9 for very light)
-set_lighter_background_image(base64_img, lightness_level=0.7)
-
-import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -126,6 +114,13 @@ CUSTOM_STYLES = """
     </style>
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
+
+# 1. Get the base64 string
+image_file_path = "Images/Sarah.jpg"
+base64_img = get_base64_image(image_file_path)
+
+# 2. Inject the CSS with a 70% lightness overlay
+set_lighter_background_image(base64_img, lightness_level=0.7)
 
 # --- Helper Functions ---
 @st.cache_data
@@ -679,82 +674,28 @@ def create_streaks_table(mask_filtered: pd.DataFrame) -> str:
     
     return html
 
+
 # --- Main App ---
-
-st.markdown(
-    """
-    <style>
-    /* Hide the label */
-    div[data-testid="stSelectbox"] > label {
-        display: none !important;
-    }
-
-    /* Remove default Streamlit select styling */
-    div[data-baseweb="select"] > div {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        width: fit-content !important;          /* only as wide as text */
-        min-width: 0 !important;
-        overflow: visible !important;           /* prevent clipping */
-    }
-
-    /* Style visible select text */
-    div[data-baseweb="select"] > div > div {
-        height: auto !important;                /* allow natural height */
-        min-height: 90px !important;            /* taller block */
-        display: flex !important;
-        align-items: flex-end !important;       /* align text visually bottom */
-        padding: 8px 4px 14px 4px !important;   /* extra bottom padding */
-        font-size: 46px !important;             /* large title font */
-        font-weight: 800 !important;
-        color: #db5049 !important;              /* your red */
-        text-align: left !important;
-        line-height: 1.2em !important;          /* prevent clipping */
-        width: fit-content !important;
-        overflow: visible !important;
-    }
-
-    /* Make sure dropdown list aligns left */
-    div[data-baseweb="popover"] {
-        text-align: left !important;
-    }
-
-    /* Adjust dropdown arrow */
-    div[data-baseweb="select"] svg {
-        width: 24px !important;
-        height: 24px !important;
-        margin-left: 6px;
-    }
-
-    /* Prevent container clipping */
-    div[data-testid="stSelectbox"] {
-        display: inline-block !important;
-        width: auto !important;
-        overflow: visible !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-page_type = st.selectbox(
-    "",
-    options=["Total Win Margins", "Time Win Margins", "Geography Win Margins"],
-    index=0,
-    key="page_selector",
-)
 
 # Load data
 data = load_data()
 
-# Conditional toggle for Time and Geography Margins
-remove_estimated = False
-if page_type in ["Time Win Margins", "Geography Win Margins"]:
-    remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
+# Render Sidebar Controls
+with st.sidebar:
+    st.header("Settings")
+    
+    page_type = st.radio(
+        "Margin Type:",
+        options=["Total Win Margins", "Time Win Margins", "Geography Win Margins"],
+        index=0,
+        key="page_selector"
+    )
 
-# Prepare data and win categories based on page type
+    remove_estimated = False
+    if page_type in ["Time Win Margins", "Geography Win Margins"]:
+        remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
+
+# Prepare data and win categories based on page type selection
 if page_type == "Total Win Margins":
     mask = prepare_total_margins_data(data)
     win_categories = {
@@ -783,25 +724,29 @@ else:  # Geography Win Margins
         "Very Close Wins (<0.5k)": (0, 500)
     }
 
-# Date range
+# Date range limits based on current mask
 min_date, max_date = mask["Date"].min(), mask["Date"].max()
 
-# Controls
-window_length = st.slider(
-    "Rolling Average Window (Games):",
-    min_value=1,
-    max_value=30,
-    value=5,
-    step=1
-)
+# Render remaining Sidebar Controls
+with st.sidebar:
+    window_length = st.slider(
+        "Rolling Average Window (Games):",
+        min_value=1,
+        max_value=30,
+        value=5,
+        step=1
+    )
 
-start_date, end_date = st.slider(
-    "Select Date Range:",
-    min_value=min_date.to_pydatetime(),
-    max_value=max_date.to_pydatetime(),
-    value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-    format="YYYY-MM-DD"
-)
+    start_date, end_date = st.slider(
+        "Select Date Range:",
+        min_value=min_date.to_pydatetime(),
+        max_value=max_date.to_pydatetime(),
+        value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+        format="YYYY-MM-DD"
+    )
+
+# Render main area Header
+st.markdown(f"## {page_type}")
 
 # Filter data
 mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()

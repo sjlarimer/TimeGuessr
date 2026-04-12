@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 from PIL import Image
+import io
 
 def get_base64_image(image_path):
     """
@@ -68,25 +69,13 @@ def set_lighter_background_image(base64_string, lightness_level=0.7):
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# --- Main Streamlit Script ---
-import io
-
-image_file_path = "Images/Sarah3.jpg"
-
-# 1. Get the base64 string
-base64_img = get_base64_image(image_file_path)
-
-# 2. Inject the CSS with a 70% lightness overlay
-# Try adjusting the second argument (e.g., 0.3 for slightly lighter, 0.9 for very light)
-set_lighter_background_image(base64_img, lightness_level=0.7)
-
-import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from pathlib import Path
 from typing import Tuple, List, Dict
 import time
+import scipy.stats as stats
 
 # --- Configuration ---
 st.set_page_config(page_title="Timeguessr Dashboard", layout="wide")
@@ -148,6 +137,13 @@ CUSTOM_STYLES = """
     </style>
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
+
+# 1. Get the base64 string
+image_file_path = "Images/Sarah3.jpg"
+base64_img = get_base64_image(image_file_path)
+
+# 2. Inject the CSS with a 70% lightness overlay
+set_lighter_background_image(base64_img, lightness_level=0.7)
 
 # --- Helper Functions ---
 @st.cache_data
@@ -544,8 +540,8 @@ def create_table_row(label: str, michael_val: str, sarah_val: str,
     sarah_bold = ""
     if compare_values and michael_val != '-' and sarah_val != '-':
         try:
-            m_val = float(michael_val)
-            s_val = float(sarah_val)
+            m_val = float(michael_val.replace(',', ''))
+            s_val = float(sarah_val.replace(',', ''))
             michael_bold = "font-weight: bold;" if m_val > s_val else ""
             sarah_bold = "font-weight: bold;" if s_val > m_val else ""
         except:
@@ -1106,55 +1102,111 @@ def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str
     </div>
     """
 
-def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series, 
-                    bin_size: int, ceiling: int) -> go.Figure:
-    """Create histogram figure."""
-    hist_fig = go.Figure()
+def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_scores: pd.Series, ceiling: int) -> go.Figure:
+    """Create density plot figure without discrete buckets."""
+    fig = go.Figure()
     
     # Check if we have any data
     if len(michael_scores) == 0 and len(sarah_scores) == 0:
-        return hist_fig
-    
-    # Calculate bin alignment
+        return fig
+        
+    # Calculate x-axis range
     min_score = min(michael_scores.min() if len(michael_scores) > 0 else ceiling, 
-                    sarah_scores.min() if len(sarah_scores) > 0 else ceiling)
-    bins_needed = int(np.ceil((ceiling - min_score) / bin_size))
-    tick_start = ceiling - (bins_needed * bin_size)
+                    sarah_scores.min() if len(sarah_scores) > 0 else ceiling,
+                    avg_scores.min() if len(avg_scores) > 0 else ceiling)
     
-    # Create histograms
-    if len(michael_scores) > 0:
-        hist_fig.add_trace(go.Histogram(
-            x=michael_scores,
-            name='Michael',
-            marker_color=COLORS['michael'],
-            opacity=0.7,
-            xbins=dict(
-                size=bin_size,
-                start=tick_start,
-                end=ceiling
-            )
-        ))
+    # Set bounds, allowing some breathing room below the minimum score
+    x_min = max(0, min_score - (ceiling * 0.05))
+    x_max = ceiling
+    x_vals = np.linspace(x_min, x_max, 500)
     
-    if len(sarah_scores) > 0:
-        hist_fig.add_trace(go.Histogram(
-            x=sarah_scores,
-            name='Sarah',
-            marker_color=COLORS['sarah'],
-            opacity=0.7,
-            xbins=dict(
-                size=bin_size,
-                start=tick_start,
-                end=ceiling
-            )
-        ))
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+        
+    if len(michael_scores) > 1:
+        try:
+            kde_m = stats.gaussian_kde(michael_scores)
+            y_m = kde_m(x_vals)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_m,
+                name='Michael',
+                mode='lines',
+                line=dict(color=COLORS['michael'], width=3),
+                fill='tozeroy',
+                fillcolor=hex_to_rgba(COLORS['michael'], 0.4),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+        except Exception:
+            pass # Catch instances of zero variance (LinAlgError)
+            
+    if len(sarah_scores) > 1:
+        try:
+            kde_s = stats.gaussian_kde(sarah_scores)
+            y_s = kde_s(x_vals)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_s,
+                name='Sarah',
+                mode='lines',
+                line=dict(color=COLORS['sarah'], width=3),
+                fill='tozeroy',
+                fillcolor=hex_to_rgba(COLORS['sarah'], 0.4),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+        except Exception:
+            pass
+            
+    if len(avg_scores) > 1:
+        try:
+            kde_a = stats.gaussian_kde(avg_scores)
+            y_a = kde_a(x_vals)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_a,
+                name='Average',
+                mode='lines',
+                line=dict(color='black', width=2, dash='dash'),
+                fill='tozeroy',
+                fillcolor=hex_to_rgba('#000000', 0.1),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+            
+            # Add percentile lines based on the average scores
+            percentiles = [20, 40, 60, 80, 90]
+            plotted_vals = set()
+            avg_clean = avg_scores.dropna()
+            
+            for p in percentiles:
+                exact_val = np.percentile(avg_clean, p)
+                rounded_val = round(exact_val / 500) * 500
+                
+                # Prevent duplicate lines if multiple targets snap to the same 500 interval
+                if rounded_val not in plotted_vals:
+                    plotted_vals.add(rounded_val)
+                    
+                    # Calculate what the true percentile is for this rounded score
+                    actual_p = stats.percentileofscore(avg_clean, rounded_val)
+                    
+                    fig.add_vline(
+                        x=rounded_val,
+                        line_width=1,
+                        line_dash="dot",
+                        line_color="#8f8d85",
+                        opacity=0.7,
+                        annotation_text=f"{actual_p:.1f}th ({int(rounded_val):,})",
+                        annotation_position="top right",
+                        annotation_textangle=-90,
+                        annotation_font=dict(size=10, color="#696761")
+                    )
+        except Exception:
+            pass
     
-    # Generate tick values
-    tick_values = list(range(tick_start, ceiling + 1, bin_size))
-    
-    hist_fig.update_layout(
-        barmode='overlay',
+    fig.update_layout(
         xaxis_title='Score',
-        yaxis_title='Count',
+        yaxis_title='Density',
         height=400,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
@@ -1170,9 +1222,10 @@ def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series,
             bordercolor='rgba(0,0,0,0)',
             font=dict(color=COLORS['text'])
         ),
+        hovermode='x unified'
     )
     
-    hist_fig.update_xaxes(
+    fig.update_xaxes(
         showgrid=True,
         gridcolor=COLORS['grid'],
         zeroline=False,
@@ -1180,99 +1233,44 @@ def create_histogram(michael_scores: pd.Series, sarah_scores: pd.Series,
         tickcolor=COLORS['line'],
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
-        tickmode='array',
-        tickvals=tick_values
+        range=[x_min, x_max]
     )
-    hist_fig.update_yaxes(
+    fig.update_yaxes(
         showgrid=True,
         gridcolor=COLORS['grid'],
-        zeroline=False,
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
         linecolor=COLORS['line'],
         tickcolor=COLORS['line'],
         tickfont=dict(color=COLORS['text']),
-        title_font=dict(color=COLORS['text'])
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero',
+        showticklabels=False # Absolute density values are relative and not strictly necessary
     )
     
-    return hist_fig
+    return fig
 
 # --- Main App ---
-
-st.markdown(
-    """
-    <style>
-    /* Hide the label */
-    div[data-testid="stSelectbox"] > label {
-        display: none !important;
-    }
-
-    /* Remove default Streamlit select styling */
-    div[data-baseweb="select"] > div {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        width: fit-content !important;          /* only as wide as text */
-        min-width: 0 !important;
-        overflow: visible !important;           /* prevent clipping */
-    }
-
-    /* Style visible select text */
-    div[data-baseweb="select"] > div > div {
-        height: auto !important;                /* allow natural height */
-        min-height: 90px !important;            /* taller block */
-        display: flex !important;
-        align-items: flex-end !important;       /* align text visually bottom */
-        padding: 8px 4px 14px 4px !important;   /* extra bottom padding */
-        font-size: 46px !important;             /* large title font */
-        font-weight: 800 !important;
-        color: #db5049 !important;              /* your red */
-        text-align: left !important;
-        line-height: 1.2em !important;          /* prevent clipping */
-        width: fit-content !important;
-        overflow: visible !important;
-    }
-
-    /* Make sure dropdown list aligns left */
-    div[data-baseweb="popover"] {
-        text-align: left !important;
-    }
-
-    /* Adjust dropdown arrow */
-    div[data-baseweb="select"] svg {
-        width: 24px !important;
-        height: 24px !important;
-        margin-left: 6px;
-    }
-
-    /* Prevent container clipping */
-    div[data-testid="stSelectbox"] {
-        display: inline-block !important;
-        width: auto !important;
-        overflow: visible !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-page_type = st.selectbox(
-    "",
-    options=["Total Scores", "Time Scores", "Geography Scores"],
-    index=0,
-    key="page_selector",
-)
 
 # Load data
 data = load_data()
 
-# After the conditional toggle for estimated scores
-remove_estimated = False
-if page_type in ["Time Scores", "Geography Scores"]:
-    remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
+# Render Sidebar Controls (Top)
+with st.sidebar:
+    st.header("Settings")
+    
+    page_type = st.radio(
+        "Score Type:",
+        options=["Total Scores", "Time Scores", "Geography Scores"],
+        index=0,
+        key="page_selector"
+    )
 
-# Add this new toggle for all page types
-include_single_player_days = st.toggle("Include days where only one person played", value=False, key="include_single_player_toggle")
+    remove_estimated = False
+    if page_type in ["Time Scores", "Geography Scores"]:
+        remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
 
+    include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
 
 # Prepare data based on page type
 if page_type == "Total Scores":
@@ -1297,23 +1295,37 @@ else:  # Geography Scores
     bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
 
-# Date range
-min_date, max_date = mask["Date"].min(), mask["Date"].max()
+# Date range logic
+if not mask.empty:
+    min_date, max_date = mask["Date"].min(), mask["Date"].max()
+else:
+    # Fallbacks if all data is somehow filtered out
+    min_date, max_date = data["Date"].min(), data["Date"].max()
 
-# Controls
-window_length = st.slider(
-    "Rolling Average Window (Games):",
-    min_value=1, max_value=30, value=5, step=1
-)
+# Render remaining Sidebar Controls (Bottom)
+with st.sidebar:
+    window_length = st.slider(
+        "Rolling Average Window (Games):",
+        min_value=1, max_value=30, value=5, step=1
+    )
 
-# Date range slider
-start_date, end_date = st.slider(
-    "Select Date Range:",
-    min_value=min_date.to_pydatetime(),
-    max_value=max_date.to_pydatetime(),
-    value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-    format="YYYY-MM-DD"
-)
+    start_date, end_date = st.slider(
+        "Select Date Range:",
+        min_value=min_date.to_pydatetime(),
+        max_value=max_date.to_pydatetime(),
+        value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
+        format="YYYY-MM-DD"
+    )
+
+    bin_size = st.select_slider(
+        "Select Score Bucket Size",
+        options=bin_options,
+        value=default_bin_size,
+        help="Adjust the size of score ranges in the statistics table"
+    )
+
+# Render main area Header
+st.markdown(f"## {page_type}")
 
 # Filter data by date range
 mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
@@ -1334,27 +1346,23 @@ st.markdown(momentum_html, unsafe_allow_html=True)
 st.markdown("---")
 st.subheader("Statistics Summary")
 
-bin_size = st.select_slider(
-    "Select Score Bucket Size",
-    options=bin_options,
-    value=default_bin_size,
-    help="Adjust the size of score ranges in the statistics table"
-)
-
 # Extract player data based on score type - ONLY from days where BOTH have data (mask_filtered)
 if score_type == "total":
     michael_scores = mask_filtered["Michael Total Score"].dropna()
     sarah_scores = mask_filtered["Sarah Total Score"].dropna()
+    avg_scores = ((mask_filtered["Michael Total Score"] + mask_filtered["Sarah Total Score"]) / 2).dropna()
     michael_dates = mask_filtered[mask_filtered["Michael Total Score"].notna()]["Date"]
     sarah_dates = mask_filtered[mask_filtered["Sarah Total Score"].notna()]["Date"]
 elif score_type == "time":
     michael_scores = mask_filtered["Michael Time Midpoint"].dropna()
     sarah_scores = mask_filtered["Sarah Time Midpoint"].dropna()
+    avg_scores = ((mask_filtered["Michael Time Midpoint"] + mask_filtered["Sarah Time Midpoint"]) / 2).dropna()
     michael_dates = mask_filtered[mask_filtered["Michael Time Midpoint"].notna()]["Date"]
     sarah_dates = mask_filtered[mask_filtered["Sarah Time Midpoint"].notna()]["Date"]
 else:  # geography
     michael_scores = mask_filtered["Michael Geography Midpoint"].dropna()
     sarah_scores = mask_filtered["Sarah Geography Midpoint"].dropna()
+    avg_scores = ((mask_filtered["Michael Geography Midpoint"] + mask_filtered["Sarah Geography Midpoint"]) / 2).dropna()
     michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
     sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
 
@@ -1372,10 +1380,10 @@ with col1:
                                         bin_size, date_format, ceiling)
     st.markdown(stats_html, unsafe_allow_html=True)
     
-    # Display histogram
+    # Display density plot
     st.markdown("<br>", unsafe_allow_html=True)
-    hist_fig = create_histogram(michael_scores, sarah_scores, bin_size, ceiling)
-    st.plotly_chart(hist_fig, use_container_width=True, key="histogram_chart")
+    density_fig = create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling)
+    st.plotly_chart(density_fig, use_container_width=True, key="density_chart")
 
 with col2:
     # Display streaks table
