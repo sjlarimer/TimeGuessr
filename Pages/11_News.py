@@ -750,11 +750,19 @@ def generate_milestone_events(df):
     seen_dates = set()
     total_days = 0
     
-    uc = df["Country"].dropna().unique()
-    iso = dict(zip(uc, cc_obj.convert(names=uc, to='ISO3', not_found=None))) if len(uc) > 0 else {}
-    ui = [i for i in set(iso.values()) if i]
-    reg = dict(zip(ui, cc_obj.convert(names=ui, to="UNregion"))) if ui else {}
-    con = dict(zip(ui, cc_obj.convert(names=ui, to="continent"))) if ui else {}
+    uc = list(df["Country"].dropna().unique())
+    iso_res = cc_obj.convert(names=uc, to='ISO3', not_found='Unknown') if uc else []
+    if isinstance(iso_res, str): iso_res = [iso_res]
+    iso = dict(zip(uc, iso_res))
+    
+    ui = [i for i in set(iso.values()) if i and i != 'Unknown']
+    reg_res = cc_obj.convert(names=ui, to="UNregion", not_found="Unknown") if ui else []
+    if isinstance(reg_res, str): reg_res = [reg_res]
+    reg = dict(zip(ui, reg_res))
+    
+    con_res = cc_obj.convert(names=ui, to="continent", not_found="Unknown") if ui else []
+    if isinstance(con_res, str): con_res = [con_res]
+    con = dict(zip(ui, con_res))
     
     def is_milestone(n):
         return n in [5, 10, 15, 20, 25, 50, 75, 100] or (n > 100 and n % 50 == 0)
@@ -880,317 +888,364 @@ def get_flag_html(name):
 
 def generate_location_events(df):
     if df.empty: return []
-    events, seen_cont, seen_r = [], set(), set()
+    events = []
     perf_data = df.copy()
     
+    # Strictly base row "Total Score" on Geography + Time 
+    # This prevents using the date-aggregated total for row-specific locations
     for p in ["Michael", "Sarah"]:
-        for m in ["Total", "Geography", "Time"]:
-            if f"{p} {m} Score" in perf_data.columns:
-                perf_data[f"{p} {m} Score"] = perf_data[f"{p} {m} Score"].fillna(0)
+        geo_col = f"{p} Geography Score"
+        time_col = f"{p} Time Score"
+        if geo_col not in perf_data.columns: perf_data[geo_col] = 0
+        if time_col not in perf_data.columns: perf_data[time_col] = 0
+        perf_data[geo_col] = perf_data[geo_col].fillna(0)
+        perf_data[time_col] = perf_data[time_col].fillna(0)
+        perf_data[f"{p} Total Score"] = perf_data[geo_col] + perf_data[time_col]
                 
-    def get_lead(sub):
-        r = {}
-        for m in ["Total", "Geography", "Time"]:
-            ms, ss = sub[f"Michael {m} Score"].sum(), sub[f"Sarah {m} Score"].sum()
-            diff = ms - ss
-            w = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
-            r[m] = (w, abs(diff))
-        return r
-
-    hist_loc, hist_reg, hist_cont = {}, {}, {}
-    last_seen = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
-    appearances = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
+    uc = list(df["Country"].dropna().unique())
+    iso_res = cc_obj.convert(names=uc, to='ISO3', not_found='Unknown') if uc else []
+    if isinstance(iso_res, str): iso_res = [iso_res]
+    iso = dict(zip(uc, iso_res))
     
-    uc = df["Country"].dropna().unique()
-    iso = dict(zip(uc, cc_obj.convert(names=uc, to='ISO3', not_found=None))) if len(uc) > 0 else {}
-    ui = [i for i in set(iso.values()) if i]
-    reg = dict(zip(ui, cc_obj.convert(names=ui, to="UNregion"))) if ui else {}
-    con = dict(zip(ui, cc_obj.convert(names=ui, to="continent"))) if ui else {}
+    ui = [i for i in set(iso.values()) if i and i != 'Unknown']
+    reg_res = cc_obj.convert(names=ui, to="UNregion", not_found="Unknown") if ui else []
+    if isinstance(reg_res, str): reg_res = [reg_res]
+    reg = dict(zip(ui, reg_res))
+    
+    con_res = cc_obj.convert(names=ui, to="continent", not_found="Unknown") if ui else []
+    if isinstance(con_res, str): con_res = [con_res]
+    con = dict(zip(ui, con_res))
+
+    locations_state = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
+    last_seen_day = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
+    appearances = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
     
     unique_dates = sorted(perf_data["Date"].unique())
     date_to_day = {d: i for i, d in enumerate(unique_dates, start=1)}
 
-    for idx, r in perf_data.sort_values("Date").iterrows():
-        dt, c, s = r["Date"], r.get("Country"), r.get("Subdivision")
-        ccl = str(c).strip() if pd.notna(c) else "Unknown"
-        scl = str(s).strip() if pd.notna(s) else None
-        isoc = iso.get(ccl)
-        rg, cn = reg.get(isoc, "Unknown"), con.get(isoc, "Unknown")
-        
+    for dt in unique_dates:
+        day_data = perf_data[perf_data["Date"] == dt]
         current_day = date_to_day[dt]
+        day_locs = {"continent": {}, "region": {}, "country": {}, "subdivision": {}}
         
-        gap_dict = {}
-        for kt, kn in [("continent", cn), ("region", rg), ("country", ccl), ("subdivision", scl)]:
-            if kn and kn != "Unknown":
-                appearances[kt][kn] = appearances[kt].get(kn, 0) + 1
-                prev = last_seen[kt].get(kn, 0)
-                gap_dict[kt] = current_day - prev
-                last_seen[kt][kn] = current_day
-            else:
-                gap_dict[kt] = 0
-
-        if cn != "Unknown" and cn not in seen_cont: 
-            seen_cont.add(cn)
-            events.append({"date": dt, "category": "Discovery", "event_type": "discovery", "subtype": "new_continent", "name": cn, "gap": gap_dict["continent"]})
-        if rg != "Unknown" and rg not in seen_r: 
-            seen_r.add(rg)
-            events.append({"date": dt, "category": "Discovery", "event_type": "discovery", "subtype": "new_un_region", "name": rg, "gap": gap_dict["region"]})
-        
-        keys = []
-        if ccl != "Unknown": keys.append(("country", ccl, None, gap_dict["country"]))
-        if scl: keys.append(("subdivision", ccl, scl, gap_dict["subdivision"]))
-        
-        for kt, kc, ks, kgap in keys:
-            k = (kc, ks)
-            kn = ks if ks else kc
-            app_count = appearances[kt].get(kn, 0)
+        for _, r in day_data.iterrows():
+            c, s = r.get("Country"), r.get("Subdivision")
+            ccl = str(c).strip() if pd.notna(c) else "Unknown"
+            scl = str(s).strip() if pd.notna(s) and str(s).strip() else None
+            isoc = iso.get(ccl, "Unknown")
+            rg = reg.get(isoc, "Unknown")
+            cn = con.get(isoc, "Unknown")
             
-            if k not in hist_loc:
-                hist_loc[k] = {"Total": "Tie", "Geography": "Tie", "Time": "Tie", "Michael": {"Total": 0, "Geography": 0, "Time": 0}, "Sarah": {"Total": 0, "Geography": 0, "Time": 0}}
-                for p in ["Michael", "Sarah"]: 
-                    for m in ["Total", "Geography", "Time"]: hist_loc[k][p][m] += r[f"{p} {m} Score"]
-                sub = perf_data[perf_data["Country"] == kc] if not ks else perf_data[(perf_data["Country"] == kc) & (perf_data["Subdivision"] == ks)]
-                perf = get_lead(sub[sub["Date"] <= dt])
-                for m in ["Total", "Geography", "Time"]: hist_loc[k][m] = perf[m][0]
-                events.append({"date": dt, "category": "Discovery", "event_type": "discovery", "subtype": f"new_{kt}", "name": ks if ks else kc, "country": kc if ks else "", "perf": perf, "gap": kgap})
-            else:
-                overall_perf = {}
-                flipped_metrics = []
-                for m in ["Total", "Geography", "Time"]:
-                    shift_m = r[f"Michael {m} Score"]
-                    shift_s = r[f"Sarah {m} Score"]
-                    mb_old = hist_loc[k]["Michael"][m]
-                    sb_old = hist_loc[k]["Sarah"][m]
-                    
-                    hist_loc[k]["Michael"][m] += shift_m
-                    hist_loc[k]["Sarah"][m] += shift_s
-                    
-                    ma_new = hist_loc[k]["Michael"][m]
-                    sa_new = hist_loc[k]["Sarah"][m]
-                    
-                    old_w = hist_loc[k][m]
-                    new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
-                    
-                    overall_perf[m] = {
-                        "Michael": {"before": mb_old, "after": ma_new, "shift": shift_m},
-                        "Sarah": {"before": sb_old, "after": sa_new, "shift": shift_s},
-                        "old_leader": old_w,
-                        "new_leader": new_w,
-                        "did_flip": new_w != old_w
+            locs_to_update = []
+            if cn != "Unknown": locs_to_update.append(("continent", cn, None, "new_continent"))
+            if rg != "Unknown": locs_to_update.append(("region", rg, None, "new_un_region"))
+            if ccl != "Unknown": locs_to_update.append(("country", ccl, None, "new_country"))
+            if scl and ccl != "Unknown": locs_to_update.append(("subdivision", scl, ccl, "new_subdivision"))
+            
+            for l_type, l_name, parent, sub_str in locs_to_update:
+                if l_name not in day_locs[l_type]:
+                    day_locs[l_type][l_name] = {
+                        "parent": parent, "sub_str": sub_str,
+                        "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                        "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0
                     }
+                dl = day_locs[l_type][l_name]
+                for p in ["Michael", "Sarah"]:
+                    dl[f"{p}_Geography"] += r[f"{p} Geography Score"]
+                    dl[f"{p}_Time"] += r[f"{p} Time Score"]
+                    dl[f"{p}_Total"] += r[f"{p} Total Score"]
                     
-                    if new_w != old_w:
-                        flipped_metrics.append(m)
-                        hist_loc[k][m] = new_w
+        for l_type, loc_dict in day_locs.items():
+            for l_name, scores in loc_dict.items():
+                parent = scores["parent"]
+                sub_str = scores["sub_str"]
+                
+                prev_day = last_seen_day[l_type].get(l_name, 0)
+                gap = current_day - prev_day if prev_day > 0 else 0
+                last_seen_day[l_type][l_name] = current_day
+                appearances[l_type][l_name] = appearances[l_type].get(l_name, 0) + 1
+                app_count = appearances[l_type][l_name]
+                
+                if l_name not in locations_state[l_type]:
+                    state = {
+                        "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                        "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0,
+                        "Geography": "Tie", "Time": "Tie", "Total": "Tie"
+                    }
+                    locations_state[l_type][l_name] = state
+                    
+                    for k in ["Michael_Geography", "Michael_Time", "Michael_Total", "Sarah_Geography", "Sarah_Time", "Sarah_Total"]:
+                        state[k] += scores[k]
                         
-                if flipped_metrics:
-                    events.append({"date": dt, "category": "Discovery", "event_type": "location_flip", "subtype": kt, "name": ks if ks else kc, "country": kc if ks else "", "overall_perf": overall_perf, "gap": kgap, "is_rare": kgap >= 25, "appearances": app_count})
-                elif kgap >= 25:
-                    events.append({"date": dt, "category": "Discovery", "event_type": "rare_location", "subtype": kt, "name": ks if ks else kc, "country": kc if ks else "", "overall_perf": overall_perf, "gap": kgap, "appearances": app_count})
-
-        for zn, zh, zt in [(rg, hist_reg, "region"), (cn, hist_cont, "continent")]:
-            if zn != "Unknown":
-                zgap = gap_dict[zt]
-                z_app_count = appearances[zt].get(zn, 0)
-                if zn not in zh:
-                    zh[zn] = {m: "Tie" for m in ["Total", "Geography", "Time"]}
-                    zh[zn].update({f"{p}_{m}": 0 for p in ["Michael", "Sarah"] for m in ["Total", "Geography", "Time"]})
-                    for p in ["Michael", "Sarah"]:
-                        for m in ["Total", "Geography", "Time"]: zh[zn][f"{p}_{m}"] += r[f"{p} {m} Score"]
-                    for m in ["Total", "Geography", "Time"]:
-                        mv, sv = zh[zn][f"Michael_{m}"], zh[zn][f"Sarah_{m}"]
-                        new = "Michael" if mv > sv else ("Sarah" if sv > mv else "Tie")
-                        zh[zn][m] = new
+                    perf = {}
+                    for m in ["Geography", "Time", "Total"]:
+                        m_score, s_score = state[f"Michael_{m}"], state[f"Sarah_{m}"]
+                        w = "Michael" if m_score > s_score else ("Sarah" if s_score > m_score else "Tie")
+                        state[m] = w
+                        perf[m] = (w, abs(m_score - s_score))
+                        
+                    events.append({
+                        "date": dt, "category": "Discovery", "event_type": "discovery",
+                        "subtype": sub_str, "name": l_name, "country": parent if parent else "",
+                        "perf": perf, "gap": gap
+                    })
                 else:
+                    state = locations_state[l_type][l_name]
                     overall_perf = {}
                     flipped_metrics = []
-                    for m in ["Total", "Geography", "Time"]:
-                        shift_m = r[f"Michael {m} Score"]
-                        shift_s = r[f"Sarah {m} Score"]
+                    
+                    for m in ["Geography", "Time", "Total"]:
+                        m_key, s_key = f"Michael_{m}", f"Sarah_{m}"
+                        mb_old, sb_old = state[m_key], state[s_key]
+                        old_w = state[m]
                         
-                        mb_old = zh[zn][f"Michael_{m}"]
-                        sb_old = zh[zn][f"Sarah_{m}"]
+                        state[m_key] += scores[m_key]
+                        state[s_key] += scores[s_key]
+                        ma_new, sa_new = state[m_key], state[s_key]
                         
-                        zh[zn][f"Michael_{m}"] += shift_m
-                        zh[zn][f"Sarah_{m}"] += shift_s
-                        
-                        ma_new = zh[zn][f"Michael_{m}"]
-                        sa_new = zh[zn][f"Sarah_{m}"]
-                        
-                        old_w = zh[zn][m]
                         new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
                         
                         overall_perf[m] = {
-                            "Michael": {"before": mb_old, "after": ma_new, "shift": shift_m},
-                            "Sarah": {"before": sb_old, "after": sa_new, "shift": shift_s},
-                            "old_leader": old_w,
-                            "new_leader": new_w,
-                            "did_flip": new_w != old_w
+                            "Michael": {"before": mb_old, "after": ma_new, "shift": scores[m_key]},
+                            "Sarah": {"before": sb_old, "after": sa_new, "shift": scores[s_key]},
+                            "old_leader": old_w, "new_leader": new_w, "did_flip": new_w != old_w
                         }
                         
                         if new_w != old_w:
                             flipped_metrics.append(m)
-                            zh[zn][m] = new_w
-                    
+                            state[m] = new_w
+                            
                     if flipped_metrics:
-                        events.append({"date": dt, "category": "Discovery", "event_type": "location_flip", "subtype": zt, "name": zn, "country": "", "overall_perf": overall_perf, "gap": zgap, "is_rare": zgap >= 25, "appearances": z_app_count})
-                    elif zgap >= 25:
-                        events.append({"date": dt, "category": "Discovery", "event_type": "rare_location", "subtype": zt, "name": zn, "country": "", "overall_perf": overall_perf, "gap": zgap, "appearances": z_app_count})
+                        events.append({
+                            "date": dt, "category": "Discovery", "event_type": "location_flip",
+                            "subtype": l_type, "name": l_name, "country": parent if parent else "",
+                            "overall_perf": overall_perf, "gap": gap, "is_rare": gap >= 25, "appearances": app_count
+                        })
+                    elif gap >= 25:
+                        events.append({
+                            "date": dt, "category": "Discovery", "event_type": "rare_location",
+                            "subtype": l_type, "name": l_name, "country": parent if parent else "",
+                            "overall_perf": overall_perf, "gap": gap, "appearances": app_count
+                        })
                         
     return events
 
 def generate_year_events(df):
     if df.empty: return []
-    events, seen = [], set()
+    events = []
     perf_data = df.copy()
     
+    # Strictly base row "Total Score" on Geography + Time 
     for p in ["Michael", "Sarah"]:
-        if f"{p} Time Score" in perf_data.columns:
-            perf_data[f"{p} Time Score"] = perf_data[f"{p} Time Score"].fillna(0)
+        geo_col = f"{p} Geography Score"
+        time_col = f"{p} Time Score"
+        if geo_col not in perf_data.columns: perf_data[geo_col] = 0
+        if time_col not in perf_data.columns: perf_data[time_col] = 0
+        perf_data[geo_col] = perf_data[geo_col].fillna(0)
+        perf_data[time_col] = perf_data[time_col].fillna(0)
+        perf_data[f"{p} Total Score"] = perf_data[geo_col] + perf_data[time_col]
             
-    hist = {}
-    last_seen_year = {}
-    appearances_year = {}
+    years_state = {}
+    last_seen_day = {}
+    appearances = {}
+    
     unique_dates = sorted(perf_data["Date"].unique())
     date_to_day = {d: i for i, d in enumerate(unique_dates, start=1)}
     
-    for idx, r in perf_data.sort_values("Date").iterrows():
-        dt, y = r["Date"], r.get("Year")
-        if pd.isna(y): continue
-        ystr = str(int(y))
-        cat = "Time"
+    for dt in unique_dates:
+        day_data = perf_data[perf_data["Date"] == dt]
         current_day = date_to_day[dt]
+        day_years = {}
         
-        appearances_year[ystr] = appearances_year.get(ystr, 0) + 1
-        app_count = appearances_year[ystr]
+        for _, r in day_data.iterrows():
+            y = r.get("Year")
+            if pd.isna(y): continue
+            ystr = str(int(y))
+            
+            if ystr not in day_years:
+                day_years[ystr] = {
+                    "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                    "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0
+                }
+            dl = day_years[ystr]
+            for p in ["Michael", "Sarah"]:
+                dl[f"{p}_Geography"] += r[f"{p} Geography Score"]
+                dl[f"{p}_Time"] += r[f"{p} Time Score"]
+                dl[f"{p}_Total"] += r[f"{p} Total Score"]
         
-        prev = last_seen_year.get(ystr, 0)
-        gap = current_day - prev
-        is_new = (prev == 0)
-        last_seen_year[ystr] = current_day
-        
-        if ystr not in seen:
-            seen.add(ystr)
-            hist[ystr] = {"Time": "Tie", "Michael": {"Time": 0}, "Sarah": {"Time": 0}}
-            for p in ["Michael", "Sarah"]: hist[ystr][p][cat] += r[f"{p} {cat} Score"]
-            mv, sv = hist[ystr]["Michael"][cat], hist[ystr]["Sarah"][cat]
-            diff = mv - sv
-            ld = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
-            hist[ystr][cat] = ld
-            perf = {"Time": (ld, abs(diff))}
-            events.append({"date": dt, "category": "Year", "event_type": "year_discovery", "subtype": "new_year", "name": ystr, "perf": perf, "gap": gap})
-        else:
-            overall_perf_flip = {}
-            flipped_metrics = []
+        for ystr, scores in day_years.items():
+            prev_day = last_seen_day.get(ystr, 0)
+            gap = current_day - prev_day if prev_day > 0 else 0
+            last_seen_day[ystr] = current_day
+            appearances[ystr] = appearances.get(ystr, 0) + 1
+            app_count = appearances[ystr]
             
-            shift_m = r[f"Michael {cat} Score"]
-            shift_s = r[f"Sarah {cat} Score"]
-            
-            mb_old = hist[ystr]["Michael"][cat]
-            sb_old = hist[ystr]["Sarah"][cat]
-            
-            hist[ystr]["Michael"][cat] += shift_m
-            hist[ystr]["Sarah"][cat] += shift_s
-            
-            ma_new = hist[ystr]["Michael"][cat]
-            sa_new = hist[ystr]["Sarah"][cat]
-            
-            old_w = hist[ystr][cat]
-            new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
-            
-            overall_perf_flip[cat] = {
-                "Michael": {"before": mb_old, "after": ma_new, "shift": shift_m},
-                "Sarah": {"before": sb_old, "after": sa_new, "shift": shift_s},
-                "old_leader": old_w,
-                "new_leader": new_w,
-                "did_flip": new_w != old_w
-            }
-            
-            if new_w != old_w:
-                flipped_metrics.append(cat)
-                hist[ystr][cat] = new_w
+            if ystr not in years_state:
+                state = {
+                    "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                    "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0,
+                    "Geography": "Tie", "Time": "Tie", "Total": "Tie"
+                }
+                years_state[ystr] = state
                 
-            if flipped_metrics:
-                events.append({"date": dt, "category": "Year", "event_type": "year_flip", "subtype": "year", "name": ystr, "overall_perf": overall_perf_flip, "gap": gap, "is_rare": gap >= 25, "appearances": app_count})
-            elif gap >= 25:
-                events.append({"date": dt, "category": "Year", "event_type": "rare_year", "subtype": "year", "name": ystr, "gap": gap, "overall_perf": overall_perf_flip, "appearances": app_count})
+                for k in ["Michael_Geography", "Michael_Time", "Michael_Total", "Sarah_Geography", "Sarah_Time", "Sarah_Total"]:
+                    state[k] += scores[k]
+                    
+                perf = {}
+                for m in ["Geography", "Time", "Total"]:
+                    m_score, s_score = state[f"Michael_{m}"], state[f"Sarah_{m}"]
+                    w = "Michael" if m_score > s_score else ("Sarah" if s_score > m_score else "Tie")
+                    state[m] = w
+                    perf[m] = (w, abs(m_score - s_score))
+                    
+                events.append({
+                    "date": dt, "category": "Year", "event_type": "year_discovery",
+                    "subtype": "new_year", "name": ystr, "perf": perf, "gap": gap
+                })
+            else:
+                state = years_state[ystr]
+                overall_perf = {}
+                flipped_metrics = []
+                
+                for m in ["Geography", "Time", "Total"]:
+                    m_key, s_key = f"Michael_{m}", f"Sarah_{m}"
+                    mb_old, sb_old = state[m_key], state[s_key]
+                    old_w = state[m]
+                    
+                    state[m_key] += scores[m_key]
+                    state[s_key] += scores[s_key]
+                    ma_new, sa_new = state[m_key], state[s_key]
+                    
+                    new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
+                    
+                    overall_perf[m] = {
+                        "Michael": {"before": mb_old, "after": ma_new, "shift": scores[m_key]},
+                        "Sarah": {"before": sb_old, "after": sa_new, "shift": scores[s_key]},
+                        "old_leader": old_w, "new_leader": new_w, "did_flip": new_w != old_w
+                    }
+                    if new_w != old_w:
+                        flipped_metrics.append(m)
+                        state[m] = new_w
+                        
+                if flipped_metrics:
+                    events.append({
+                        "date": dt, "category": "Year", "event_type": "year_flip",
+                        "subtype": "year", "name": ystr, "overall_perf": overall_perf, "gap": gap, "is_rare": gap >= 25, "appearances": app_count
+                    })
+                elif gap >= 25:
+                    events.append({
+                        "date": dt, "category": "Year", "event_type": "rare_year",
+                        "subtype": "year", "name": ystr, "overall_perf": overall_perf, "gap": gap, "appearances": app_count
+                    })
     return events
 
 def generate_decade_events(df):
     if df.empty: return []
-    events, seen = [], set()
+    events = []
     perf_data = df.copy()
     
+    # Strictly base row "Total Score" on Geography + Time 
     for p in ["Michael", "Sarah"]:
-        if f"{p} Time Score" in perf_data.columns:
-            perf_data[f"{p} Time Score"] = perf_data[f"{p} Time Score"].fillna(0)
+        geo_col = f"{p} Geography Score"
+        time_col = f"{p} Time Score"
+        if geo_col not in perf_data.columns: perf_data[geo_col] = 0
+        if time_col not in perf_data.columns: perf_data[time_col] = 0
+        perf_data[geo_col] = perf_data[geo_col].fillna(0)
+        perf_data[time_col] = perf_data[time_col].fillna(0)
+        perf_data[f"{p} Total Score"] = perf_data[geo_col] + perf_data[time_col]
             
-    hist = {}
-    last_seen_decade = {}
-    appearances_decade = {}
+    decades_state = {}
+    last_seen_day = {}
+    appearances = {}
+    
     unique_dates = sorted(perf_data["Date"].unique())
     date_to_day = {d: i for i, d in enumerate(unique_dates, start=1)}
     
-    for idx, r in perf_data.sort_values("Date").iterrows():
-        dt, y = r["Date"], r.get("Year")
-        if pd.isna(y): continue
-        dstr = str(int(y // 10) * 10) + "s"
-        cat = "Time"
+    for dt in unique_dates:
+        day_data = perf_data[perf_data["Date"] == dt]
         current_day = date_to_day[dt]
+        day_decades = {}
         
-        appearances_decade[dstr] = appearances_decade.get(dstr, 0) + 1
-        app_count = appearances_decade[dstr]
+        for _, r in day_data.iterrows():
+            y = r.get("Year")
+            if pd.isna(y): continue
+            dstr = str(int(y // 10) * 10) + "s"
+            
+            if dstr not in day_decades:
+                day_decades[dstr] = {
+                    "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                    "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0
+                }
+            dl = day_decades[dstr]
+            for p in ["Michael", "Sarah"]:
+                dl[f"{p}_Geography"] += r[f"{p} Geography Score"]
+                dl[f"{p}_Time"] += r[f"{p} Time Score"]
+                dl[f"{p}_Total"] += r[f"{p} Total Score"]
         
-        prev = last_seen_decade.get(dstr, 0)
-        gap = current_day - prev
-        is_new = (prev == 0)
-        last_seen_decade[dstr] = current_day
-        
-        if dstr not in seen:
-            seen.add(dstr)
-            hist[dstr] = {"Time": "Tie", "Michael": {"Time": 0}, "Sarah": {"Time": 0}}
-            for p in ["Michael", "Sarah"]: hist[dstr][p][cat] += r[f"{p} {cat} Score"]
-            mv, sv = hist[dstr]["Michael"][cat], hist[dstr]["Sarah"][cat]
-            diff = mv - sv
-            ld = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
-            hist[dstr][cat] = ld
-            perf = {"Time": (ld, abs(diff))}
-            events.append({"date": dt, "category": "Decade", "event_type": "decade_discovery", "subtype": "new_decade", "name": dstr, "perf": perf, "gap": gap})
-        else:
-            overall_perf_flip = {}
-            flipped_metrics = []
+        for dstr, scores in day_decades.items():
+            prev_day = last_seen_day.get(dstr, 0)
+            gap = current_day - prev_day if prev_day > 0 else 0
+            last_seen_day[dstr] = current_day
+            appearances[dstr] = appearances.get(dstr, 0) + 1
+            app_count = appearances[dstr]
             
-            shift_m = r[f"Michael {cat} Score"]
-            shift_s = r[f"Sarah {cat} Score"]
-            
-            mb_old = hist[dstr]["Michael"][cat]
-            sb_old = hist[dstr]["Sarah"][cat]
-            
-            hist[dstr]["Michael"][cat] += shift_m
-            hist[dstr]["Sarah"][cat] += shift_s
-            
-            ma_new = hist[dstr]["Michael"][cat]
-            sa_new = hist[dstr]["Sarah"][cat]
-            
-            old_w = hist[dstr][cat]
-            new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
-            
-            overall_perf_flip[cat] = {
-                "Michael": {"before": mb_old, "after": ma_new, "shift": shift_m},
-                "Sarah": {"before": sb_old, "after": sa_new, "shift": shift_s},
-                "old_leader": old_w,
-                "new_leader": new_w,
-                "did_flip": new_w != old_w
-            }
-            
-            if new_w != old_w:
-                flipped_metrics.append(cat)
-                hist[dstr][cat] = new_w
+            if dstr not in decades_state:
+                state = {
+                    "Michael_Geography": 0, "Michael_Time": 0, "Michael_Total": 0,
+                    "Sarah_Geography": 0, "Sarah_Time": 0, "Sarah_Total": 0,
+                    "Geography": "Tie", "Time": "Tie", "Total": "Tie"
+                }
+                decades_state[dstr] = state
                 
-            if flipped_metrics:
-                events.append({"date": dt, "category": "Decade", "event_type": "decade_flip", "subtype": "decade", "name": dstr, "overall_perf": overall_perf_flip, "gap": gap, "is_rare": gap >= 25, "appearances": app_count})
-            elif gap >= 25:
-                events.append({"date": dt, "category": "Decade", "event_type": "rare_decade", "subtype": "decade", "name": dstr, "gap": gap, "overall_perf": overall_perf_flip, "appearances": app_count})
+                for k in ["Michael_Geography", "Michael_Time", "Michael_Total", "Sarah_Geography", "Sarah_Time", "Sarah_Total"]:
+                    state[k] += scores[k]
+                    
+                perf = {}
+                for m in ["Geography", "Time", "Total"]:
+                    m_score, s_score = state[f"Michael_{m}"], state[f"Sarah_{m}"]
+                    w = "Michael" if m_score > s_score else ("Sarah" if s_score > m_score else "Tie")
+                    state[m] = w
+                    perf[m] = (w, abs(m_score - s_score))
+                    
+                events.append({
+                    "date": dt, "category": "Decade", "event_type": "decade_discovery",
+                    "subtype": "new_decade", "name": dstr, "perf": perf, "gap": gap
+                })
+            else:
+                state = decades_state[dstr]
+                overall_perf = {}
+                flipped_metrics = []
+                
+                for m in ["Geography", "Time", "Total"]:
+                    m_key, s_key = f"Michael_{m}", f"Sarah_{m}"
+                    mb_old, sb_old = state[m_key], state[s_key]
+                    old_w = state[m]
+                    
+                    state[m_key] += scores[m_key]
+                    state[s_key] += scores[s_key]
+                    ma_new, sa_new = state[m_key], state[s_key]
+                    
+                    new_w = "Michael" if ma_new > sa_new else ("Sarah" if sa_new > ma_new else "Tie")
+                    
+                    overall_perf[m] = {
+                        "Michael": {"before": mb_old, "after": ma_new, "shift": scores[m_key]},
+                        "Sarah": {"before": sb_old, "after": sa_new, "shift": scores[s_key]},
+                        "old_leader": old_w, "new_leader": new_w, "did_flip": new_w != old_w
+                    }
+                    if new_w != old_w:
+                        flipped_metrics.append(m)
+                        state[m] = new_w
+                        
+                if flipped_metrics:
+                    events.append({
+                        "date": dt, "category": "Decade", "event_type": "decade_flip",
+                        "subtype": "decade", "name": dstr, "overall_perf": overall_perf, "gap": gap, "is_rare": gap >= 25, "appearances": app_count
+                    })
+                elif gap >= 25:
+                    events.append({
+                        "date": dt, "category": "Decade", "event_type": "rare_decade",
+                        "subtype": "decade", "name": dstr, "overall_perf": overall_perf, "gap": gap, "appearances": app_count
+                    })
     return events
 
 def get_full_category_forecast(df, cat):
@@ -1201,16 +1256,16 @@ def get_full_category_forecast(df, cat):
     if pd.notna(r5):
         l5 = get_leader_state(r5)
         b5 = -df.tail(4)["Score Diff"].sum()
-        if l5 == "Michael": m5 = f"Sarah flips with win of <span class='target-hl'>{abs(b5):,.0f}+</span>" if b5 < 0 else "Sarah flips with <span class='target-hl'>any win</span>"
-        elif l5 == "Sarah": m5 = f"Michael flips with win of <span class='target-hl'>{b5:,.0f}+</span>" if b5 > 0 else "Michael flips with <span class='target-hl'>any win</span>"
+        if l5 == "Michael": m5 = f"Sarah flips with win of <span class='target-hl'>{abs(b5):,.0f}+</span>" if b5 < 0 else f"Sarah flips with anything better than a loss of <span class='target-hl'>{abs(b5):,.0f}</span>"
+        elif l5 == "Sarah": m5 = f"Michael flips with win of <span class='target-hl'>{b5:,.0f}+</span>" if b5 > 0 else f"Michael flips with anything better than a loss of <span class='target-hl'>{abs(b5):,.0f}</span>"
         else: m5 = "Next winner takes the lead."
     else: l5, m5 = "N/A", "Not enough data"
 
     if pd.notna(r10):
         l10 = get_leader_state(r10)
         b10 = -df.tail(9)["Score Diff"].sum()
-        if l10 == "Michael": m10 = f"Sarah flips with win of <span class='target-hl'>{abs(b10):,.0f}+</span>" if b10 < 0 else "Sarah flips with <span class='target-hl'>any win</span>"
-        elif l10 == "Sarah": m10 = f"Michael flips with win of <span class='target-hl'>{b10:,.0f}+</span>" if b10 > 0 else "Michael flips with <span class='target-hl'>any win</span>"
+        if l10 == "Michael": m10 = f"Sarah flips with win of <span class='target-hl'>{abs(b10):,.0f}+</span>" if b10 < 0 else f"Sarah flips with anything better than a loss of <span class='target-hl'>{abs(b10):,.0f}</span>"
+        elif l10 == "Sarah": m10 = f"Michael flips with win of <span class='target-hl'>{b10:,.0f}+</span>" if b10 > 0 else f"Michael flips with anything better than a loss of <span class='target-hl'>{abs(b10):,.0f}</span>"
         else: m10 = "Next winner takes the lead."
     else: l10, m10 = "N/A", "Not enough data"
     
@@ -1614,14 +1669,19 @@ def render_daily_news(dt, evs):
                             det_txt += f" &middot; Best score since yesterday"
                         else:
                             det_txt += f" &middot; Worst score since yesterday"
-                    
+                
                 ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">{det_txt}</span></div>"""
             elif et == 'discovery':
                 n, sub = e['name'], e['subtype']
                 
-                if sub in ["new_country", "new_subdivision"]:
-                    txt = "NEW COUNTRY" if sub == "new_country" else "NEW SUBDIVISION"
-                    ic = get_flag_html(n) if sub == "new_country" else f"{get_flag_html(e.get('country', ''))} 📍"
+                if sub in ["new_country", "new_subdivision", "new_un_region", "new_continent"]:
+                    txt = "NEW COUNTRY" if sub == "new_country" else ("NEW SUBDIVISION" if sub == "new_subdivision" else ("NEW UN REGION" if sub == "new_un_region" else "NEW CONTINENT"))
+                    
+                    if sub == "new_country": ic = get_flag_html(n)
+                    elif sub == "new_subdivision": ic = f"{get_flag_html(e.get('country', ''))} 📍"
+                    elif sub == "new_un_region": ic = "🌐"
+                    else: ic = "🌏"
+                    
                     stats, lbls = e.get('perf', {}), {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
                     
                     sh = ""
@@ -1634,19 +1694,13 @@ def render_daily_news(dt, evs):
                     det_txt = f'<span class="discovery-subtext">in {e.get("country", "")}</span>' if sub == "new_subdivision" else ""
                     ct = f"""<div class="event-title event-title-discovery">{txt}</div><div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}</div><div class="discovery-stats-box">{sh}</div>"""
                     rc = "row-discovery"
-                elif sub == "new_un_region":
-                    ic, rc = "🌐", "row-discovery"
-                    ct = f"""<div class="event-title event-title-discovery">NEW UN REGION</div><div class="change-visual"><span class="discovery-highlight">{n}</span></div>"""
-                elif sub == "new_continent":
-                    ic, rc = "🌏", "row-discovery"
-                    ct = f"""<div class="event-title event-title-discovery">NEW CONTINENT</div><div class="change-visual"><span class="discovery-highlight">{n}</span></div>"""
             elif et == 'year_discovery':
                 n, stt = e['name'], e['perf']
                 txt, ic, rc = "NEW YEAR", "📅", "row-discovery"
                 
-                lbls = {"Time": ("⏱️", "Time")}
+                lbls = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
                 sh = ""
-                for m in ["Time"]:
+                for m in ["Total", "Geography", "Time"]:
                     w_name, w_margin = stt.get(m, ("Tie", 0))
                     margin_str = f" (+{int(w_margin):,})" if w_name != "Tie" and w_margin > 0 else ""
                     w_disp = "TIE" if w_name == "Tie" else w_name[0].upper()
@@ -1657,9 +1711,9 @@ def render_daily_news(dt, evs):
                 n, stt = e['name'], e['perf']
                 txt, ic, rc = "NEW DECADE", "🗓️", "row-discovery"
                 
-                lbls = {"Time": ("⏱️", "Time")}
+                lbls = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
                 sh = ""
-                for m in ["Time"]:
+                for m in ["Total", "Geography", "Time"]:
                     w_name, w_margin = stt.get(m, ("Tie", 0))
                     margin_str = f" (+{int(w_margin):,})" if w_name != "Tie" and w_margin > 0 else ""
                     w_disp = "TIE" if w_name == "Tie" else w_name[0].upper()
@@ -1701,7 +1755,7 @@ def render_daily_news(dt, evs):
                 rare_msg = f"Rare {sub} today! First time in {gap} games."
                 
                 overall_perf = e.get('overall_perf', {})
-                metrics = ["Total", "Geography", "Time"] if et == 'rare_location' else ["Time"]
+                metrics = ["Total", "Geography", "Time"]
                 
                 sh = ""
                 if overall_perf:
@@ -1779,7 +1833,7 @@ def render_daily_news(dt, evs):
                 rare_html = f'<div class="record-detail" style="color:#00838f; font-weight:600; margin-top:6px;">{rare_msg}</div>' if is_rare else ""
                 
                 overall_perf = e.get('overall_perf', {})
-                metrics = ["Total", "Geography", "Time"] if et == 'location_flip' else ["Time"]
+                metrics = ["Total", "Geography", "Time"]
                 
                 sh = ""
                 if overall_perf:
@@ -1841,6 +1895,7 @@ def render_daily_news(dt, evs):
                         breakdown_html = f"<div style='margin-top: 8px; font-size: 12px; color: #6a1b9a; background-color: #f3e5f5; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: 500; border: 1px solid #e1bee7;'><b>{top_lbl}:</b> {' &middot; '.join(parts)}</div>"
                         
                 ct = f"""<div class="event-title event-title-milestone">MILESTONE REACHED</div><div class="change-visual"><span class="discovery-highlight">{lbl}</span><span class="record-detail">{det}</span>{breakdown_html}</div>"""
+            
             rh += f"""<div class="event-row {rc}"><div class="category-box"><div class="cat-icon">{ic}</div><div class="cat-name">{cs}</div></div><div class="content-box">{ct}</div></div>"""
             
         rh += '</div>'

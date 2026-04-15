@@ -753,3 +753,24 @@ TimeGuessr #1043
 3. Brno, Czechia, 1921
 4. Berlin (Berlin), Germany, 2001
 5. Pyongyang, North Korea, 2017
+
+TimeGuessr #1047
+1. Lisbon, Portugal, 1997
+2. Milan (Lombardy), Italy, 1953
+3. Harare, Zimbabwe, 2009
+4. Washington DC (Washington DC), United States, 1927
+5. Budapest, Hungary, 2026
+
+TimeGuessr #1048
+1. New York (New York), United States, 1913
+2. Warsaw (Masovian), Poland, 1995 
+3. London (England), United Kingdom, 1937
+4. Vilnius, Lithuania, 2019
+5. Tel Aviv, Israel, 1968
+
+TimeGuessr #1049
+1. Paris (Ile-de-France), France, 1925
+2. Moscow (Moscow), Russia, 1969
+3. Oslo, Norway, 1973
+4. Lima, Peru, 2017
+5. Siren (Wisconsin), United States, 1941
