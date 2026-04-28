@@ -774,3 +774,52 @@ TimeGuessr #1049
 3. Oslo, Norway, 1973
 4. Lima, Peru, 2017
 5. Siren (Wisconsin), United States, 1941
+
+TimeGuessr #1050
+1. Huangyaguan Great Wall (Tianjin), China, 2009
+2. London (England), United Kingdom, 1939
+3. Zurich (Zurich), Switzerland, 1958
+4. Waretown (New Jersey), United States, 1983
+5. Amsterdam, Netherlands, 1975
+
+TimeGuessr #1051
+1. Sydney (New South Wales), Australia, 1944
+2. Bucharest, Romania, 1928
+3. Barcelona (Catalonia), Spain, 2016
+4. Limassol, Cyprus, 1964
+5. Washington DC (Washington DC), United States, 1927
+
+TimeGuessr #1054
+1. Paris (Ile-de-France), France, 1969
+2. Yerevan, Armenia, 2008
+3. Assisi (Lazio), Italy, 1947
+4. Yokohama, Japan, 1989
+5. San Francisco (California), United States, 1918
+
+TimeGuessr #1057
+1. Boston (Massachusetts), United States, 1962
+2. The Hague, Netherlands, 1945
+3. Bangkok, Thailand, 2011
+4. Prague, Czechia, 1956
+5. London (England), United Kingdom, 1974
+
+TimeGuessr #1058
+1. Toronto (Ontario), Canada, 2009
+2. Jakarta, Indonesia, 1971
+3. Atlanta (Georgia), United States, 1968
+4. Rome (Lazio), Italy, 1918
+5. Washington DC (Washington DC), United States, 2026
+
+TimeGuessr #1061
+1. Budapest, Hungary, 1935
+2. Gothenburg, Sweden, 1923
+3. Guayaquil, Ecuador, 2006
+4. Sydney (New South Wales), Australia, 1952
+5. Prague, Czechia, 1961
+
+TimeGuessr #1062
+1. Tokyo, Japan, 2012
+2. New York (New York), United States, 1908
+3. Bucharest, Romania, 1967
+4. Zurich (Zurich), Switzerland, 1959
+5. London (England), United Kingdom, 1940
