@@ -639,7 +639,7 @@ TimeGuessr #1021
 1. Johannesburg, South Africa, 2010
 2. Paris (Ile-de-France), France, 1967
 3. Damascus, Syria, 1995
-4. Valencia (Valencia), Spain, 1961
+4. Valencia (Valencian Community), Spain, 1961
 5. Shelbyville (Kentucky), United States, 1940
 
 TimeGuessr #1022
@@ -823,3 +823,45 @@ TimeGuessr #1062
 3. Bucharest, Romania, 1967
 4. Zurich (Zurich), Switzerland, 1959
 5. London (England), United Kingdom, 1940
+
+TimeGuessr #1063
+1. Chicago (Illinois), United States, 1941
+2. Warsaw (Masovian), Poland, 1921
+3. Islamabad, Pakistan, 2009
+4. Lagos, Nigeria, 1990
+5. Paris (Ile-de-France), France, 1982
+
+TimeGuessr #1064
+1. Washington DC (Washington DC), United States, 2026
+2. Copenhagen, Denmark, 1919
+3. Berlin (Berlin), Germany, 1975
+4. Invercargill, New Zealand, 1966
+5. Rio de Janeiro, Brazil, 2010
+
+TimeGuessr #1065
+1. Moscow (Moscow), Russia, 1931
+2. London (England), United Kingdom, 1948
+3. Amsterdam, Netherlands, 1939
+4. Copenhagen, Denmark, 1967
+5. Louisiana State Penitentiary (Louisiana), United States, 2008
+
+TimeGuessr #1068
+1. New York (New York), United States, 2007
+2. Nagasaki, Japan, 1985
+3. Waterford, Ireland, 1902
+4. Los Angeles (California), United States, 1929
+5. Port-au-Prince, Haiti, 2010
+
+TimeGuessr #1069
+1. Washington DC (Washington DC), United States, 1963
+2. Bloemendaal aan Zee, Netherlands, 1949
+3. Hong Kong (Hong Kong), China, 1994
+4. Berlin (Berlin), Germany, 1903
+5. Paris (Ile-de-France), France, 2010
+
+TimeGuessr #1070
+1. Seoul, South Korea, 2003
+2. Taos (New Mexico), United States, 1941
+3. Turku, Finland, 1972
+4. Puno, Peru, 1967
+5. Benidorm (Valencian Community), Spain, 1992
