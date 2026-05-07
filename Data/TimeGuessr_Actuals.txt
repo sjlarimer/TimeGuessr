@@ -865,3 +865,10 @@ TimeGuessr #1070
 3. Turku, Finland, 1972
 4. Puno, Peru, 1967
 5. Benidorm (Valencian Community), Spain, 1992
+
+TimeGuessr #1071
+1. Ho Chi Minh, Vietnam, 2017
+2. Zurich (Zurich), Switzerland, 1971
+3. Paris (Ile-de-France), France, 1995
+4. Waterford, Ireland, 1914
+5. Minneapolis (Minnesota), United States, 1937
