@@ -872,3 +872,10 @@ TimeGuessr #1071
 3. Paris (Ile-de-France), France, 1995
 4. Waterford, Ireland, 1914
 5. Minneapolis (Minnesota), United States, 1937
+
+TimeGuessr #1072
+1. Helsinki, Finland, 1945
+2. London (England), United Kingdom, 1969
+3. Toronto (Ontario), Canada, 2019
+4. New York (New York), United States, 1920
+5. Warsaw (Masovian), Poland, 1983
