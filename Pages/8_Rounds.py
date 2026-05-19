@@ -9,7 +9,7 @@ from collections import Counter
 # --- Page Config ---
 st.set_page_config(page_title="All Rounds", layout="wide")
 
-# --- CSS Loading (as requested) ---
+# --- CSS Loading ---
 try:
     with open("styles.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -90,7 +90,7 @@ TIME_RANGES = {
 def load_data(filepath):
     try:
         df = pd.read_csv(filepath)
-        df["Date"] = pd.to_datetime(df["Date"]).dt.date
+        df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.date
         return df
     except FileNotFoundError:
         return None
@@ -99,14 +99,16 @@ def load_data(filepath):
 def get_flag_img(country_name):
     """Generates HTML img tag for flag."""
     fallback = '<img src="https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg" width="20" style="vertical-align:middle;"/>'
-    if not country_name or pd.isna(country_name): return fallback
+    if not country_name or pd.isna(country_name) or str(country_name).strip() == "": 
+        return fallback
     name_str = COUNTRY_ALIASES.get(country_name.strip(), country_name.strip())
     try:
         country = pycountry.countries.lookup(name_str)
         code = country.alpha_2.upper()
         codepoints = "-".join([f"1f1{format(ord(c) - ord('A') + 0xE6, 'x')}" for c in code])
         return f'<img src="https://twemoji.maxcdn.com/v/latest/svg/{codepoints}.svg" width="20" style="vertical-align:middle;"/>'
-    except LookupError: return fallback
+    except LookupError: 
+        return fallback
 
 def get_midpoint_score(row, player, category):
     """Calculates score using explicit value or pattern midpoint."""
@@ -115,7 +117,11 @@ def get_midpoint_score(row, player, category):
     ranges = GEOGRAPHY_RANGES if category == "Geography" else TIME_RANGES
     
     val = row.get(col_score)
-    if pd.notna(val): return float(val)
+    if pd.notna(val) and str(val).strip() != "": 
+        try:
+            return float(val)
+        except ValueError:
+            pass
     
     pat = row.get(col_pattern)
     if pat in ranges:
@@ -130,7 +136,11 @@ def get_filter_score(row, player, category):
     ranges = GEOGRAPHY_RANGES if category == "Geography" else TIME_RANGES
     
     val = row.get(col_score)
-    if pd.notna(val): return float(val)
+    if pd.notna(val) and str(val).strip() != "": 
+        try:
+            return float(val)
+        except ValueError:
+            pass
     
     pat = row.get(col_pattern)
     if pat in ranges:
@@ -141,8 +151,15 @@ def get_filter_score(row, player, category):
 def get_bar_html(score, pattern, ranges):
     """Generates the progress bar HTML."""
     total = 5000
-    if pd.notna(score):
-        pct = min(max(score / total * 100.0, 0.0), 100.0)
+    parsed_score = None
+    if pd.notna(score) and str(score).strip() != "":
+        try:
+            parsed_score = float(score)
+        except ValueError:
+            pass
+
+    if parsed_score is not None:
+        pct = min(max(parsed_score / total * 100.0, 0.0), 100.0)
         return f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#db5049;"></div></div>'
     elif pattern in ranges:
         min_v, max_v = ranges[pattern]
@@ -152,19 +169,20 @@ def get_bar_html(score, pattern, ranges):
     return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
 
 def get_base_location_name(row):
-    """Returns the base location name."""
-    country = row["Country"]
-    subdivision = row.get("Subdivision")
-    if pd.notna(subdivision) and str(subdivision).strip() != "":
-        return f"{subdivision}, {country}"
-    return country
+    """Returns the base location name safely."""
+    country = str(row.get("Country", "")).strip()
+    subdivision = str(row.get("Subdivision", "")).strip()
+    
+    if subdivision and subdivision.lower() != "nan":
+        return f"{subdivision}, {country}" if country else subdivision
+    return country if country and country.lower() != "nan" else "Unknown"
 
 # --- Main Page Logic ---
 st.title("All Rounds")
 
 df = load_data("./Data/Timeguessr_Stats.csv")
 
-if df is not None:
+if df is not None and not df.empty:
     # Pre-calculate score columns for filtering
     df["_M_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Michael", "Geography"), axis=1)
     df["_S_Geo_Filter"] = df.apply(lambda r: get_filter_score(r, "Sarah", "Geography"), axis=1)
@@ -175,7 +193,13 @@ if df is not None:
     with st.sidebar:
         st.header("Filter Settings")
         
-        min_date, max_date = df["Date"].min(), df["Date"].max()
+        # Safe min/max date extraction
+        valid_dates = df["Date"].dropna()
+        if not valid_dates.empty:
+            min_date, max_date = valid_dates.min(), valid_dates.max()
+        else:
+            min_date, max_date = datetime.date(2020, 1, 1), datetime.date.today()
+            
         date_range = st.slider("Select date range:", min_date, max_date, (min_date, max_date), format="YYYY-MM-DD")
         
         both_players_only = st.checkbox("Show only rounds where both players participated", value=True)
@@ -198,13 +222,15 @@ if df is not None:
         m_time_range = st.slider("Michael Time Score:", 0, 5000, (0, 5000))
         s_time_range = st.slider("Sarah Time Score:", 0, 5000, (0, 5000))
         
-        viewport_height = 1025
+        viewport_height = st.slider("Scrolling View Height (px):", 500, 1500, 800)
     
     # --- Data Filtering ---
-    df_filtered = df[(df["Date"] >= date_range[0]) & (df["Date"] <= date_range[1])]
+    df_filtered = df[(df["Date"] >= date_range[0]) & (df["Date"] <= date_range[1])].copy()
     
     if enable_year_filter and "Year" in df_filtered.columns:
-        df_filtered = df_filtered[(df_filtered["Year"] >= year_range[0]) & (df_filtered["Year"] <= year_range[1])]
+        df_filtered["_Year_Num"] = pd.to_numeric(df_filtered["Year"], errors="coerce")
+        df_filtered = df_filtered[(df_filtered["_Year_Num"] >= year_range[0]) & (df_filtered["_Year_Num"] <= year_range[1])]
+        
     if enable_location_filter and selected_countries:
         df_filtered = df_filtered[df_filtered["Country"].isin(selected_countries)]
     
@@ -438,9 +464,9 @@ if df is not None:
     css_template = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
-        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; height: 100vh; overflow: hidden; }
+        html, body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; height: 100%; overflow: hidden; }
         
-        .tg-outer-container { display: flex; flex-direction: column; height: 100vh; width: 100%; border-radius: 12px; box-sizing: border-box; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        .tg-outer-container { display: flex; flex-direction: column; height: 100%; width: 100%; border-radius: 12px; box-sizing: border-box; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
         .tg-static-header { flex-shrink: 0; z-index: 10; display: flex; }
         .tg-header-m { flex: 1; background-color: #dde5eb; color: #221e8f; text-align: center; padding: 15px; font-size: 28px; font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); }
         .tg-header-s { flex: 1; background-color: #edd3df; color: #8a005c; text-align: center; padding: 15px; font-size: 28px; font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); border-left: 1px solid rgba(0,0,0,0.03); }
@@ -524,29 +550,41 @@ if df is not None:
                 current_day = day
                 
             r_num = row["Timeguessr Round"]
-            country = row["Country"]
-            year = row["Year"]
+            country = str(row.get("Country", "")).strip()
+            year = row.get("Year")
             
             base_loc = get_base_location_name(row)
             if location_counts[base_loc] >= 5:
-                city = row.get("City")
-                subdivision = row.get("Subdivision")
-                is_dc = False
-                if pd.notna(subdivision):
-                    sub_str = str(subdivision).strip()
-                    if sub_str in ["Washington DC", "Washington D.C.", "District of Columbia", "D.C.", "DC"]:
-                        is_dc = True
-
-                if not is_dc and pd.notna(city) and str(city).strip() != "":
-                    location_display = f"{city}, {subdivision}, {country}" if (pd.notna(subdivision) and str(subdivision).strip() != "") else f"{city}, {country}"
-                else:
-                    location_display = base_loc
+                city = str(row.get("City", "")).strip()
+                subdivision = str(row.get("Subdivision", "")).strip()
+                
+                if city.lower() == 'nan': city = ""
+                if subdivision.lower() == 'nan': subdivision = ""
+                if country.lower() == 'nan': country = ""
+                
+                is_dc = subdivision in ["Washington DC", "Washington D.C.", "District of Columbia", "D.C.", "DC"]
+                
+                parts = []
+                if city and not is_dc:
+                    parts.append(city)
+                if subdivision:
+                    parts.append(subdivision)
+                if country:
+                    parts.append(country)
+                
+                location_display = ", ".join(parts) if parts else base_loc
             else:
                 location_display = base_loc
 
             flag = get_flag_img(country)
             
-            year_str = f"({int(year)})" if pd.notna(year) and str(year).strip() != "" else ""
+            year_str = ""
+            if pd.notna(year) and str(year).strip() != "":
+                try:
+                    year_str = f"({int(float(year))})"
+                except ValueError:
+                    year_str = f"({year})"
+                    
             loc_str = str(location_display).strip() if pd.notna(location_display) and str(location_display).strip() != "" else ""
 
             content_parts = []
@@ -570,8 +608,15 @@ if df is not None:
                 gs, gp = row.get(f"{player} Geography Score"), row.get(f"{player} Geography")
                 ts, tp = row.get(f"{player} Time Score"), row.get(f"{player} Time")
                 
-                g_txt = f"{int(gs):,}" if pd.notna(gs) else (f"{GEOGRAPHY_RANGES[gp][0]}-{GEOGRAPHY_RANGES[gp][1]}" if gp in GEOGRAPHY_RANGES else "???")
-                t_txt = f"{int(ts):,}" if pd.notna(ts) else (f"{TIME_RANGES[tp][0]}-{TIME_RANGES[tp][1]}" if tp in TIME_RANGES else "???")
+                # Safely parse strings to ints/floats for display
+                try: gs_val = int(float(gs))
+                except (ValueError, TypeError): gs_val = None
+                
+                try: ts_val = int(float(ts))
+                except (ValueError, TypeError): ts_val = None
+
+                g_txt = f"{gs_val:,}" if gs_val is not None else (f"{GEOGRAPHY_RANGES[gp][0]}-{GEOGRAPHY_RANGES[gp][1]}" if gp in GEOGRAPHY_RANGES else "???")
+                t_txt = f"{ts_val:,}" if ts_val is not None else (f"{TIME_RANGES[tp][0]}-{TIME_RANGES[tp][1]}" if tp in TIME_RANGES else "???")
 
                 crown_geo = '<span style="margin-left:auto; font-size:1.1rem;" title="Category Winner">👑</span>' if won_geo else ''
                 crown_time = '<span style="margin-left:auto; font-size:1.1rem;" title="Category Winner">👑</span>' if won_time else ''
@@ -618,4 +663,4 @@ if df is not None:
     components_html(css_template + build_combined_view(df), height=viewport_height, scrolling=False)
 
 else:
-    st.error("No data found.")
+    st.error("No data found or empty file. Please ensure './Data/Timeguessr_Stats.csv' exists and has valid rows.")
