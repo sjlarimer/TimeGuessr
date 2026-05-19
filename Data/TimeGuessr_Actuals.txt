@@ -879,3 +879,17 @@ TimeGuessr #1072
 3. Toronto (Ontario), Canada, 2019
 4. New York (New York), United States, 1920
 5. Warsaw (Masovian), Poland, 1983
+
+TimeGuessr #1082
+1. Baku, Azerbaijan, 2022
+2. Cobh, Ireland, 1913
+3. Tokyo, Japan, 1921
+4. Montevideo, Uruguay, 2005
+5. Kampala, Uganda, 1971
+
+TimeGuessr #1083
+1. Quincy (Washington), United States, 1980
+2. Montreal (Quebec), Canada, 1900
+3. Di An, Vietnam, 1969
+4. Helsinki, Finland, 1951
+5. Tegucigalpa, Honduras, 2017
