@@ -893,3 +893,31 @@ TimeGuessr #1083
 3. Di An, Vietnam, 1969
 4. Helsinki, Finland, 1951
 5. Tegucigalpa, Honduras, 2017
+
+TimeGuessr #1084
+1. London (England), United Kingdom, 1910
+2. Bangkok, Thailand, 2005
+3. Amsterdam, Netherlands, 1949
+4. Tunis, Tunisia, 1943
+5. Agra (Uttar Pradesh), India, 2019
+
+TimeGuessr #1085
+1. Sao Paulo, Brazil, 1972
+2. Stockholm, Sweden, 1940
+3. Lusaka, Zambia, 2018
+4. Marseille (Provence-Alpes-Cote d'Azur), France, 1913
+5. Pasadena (California), United States, 1987
+
+TimeGuessr #1096
+1. Rio de Janeiro, Brazil, 1940
+2. Singapore, Singapore, 2018
+3. San Francisco (California), United States, 1905
+4. Geneva (Geneva), Switzerland, 1978
+5. Tallinn, Estonia, 1990
+
+TimeGuessr #1097
+1. Budapest, Hungary, 1956
+2. Poros, Greece, 1998
+3. Dakar, Senegal, 2007
+4. Detroit (Michigan), United States, 1942
+5. Hong Kong (Hong Kong), China, 2020
