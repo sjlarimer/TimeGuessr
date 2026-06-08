@@ -942,3 +942,10 @@ TimeGuessr #1100
 3. Berlin (Berlin), Germany, 1909
 4. Mumbai (Maharashtra), India, 1998
 5. Milwaukee (Wisconsin), United States, 1943
+
+TimeGuessr #1103
+1. Cairo, Egypt, 2011
+2. Ankara, Türkiye, 1935
+3. Brussels (Brussels), Belgium, 1985
+4. Sapporo, Japan, 2025
+5. Dakar, Senegal, 1961
