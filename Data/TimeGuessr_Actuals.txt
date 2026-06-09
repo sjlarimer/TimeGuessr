@@ -949,3 +949,10 @@ TimeGuessr #1103
 3. Brussels (Brussels), Belgium, 1985
 4. Sapporo, Japan, 2025
 5. Dakar, Senegal, 1961
+
+TimeGuessr #1104
+1. Skopje, North Macedonia, 1963
+2. Beijing (Beijing), China, 1989
+3. Stockholm, Sweden, 1944
+4. Lisbon, Portugal, 1911
+5. Santiago, Chile, 2016
