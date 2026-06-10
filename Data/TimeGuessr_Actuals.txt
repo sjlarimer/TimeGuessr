@@ -956,3 +956,10 @@ TimeGuessr #1104
 3. Stockholm, Sweden, 1944
 4. Lisbon, Portugal, 1911
 5. Santiago, Chile, 2016
+
+TimeGuessr #1105
+1. Milan (Lombardy), Italy, 1973
+2. Buffalo (New York), United States, 1900
+3. Bangkok, Thailand, 1985
+4. Lyon (Auvergne-Rhone-Alpes), France, 1946
+5. Guatemala City, Guatemala, 2023
