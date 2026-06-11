@@ -963,3 +963,10 @@ TimeGuessr #1105
 3. Bangkok, Thailand, 1985
 4. Lyon (Auvergne-Rhone-Alpes), France, 1946
 5. Guatemala City, Guatemala, 2023
+
+TimeGuessr #1106
+1. Seoul, South Korea, 1967
+2. Los Angeles (California), United States, 1980
+3. Grindelwald (Bern), Switzerland, 1958
+4. Yaounde, Cameroon, 2010
+5. Niagara Falls (New York), United States, 1906
