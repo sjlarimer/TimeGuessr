@@ -970,3 +970,10 @@ TimeGuessr #1106
 3. Grindelwald (Bern), Switzerland, 1958
 4. Yaounde, Cameroon, 2010
 5. Niagara Falls (New York), United States, 1906
+
+TimeGuessr #1107
+1. Belle Glade (Florida), United States, 1940
+2. London (England), United Kingdom, 1981
+3. Gyor, Hungary, 1938
+4. Helsinki, Finland, 1969
+5. Johannesburg, South Africa, 2010
