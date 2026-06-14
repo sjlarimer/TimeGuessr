@@ -12,10 +12,8 @@ st.set_page_config(page_title="The Daily Guessr", layout="wide")
 cc_obj = coco.CountryConverter()
 
 # --- Load External CSS ---
-css_path = Path("styles.css")
-if css_path.exists():
-    with open(css_path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+from utils import load_css
+load_css()
 
 # --- Internal Styling ---
 NEWS_STYLES = """

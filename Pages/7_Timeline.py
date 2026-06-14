@@ -10,9 +10,8 @@ import os
 st.set_page_config(page_title="Timeline Analysis", layout="wide")
 
 # --- Load External CSS ---
-if os.path.exists("styles.css"):
-    with open("styles.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+from utils import load_css
+load_css()
 
 # --- Custom Header & Section Styles ---
 st.markdown("""

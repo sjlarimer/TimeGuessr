@@ -64,11 +64,8 @@ try:
 except ImportError:
     def score_update(): pass
 
-try:
-    with open("styles.css", encoding="utf-8") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
+from utils import load_css
+load_css()
 
 # --- Global Font Override & CSS ---
 st.markdown(

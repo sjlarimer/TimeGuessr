@@ -79,10 +79,8 @@ from typing import Tuple, List, Dict
 st.set_page_config(page_title="Win Margins Dashboard", layout="wide")
 
 # --- Load CSS ---
-css_path = Path("styles.css")
-if css_path.exists():
-    with open(css_path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+from utils import load_css
+load_css()
 
 # --- Custom Styling ---
 CUSTOM_STYLES = """

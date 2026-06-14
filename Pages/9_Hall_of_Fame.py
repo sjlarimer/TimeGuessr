@@ -6,11 +6,8 @@ from PIL import Image
 st.set_page_config(page_title="Hall of Fame", layout="wide")
 
 # --- Load Global CSS ---
-try:
-    with open("styles.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
+from utils import load_css
+load_css()
 
 # --- Custom Styling ---
 st.markdown(

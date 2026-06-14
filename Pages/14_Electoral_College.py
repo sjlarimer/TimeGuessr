@@ -1,3 +1,4 @@
+import io
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -89,9 +90,8 @@ WIN_LABELS = {
 # ──────────────────────────────────────────────────────────────────────────────
 # CSS & Styles
 # ──────────────────────────────────────────────────────────────────────────────
-try:
-    with open("styles.css") as f: st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError: pass
+from utils import load_css
+load_css()
 
 st.markdown("""
 <style>
@@ -279,7 +279,7 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
     score totals; after every new date boundary, recompute state winners
     and EV sums — but only emit a row when something actually changed.
     """
-    df = pd.read_json(df_json, orient='split')
+    df = pd.read_json(io.StringIO(df_json), orient='split')
     df['Date'] = pd.to_datetime(df['Date'])
 
     us_df = df[df['Country'].isin(['United States', 'USA', 'United States of America'])].copy()

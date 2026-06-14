@@ -301,9 +301,8 @@ def get_country_converter():
 cc = get_country_converter()
 
 # --- CSS & Styles ---
-try:
-    with open("styles.css") as f: st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError: pass
+from utils import load_css
+load_css()
 
 st.markdown("""
 <style>

@@ -10,11 +10,8 @@ from collections import Counter
 st.set_page_config(page_title="All Rounds", layout="wide")
 
 # --- CSS Loading ---
-try:
-    with open("styles.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
+from utils import load_css
+load_css()
 
 # --- Global Font Override & CSS for Streamlit elements ---
 st.markdown(

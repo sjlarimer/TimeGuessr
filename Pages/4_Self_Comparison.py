@@ -28,10 +28,8 @@ COLORS = {
 FONT_CONFIG = dict(family='Poppins, Arial, sans-serif', size=14, color='#000000')
 
 # --- Load CSS ---
-css_path = Path("styles.css")
-if css_path.exists():
-    with open(css_path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+from utils import load_css
+load_css()
 
 # --- Custom Styling ---
 CUSTOM_STYLES = """
