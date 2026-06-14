@@ -1,44 +1,11 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
 import time
-import io
-from PIL import Image
 from typing import List, Tuple
+from background import set_random_sarah_background
 
 # --- Configuration ---
 st.set_page_config(page_title="Karaoke Speed Challenge", layout="wide")
-
-# --- Helper Functions for Background ---
-def get_base64_image(image_path):
-    try:
-        img = Image.open(image_path)
-        file_format = img.format if img.format is not None else 'PNG'
-        buffer = io.BytesIO()
-        img.save(buffer, format=file_format)
-        return base64.b64encode(buffer.getvalue()).decode()
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        st.error(f"Error loading background: {e}")
-        return None
-
-def set_lighter_background_image(base64_string, lightness_level=0.7):
-    if not base64_string: return
-    rgba_overlay = f"rgba(255, 255, 255, {lightness_level})"
-    css = f"""
-    <style>
-    .stApp {{
-        background-image: linear-gradient({rgba_overlay}, {rgba_overlay}), 
-                          url("data:image/png;base64,{base64_string}");
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        background-position: center;
-    }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
 
 # --- Load Global CSS ---
 from utils import load_css
@@ -103,10 +70,7 @@ st.markdown(
 )
 
 # --- Background Setup ---
-image_file_path = "Images/Sarah5.jpg"
-base64_img = get_base64_image(image_file_path)
-if base64_img:
-    set_lighter_background_image(base64_img, lightness_level=0.85)
+set_random_sarah_background(lightness_level=0.7)
 
 # --- App Content ---
 st.title("🎤 Karaoke Challenge: Speed Up!")

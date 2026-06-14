@@ -10,6 +10,9 @@ st.set_page_config(page_title="Welcome", layout='wide')
 from utils import load_css
 load_css()
 
+from aggregation import run_aggregation
+run_aggregation()
+
 # --- Custom Page Styles ---
 st.markdown(
     """
@@ -280,9 +283,26 @@ with head_c2:
 st.markdown("---")
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- Pre-compute stats for Overview card ---
+try:
+    _d = pd.read_csv("./Data/Timeguessr_Stats.csv")
+    _d["Date"] = pd.to_datetime(_d["Date"]).dt.date
+    _d["Michael Total Score"] = pd.to_numeric(_d["Michael Total Score"], errors="coerce")
+    _d["Sarah Total Score"] = pd.to_numeric(_d["Sarah Total Score"], errors="coerce")
+    _daily = _d.groupby("Date", as_index=False).agg(
+        michael_played=("Michael Total Score", lambda x: x.notna().any()),
+        sarah_played=("Sarah Total Score", lambda x: x.notna().any())
+    )
+    _dt = pd.to_datetime("2025-10-10").date()
+    both_all = int((_daily["michael_played"] & _daily["sarah_played"]).sum())
+    both_since = int((_daily[_daily["Date"] >= _dt]["michael_played"] & _daily[_daily["Date"] >= _dt]["sarah_played"]).sum())
+except Exception:
+    both_all = "—"
+    both_since = "—"
+
 # --- Combined Overview & Legend Section ---
 st.markdown(
-    """<div class="flex-row"><div class="flex-col-overview"><div class="info-card"><h2 style="margin-top: 0;">Overview</h2><div style='font-family: Poppins; font-size: 16px; line-height: 1.8; color: #444;'>TimeGuessr is a daily geography and history browser game that challenges players to identify the context of historical photographs.<br><br>Each day, players are presented with five rounds. In each round, an image is revealed, and the goal is to:<ul style="margin-bottom: 1rem;"><li><b>Guess the Location:</b> Pinpoint where the photo was taken on a world map.</li><li><b>Guess the Year:</b> Select the year the photo was taken on a timeline.</li></ul>Points are awarded based on the accuracy of both the location and the year. A perfect round yields <b>10,000 points</b>, for a maximum daily score of <b>50,000</b>.<br><br><div style="text-align: center; margin-top: 20px;"><a href="https://timeguessr.com/" target="_blank" style="background-color: #db5049; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold; text-decoration: none;">Play TimeGuessr</a></div></div></div></div><div class="flex-col-legend"><div class="info-card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;"><h3 style="margin-top: 0; font-size: 1.1rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; text-align: center;">Score Legend</h3><div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;"><div style="flex: 1; min-width: 240px;"><div style="display: flex; align-items: center; border-bottom: 2px solid #db5049; padding-bottom: 5px; margin-bottom: 8px;"><span style="font-size: 1.1rem; margin-right: 8px;">🌍</span><span style="font-weight: 700; color: #db5049; font-size: 0.9rem; font-family: 'Poppins', sans-serif;">GEOGRAPHY</span></div><table class="compact-legend"><thead><tr><th>Pattern</th><th>Score</th><th>Dist</th></tr></thead><tbody><tr><td class="emoji-col">🟩🟩🟩</td><td style="text-align: center; font-weight: 600;">5,000</td><td style="text-align: right; color: #666;">< 50m</td></tr><tr><td class="emoji-col">🟩🟩🟨</td><td style="text-align: center;">4,750+</td><td style="text-align: right; color: #666;">< 37.5km</td></tr><tr><td class="emoji-col">🟩🟩⬛</td><td style="text-align: center;">4,500+</td><td style="text-align: right; color: #666;">< 100km</td></tr><tr><td class="emoji-col">🟩🟨⬛</td><td style="text-align: center;">4,250+</td><td style="text-align: right; color: #666;">< 250km</td></tr><tr><td class="emoji-col">🟩⬛⬛</td><td style="text-align: center;">3,500+</td><td style="text-align: right; color: #666;">< 1000km</td></tr><tr><td class="emoji-col">🟨⬛⬛</td><td style="text-align: center;">2,500+</td><td style="text-align: right; color: #666;">< 2000km</td></tr><tr><td class="emoji-col">⬛⬛⬛</td><td style="text-align: center;">< 2,500</td><td style="text-align: right; color: #666;">> 2000km</td></tr></tbody></table></div><div style="flex: 1; min-width: 240px;"><div style="display: flex; align-items: center; border-bottom: 2px solid #db5049; padding-bottom: 5px; margin-bottom: 8px;"><span style="font-size: 1.1rem; margin-right: 8px;">📅</span><span style="font-weight: 700; color: #db5049; font-size: 0.9rem; font-family: 'Poppins', sans-serif;">TIME</span></div><table class="compact-legend"><thead><tr><th>Pattern</th><th>Score</th><th>Diff</th></tr></thead><tbody><tr><td class="emoji-col">🟩🟩🟩</td><td style="text-align: center; font-weight: 600;">5,000</td><td style="text-align: right; color: #666;">0 yrs</td></tr><tr><td class="emoji-col">🟩🟩🟨</td><td style="text-align: center;">4,800+</td><td style="text-align: right; color: #666;">1-2 yrs</td></tr><tr><td class="emoji-col">🟩🟩⬛</td><td style="text-align: center;">4,300+</td><td style="text-align: right; color: #666;">3-4 yrs</td></tr><tr><td class="emoji-col">🟩🟨⬛</td><td style="text-align: center;">3,400+</td><td style="text-align: right; color: #666;">5-7 yrs</td></tr><tr><td class="emoji-col">🟩⬛⬛</td><td style="text-align: center;">2,000+</td><td style="text-align: right; color: #666;">8-15 yrs</td></tr><tr><td class="emoji-col">🟨⬛⬛</td><td style="text-align: center;">1,000</td><td style="text-align: right; color: #666;">16-20 yrs</td></tr><tr><td class="emoji-col">⬛⬛⬛</td><td style="text-align: center;">0</td><td style="text-align: right; color: #666;">21+ yrs</td></tr></tbody></table></div></div></div></div></div>""", 
+    f"""<div class="flex-row"><div class="flex-col-overview"><div class="info-card"><h2 style="margin-top: 0;">Overview</h2><div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;"><div class="stat-card" style="flex: 1;"><div class="stat-label">Total Days Played</div><div class="big-number">{both_all}</div></div><div class="stat-card" style="flex: 1;"><div class="stat-label">Days Played Since Tracking</div><div class="big-number">{both_since}</div></div></div><div style='font-family: Poppins; font-size: 16px; line-height: 1.8; color: #444;'>TimeGuessr is a daily geography and history browser game that challenges players to identify the context of historical photographs.<br><br>Each day, players are presented with five rounds. In each round, an image is revealed, and the goal is to:<ul style="margin-bottom: 1rem;"><li><b>Guess the Location:</b> Pinpoint where the photo was taken on a world map.</li><li><b>Guess the Year:</b> Select the year the photo was taken on a timeline.</li></ul>Points are awarded based on the accuracy of both the location and the year. A perfect round yields <b>10,000 points</b>, for a maximum daily score of <b>50,000</b>.<br><br><div style="text-align: center; margin-top: 20px;"><a href="https://timeguessr.com/" target="_blank" style="background-color: #db5049; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold; text-decoration: none;">Play TimeGuessr</a></div></div></div></div><div class="flex-col-legend"><div class="info-card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: center;"><h3 style="margin-top: 0; font-size: 1.1rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; text-align: center;">Score Legend</h3><div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;"><div style="flex: 1; min-width: 240px;"><div style="display: flex; align-items: center; border-bottom: 2px solid #db5049; padding-bottom: 5px; margin-bottom: 8px;"><span style="font-size: 1.1rem; margin-right: 8px;">🌍</span><span style="font-weight: 700; color: #db5049; font-size: 0.9rem; font-family: 'Poppins', sans-serif;">GEOGRAPHY</span></div><table class="compact-legend"><thead><tr><th>Pattern</th><th>Score</th><th>Dist</th></tr></thead><tbody><tr><td class="emoji-col">🟩🟩🟩</td><td style="text-align: center; font-weight: 600;">5,000</td><td style="text-align: right; color: #666;">< 50m</td></tr><tr><td class="emoji-col">🟩🟩🟨</td><td style="text-align: center;">4,750+</td><td style="text-align: right; color: #666;">< 37.5km</td></tr><tr><td class="emoji-col">🟩🟩⬛</td><td style="text-align: center;">4,500+</td><td style="text-align: right; color: #666;">< 100km</td></tr><tr><td class="emoji-col">🟩🟨⬛</td><td style="text-align: center;">4,250+</td><td style="text-align: right; color: #666;">< 250km</td></tr><tr><td class="emoji-col">🟩⬛⬛</td><td style="text-align: center;">3,500+</td><td style="text-align: right; color: #666;">< 1000km</td></tr><tr><td class="emoji-col">🟨⬛⬛</td><td style="text-align: center;">2,500+</td><td style="text-align: right; color: #666;">< 2000km</td></tr><tr><td class="emoji-col">⬛⬛⬛</td><td style="text-align: center;">< 2,500</td><td style="text-align: right; color: #666;">> 2000km</td></tr></tbody></table></div><div style="flex: 1; min-width: 240px;"><div style="display: flex; align-items: center; border-bottom: 2px solid #db5049; padding-bottom: 5px; margin-bottom: 8px;"><span style="font-size: 1.1rem; margin-right: 8px;">📅</span><span style="font-weight: 700; color: #db5049; font-size: 0.9rem; font-family: 'Poppins', sans-serif;">TIME</span></div><table class="compact-legend"><thead><tr><th>Pattern</th><th>Score</th><th>Diff</th></tr></thead><tbody><tr><td class="emoji-col">🟩🟩🟩</td><td style="text-align: center; font-weight: 600;">5,000</td><td style="text-align: right; color: #666;">0 yrs</td></tr><tr><td class="emoji-col">🟩🟩🟨</td><td style="text-align: center;">4,800+</td><td style="text-align: right; color: #666;">1-2 yrs</td></tr><tr><td class="emoji-col">🟩🟩⬛</td><td style="text-align: center;">4,300+</td><td style="text-align: right; color: #666;">3-4 yrs</td></tr><tr><td class="emoji-col">🟩🟨⬛</td><td style="text-align: center;">3,400+</td><td style="text-align: right; color: #666;">5-7 yrs</td></tr><tr><td class="emoji-col">🟩⬛⬛</td><td style="text-align: center;">2,000+</td><td style="text-align: right; color: #666;">8-15 yrs</td></tr><tr><td class="emoji-col">🟨⬛⬛</td><td style="text-align: center;">1,000</td><td style="text-align: right; color: #666;">16-20 yrs</td></tr><tr><td class="emoji-col">⬛⬛⬛</td><td style="text-align: center;">0</td><td style="text-align: right; color: #666;">21+ yrs</td></tr></tbody></table></div></div></div></div></div>""",
     unsafe_allow_html=True
 )
 
@@ -298,68 +318,6 @@ try:
     daily = data.groupby("Date", as_index=False).agg(
         michael_played=("Michael Total Score", lambda x: x.notna().any()),
         sarah_played=("Sarah Total Score", lambda x: x.notna().any())
-    )
-
-    # --- CALCULATIONS ---
-    date_1020 = pd.to_datetime("2025-10-20").date()
-    date_1010 = pd.to_datetime("2025-10-10").date()
-
-    daily_since_1020 = daily[daily["Date"] >= date_1020]
-    daily_since_1010 = daily[daily["Date"] >= date_1010]
-
-    def get_stats(df):
-        total = len(df)
-        both = ((df["michael_played"]) & (df["sarah_played"])).sum()
-        m_only = ((df["michael_played"]) & (~df["sarah_played"])).sum()
-        s_only = ((~df["michael_played"]) & (df["sarah_played"])).sum()
-        return total, both, m_only, s_only
-
-    all_total, all_both, all_m, all_s = get_stats(daily)
-    s1020_total, s1020_both, s1020_m, s1020_s = get_stats(daily_since_1020)
-    s1010_total, s1010_both, s1010_m, s1010_s = get_stats(daily_since_1010)
-
-    # --- Statistics Section (Full Width) ---
-    st.markdown("## Statistics")
-    st.markdown(
-        f"""
-        <table class="stat-table">
-            <thead>
-                <tr>
-                    <th style="width: 35%;">Metric</th>
-                    <th style="width: 20%;">All Time</th>
-                    <th style="width: 22.5%;">Post-Sarah<br><span style="font-size:10px; font-weight:400; opacity:0.8;">(Since 10/20/25)</span></th>
-                    <th style="width: 22.5%;">Post-Michael<br><span style="font-size:10px; font-weight:400; opacity:0.8;">(Since 10/10/25)</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="stat-row-label">Total Days Played</td>
-                    <td class="stat-val">{all_total}</td>
-                    <td class="stat-val">{s1020_total}</td>
-                    <td class="stat-val">{s1010_total}</td>
-                </tr>
-                <tr>
-                    <td class="stat-row-label">Days Both Played</td>
-                    <td class="stat-val">{all_both}</td>
-                    <td class="stat-val">{s1020_both}</td>
-                    <td class="stat-val">{s1010_both}</td>
-                </tr>
-                <tr>
-                    <td class="stat-row-label">Days Only Michael Played</td>
-                    <td class="stat-val">{all_m}</td>
-                    <td class="stat-val">{s1020_m}</td>
-                    <td class="stat-val">{s1010_m}</td>
-                </tr>
-                <tr>
-                    <td class="stat-row-label">Days Only Sarah Played</td>
-                    <td class="stat-val">{all_s}</td>
-                    <td class="stat-val">{s1020_s}</td>
-                    <td class="stat-val">{s1010_s}</td>
-                </tr>
-            </tbody>
-        </table>
-        """,
-        unsafe_allow_html=True
     )
 
     # --- Recent Activity Section ---

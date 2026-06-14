@@ -1,7 +1,4 @@
 import streamlit as st
-import base64
-from PIL import Image
-import io
 import pandas as pd
 import numpy as np
 import datetime
@@ -13,50 +10,8 @@ from streamlit.components.v1 import html as components_html
 # --- Layout Config ---
 st.set_page_config(layout="wide", page_title="Timeguessr Score Submission")
 
-def get_base64_image(image_path):
-    """
-    Encodes an image to a Base64 string, using its detected format (e.g., PNG or JPEG) 
-    when saving to the in-memory buffer.
-    """
-    try:
-        img = Image.open(image_path)
-        file_format = img.format if img.format is not None else 'PNG'
-        buffer = io.BytesIO()
-        img.save(buffer, format=file_format)
-        return base64.b64encode(buffer.getvalue()).decode()
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        print(f"An error occurred during image processing: {e}")
-        return None
-
-def set_lighter_background_image(base64_string, lightness_level=0.7):
-    """
-    Injects CSS to set the background image and applies a semi-transparent 
-    white overlay using linear-gradient to make the image appear lighter.
-    """
-    if not base64_string:
-        return
-
-    rgba_overlay = f"rgba(255, 255, 255, {lightness_level})"
-    css = f"""
-    <style>
-    .stApp {{
-        background-image: linear-gradient({rgba_overlay}, {rgba_overlay}), 
-                          url("data:image/png;base64,{base64_string}");
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        background-position: center;
-    }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
-
-image_file_path = "Images/Sarah2.png"
-base64_img = get_base64_image(image_file_path)
-set_lighter_background_image(base64_img, lightness_level=0.7)
+from background import set_random_sarah_background
+set_random_sarah_background(lightness_level=0.7)
 
 # --- Setup & Config ---
 try:
@@ -148,7 +103,7 @@ COUNTRY_ALIASES = {
 
 GEOGRAPHY_RANGES = {
     "OOO": (5000, 5000), "OO%": (4750, 4999), "OOX": (4500, 4749),
-    "O%X": (4250, 4499), "OXX": (3500, 4249), "%XX": (2500, 3499), "XXX": (0, 2499)
+    "O%X": (4250, 4499), "OXX": (3500, 4249), "%XX": (2500, 3499), "XXX": (12, 2499)
 }
 
 TIME_RANGES = {

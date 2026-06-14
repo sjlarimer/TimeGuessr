@@ -8,6 +8,8 @@ import os
 
 # --- Page Config ---
 st.set_page_config(page_title="Timeline Analysis", layout="wide")
+from background import set_random_sarah_background
+set_random_sarah_background(lightness_level=0.7)
 
 # --- Load External CSS ---
 from utils import load_css

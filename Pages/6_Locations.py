@@ -9,50 +9,12 @@ import geopandas as gpd
 from shapely.geometry import shape as shp_shape
 import math
 from shapely.ops import unary_union
-import base64
-import io
-from PIL import Image
+from background import set_random_sarah_background
 
 # --- Configuration & Constants ---
 st.set_page_config(layout="wide", page_title="Map Stats")
 
-@st.cache_data
-def get_base64_image(image_path):
-    """Encodes an image to a Base64 string."""
-    try:
-        img = Image.open(image_path)
-        file_format = img.format if img.format is not None else 'PNG'
-        buffer = io.BytesIO()
-        img.save(buffer, format=file_format)
-        return base64.b64encode(buffer.getvalue()).decode()
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        print(f"An error occurred during image processing: {e}")
-        return None
-
-def set_lighter_background_image(base64_string, lightness_level=0.7):
-    """Injects CSS to set the background image with a semi-transparent white overlay."""
-    if not base64_string:
-        return
-    rgba_overlay = f"rgba(255, 255, 255, {lightness_level})"
-    css = f"""
-    <style>
-    .stApp {{
-        background-image: linear-gradient({rgba_overlay}, {rgba_overlay}), 
-                          url("data:image/png;base64,{base64_string}");
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        background-position: center;
-    }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
-# Set the background image
-base64_img = get_base64_image("Images/Sarah4.jpg")
-set_lighter_background_image(base64_img, lightness_level=0.7)
+set_random_sarah_background(lightness_level=0.7)
 
 COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
 

@@ -4,6 +4,8 @@ from PIL import Image
 
 # --- Configuration ---
 st.set_page_config(page_title="Hall of Shame", layout="wide")
+from background import set_random_sarah_background
+set_random_sarah_background(lightness_level=0.7)
 
 # --- Load Global CSS ---
 from utils import load_css

@@ -8,6 +8,8 @@ from collections import Counter
 
 # --- Page Config ---
 st.set_page_config(page_title="All Rounds", layout="wide")
+from background import set_random_sarah_background
+set_random_sarah_background(lightness_level=0.7)
 
 # --- CSS Loading ---
 from utils import load_css

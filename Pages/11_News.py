@@ -7,6 +7,8 @@ import country_converter as coco
 
 # --- Configuration ---
 st.set_page_config(page_title="The Daily Guessr", layout="wide")
+from background import set_random_sarah_background
+set_random_sarah_background(lightness_level=0.7)
 
 # Global Initialization to drastically improve load speeds
 cc_obj = coco.CountryConverter()
