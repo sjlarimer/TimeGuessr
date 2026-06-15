@@ -977,3 +977,10 @@ TimeGuessr #1107
 3. Gyor, Hungary, 1938
 4. Helsinki, Finland, 1969
 5. Johannesburg, South Africa, 2010
+
+TimeGuessr #1110
+1. Hiroshima, Japan, 1985
+2. Miami (Florida), United States, 1922
+3. Gordon's Bay, South Africa, 2025
+4. Panama City, Panama, 1945
+5. London (England), United Kingdom, 1967
