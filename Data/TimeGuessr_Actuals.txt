@@ -70,7 +70,7 @@ TimeGuessr #875
 
 TimeGuessr #876
 1. Oklahoma City (Oklahoma), United States, 1995
-2. Dublin, Ireland, 1946
+2. Dublin (Leinster), Ireland, 1946
 3. Dresden (Saxony), Germany, 1978
 4. Warsaw (Masovian), Poland, 1959
 5. Thimphu, Bhutan, 2008
@@ -101,7 +101,7 @@ TimeGuessr #882
 2. Lagos, Nigeria, 2016
 3. Antwerp (Flanders), Belgium, 1955
 4. Zagreb, Croatia, 1963
-5. Cork, Ireland, 1920
+5. Cork (Munster), Ireland, 1920
 
 TimeGuessr #883
 1. Los Angeles (California), United States, 1938
@@ -119,7 +119,7 @@ TimeGuessr #886
 
 TimeGuessr #887
 1. Beirut, Lebanon, 2020
-2. Dublin, Ireland, 1996
+2. Dublin (Leinster), Ireland, 1996
 3. Barcelona (Catalonia), Spain, 1957
 4. Denver (Colorado), United States, 1966
 5. Helsinki, Finland, 1936
@@ -178,7 +178,7 @@ TimeGuessr #904
 2. Oslo, Norway, 1950
 3. Istanbul, Türkiye, 1910
 4. Washington DC (Washington DC), United States, 2025
-5. Dublin, Ireland, 1916
+5. Dublin (Leinster), Ireland, 1916
 
 TimeGuessr #907
 1. San Francisco (California), United States, 1992
@@ -422,7 +422,7 @@ TimeGuessr #960
 1. Paris (Ile-de-France), France, 1978
 2. Mexico City, Mexico, 1970
 3. Athens, Greece, 2024
-4. Dublin, Ireland, 1903
+4. Dublin (Leinster), Ireland, 1903
 5. Tokyo, Japan, 1957
 
 TimeGuessr #964
@@ -629,7 +629,7 @@ TimeGuessr #1019
 5. London (England), United Kingdom, 1919
 
 TimeGuessr #1020
-1. Dublin, Ireland, 2016
+1. Dublin (Leinster), Ireland, 2016
 2. St. Anton am Arlberg, Austria, 1955
 3. Manila, Philippines, 1945
 4. Riga, Latvia, 1991
@@ -700,7 +700,7 @@ TimeGuessr #1033
 
 TimeGuessr #1034
 1. Rome (Lazio), Italy, 1947
-2. Dublin, Ireland, 1932
+2. Dublin (Leinster), Ireland, 1932
 3. New York (New York), United States, 2010
 4. Moscow (Moscow), Russia, 1967
 5. Kigali, Rwanda, 2025
@@ -848,7 +848,7 @@ TimeGuessr #1065
 TimeGuessr #1068
 1. New York (New York), United States, 2007
 2. Nagasaki, Japan, 1985
-3. Waterford, Ireland, 1902
+3. Waterford (Munster), Ireland, 1902
 4. Los Angeles (California), United States, 1929
 5. Port-au-Prince, Haiti, 2010
 
@@ -870,7 +870,7 @@ TimeGuessr #1071
 1. Ho Chi Minh, Vietnam, 2017
 2. Zurich (Zurich), Switzerland, 1971
 3. Paris (Ile-de-France), France, 1995
-4. Waterford, Ireland, 1914
+4. Waterford (Munster), Ireland, 1914
 5. Minneapolis (Minnesota), United States, 1937
 
 TimeGuessr #1072
@@ -882,7 +882,7 @@ TimeGuessr #1072
 
 TimeGuessr #1082
 1. Baku, Azerbaijan, 2022
-2. Cobh, Ireland, 1913
+2. Cobh (Munster), Ireland, 1913
 3. Tokyo, Japan, 1921
 4. Montevideo, Uruguay, 2005
 5. Kampala, Uganda, 1971
