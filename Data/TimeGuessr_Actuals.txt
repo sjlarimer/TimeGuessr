@@ -984,3 +984,17 @@ TimeGuessr #1110
 3. Gordon's Bay, South Africa, 2025
 4. Panama City, Panama, 1945
 5. London (England), United Kingdom, 1967
+
+TimeGuessr #1113
+1. Los Angeles (California), United States, 1923
+2. Mexico City, Mexico, 1993
+3. Wellington, New Zealand, 1995
+4. Rotterdam (South Holland), Netherlands, 1960
+5. Nairobi, Kenya, 2009
+
+TimeGuessr #1117
+1. Slocan (British Columbia), Canada, 1942
+2. Hong Kong (Hong Kong), China, 1996
+3. Paris (Ile-de-France), France, 1969
+4. Sydney (New South Wales), Australia, 1932 
+5. Lisbon, Portugal, 1900
