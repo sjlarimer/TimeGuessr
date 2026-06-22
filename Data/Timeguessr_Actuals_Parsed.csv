@@ -50,7 +50,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 875,4,Gyor,,Hungary,1956
 875,5,Tokyo,,Japan,2015
 876,1,Oklahoma City,Oklahoma,United States,1995
-876,2,Dublin,,Ireland,1946
+876,2,Dublin,Leinster,Ireland,1946
 876,3,Dresden,Saxony,Germany,1978
 876,4,Warsaw,Masovian,Poland,1959
 876,5,Thimphu,,Bhutan,2008
@@ -73,7 +73,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 882,2,Lagos,,Nigeria,2016
 882,3,Antwerp,Flanders,Belgium,1955
 882,4,Zagreb,,Croatia,1963
-882,5,Cork,,Ireland,1920
+882,5,Cork,Munster,Ireland,1920
 883,1,Los Angeles,California,United States,1938
 883,2,Rabat,,Morocco,2024
 883,3,Krefeld,North Rhine-Westphalia,Germany,1945
@@ -85,7 +85,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 886,4,Lisbon,,Portugal,1982
 886,5,Indianapolis,Indiana,United States,1918
 887,1,Beirut,,Lebanon,2020
-887,2,Dublin,,Ireland,1996
+887,2,Dublin,Leinster,Ireland,1996
 887,3,Barcelona,Catalonia,Spain,1957
 887,4,Denver,Colorado,United States,1966
 887,5,Helsinki,,Finland,1936
@@ -128,7 +128,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 904,2,Oslo,,Norway,1950
 904,3,Istanbul,,Türkiye,1910
 904,4,Washington DC,Washington DC,United States,2025
-904,5,Dublin,,Ireland,1916
+904,5,Dublin,Leinster,Ireland,1916
 907,1,San Francisco,California,United States,1992
 907,2,Madrid,Community of Madrid,Spain,1965
 907,3,Buenos Aires,,Argentina,1987
@@ -302,7 +302,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 960,1,Paris,Ile-de-France,France,1978
 960,2,Mexico City,,Mexico,1970
 960,3,Athens,,Greece,2024
-960,4,Dublin,,Ireland,1903
+960,4,Dublin,Leinster,Ireland,1903
 960,5,Tokyo,,Japan,1957
 964,1,Seoul,,South Korea,1988
 964,2,Rio de Janeiro,,Brazil,1960
@@ -449,7 +449,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1019,3,Berlin,Berlin,Germany,1975
 1019,4,Washington DC,Washington DC,United States,1981
 1019,5,London,England,United Kingdom,1919
-1020,1,Dublin,,Ireland,2016
+1020,1,Dublin,Leinster,Ireland,2016
 1020,2,St. Anton am Arlberg,,Austria,1955
 1020,3,Manila,,Philippines,1945
 1020,4,Riga,,Latvia,1991
@@ -500,7 +500,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1033,4,New Orleans,Louisiana,United States,1995
 1033,5,Zurich,Zurich,Switzerland,1959
 1034,1,Rome,Lazio,Italy,1947
-1034,2,Dublin,,Ireland,1932
+1034,2,Dublin,Leinster,Ireland,1932
 1034,3,New York,New York,United States,2010
 1034,4,Moscow,Moscow,Russia,1967
 1034,5,Kigali,,Rwanda,2025
@@ -606,7 +606,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1065,5,Louisiana State Penitentiary,Louisiana,United States,2008
 1068,1,New York,New York,United States,2007
 1068,2,Nagasaki,,Japan,1985
-1068,3,Waterford,,Ireland,1902
+1068,3,Waterford,Munster,Ireland,1902
 1068,4,Los Angeles,California,United States,1929
 1068,5,Port-au-Prince,,Haiti,2010
 1069,1,Washington DC,Washington DC,United States,1963
@@ -622,7 +622,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1071,1,Ho Chi Minh,,Vietnam,2017
 1071,2,Zurich,Zurich,Switzerland,1971
 1071,3,Paris,Ile-de-France,France,1995
-1071,4,Waterford,,Ireland,1914
+1071,4,Waterford,Munster,Ireland,1914
 1071,5,Minneapolis,Minnesota,United States,1937
 1072,1,Helsinki,,Finland,1945
 1072,2,London,England,United Kingdom,1969
@@ -630,7 +630,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1072,4,New York,New York,United States,1920
 1072,5,Warsaw,Masovian,Poland,1983
 1082,1,Baku,,Azerbaijan,2022
-1082,2,Cobh,,Ireland,1913
+1082,2,Cobh,Munster,Ireland,1913
 1082,3,Tokyo,,Japan,1921
 1082,4,Montevideo,,Uruguay,2005
 1082,5,Kampala,,Uganda,1971
