@@ -179,6 +179,17 @@ TERRITORY_PARENT_MAP = {
 
 # Split Configuration
 SPLIT_CONFIG = {
+    "ESP": {"name": "Spain", "map": {
+        "Canary Islands": "Canarias",
+        "Catalonia": "Catalunya",
+        "Community of Madrid": "Madrid, Comunidad de",
+        "Valencian Community": "Valenciana, Comunidad",
+    }},
+    "NLD": {"name": "Netherlands", "map": {
+        "North Holland": "Noord-Holland",
+        "South Holland": "Zuid-Holland",
+        "North Brabant": "Noord-Brabant",
+    }},
     "AUS": {"name": "Australia", "map": {}},
     "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
     "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng"}},
@@ -427,7 +438,7 @@ def load_map():
         gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de'), 'Language'] = 'French'
         
         # Special Map Logic for Switzerland
-        _che_map_french   = ['Genève', 'Vaud', 'Neuchâtel', 'Jura', 'Freiburg', 'Valais']
+        _che_map_french   = ['Genève', 'Vaud', 'Neuchâtel', 'Jura', 'Freiburg', 'Wallis']
         _che_map_italian_romansch  = ['Ticino','Graubünden']
         _che_map_germanic = [
             'Aargau', 'Appenzell Ausserrhoden', 'Appenzell Innerrhoden',
@@ -439,12 +450,41 @@ def load_map():
         gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_italian_romansch)),  'Language'] = 'Other Romance'
         gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_germanic)), 'Language'] = 'Germanic'
 
+        # Brussels is geographically enclosed by Flanders — subtract it so Brussels remains visible
+        bru_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de')]
+        fla_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Vlaamse Gewest')]
+        if not bru_rows.empty and not fla_rows.empty:
+            bru_geom = unary_union(bru_rows['geometry'].tolist())
+            gdf.loc[fla_rows.index, 'geometry'] = gdf.loc[fla_rows.index, 'geometry'].apply(
+                lambda g: g.difference(bru_geom).buffer(0)
+            )
+
         return gdf, set(gdf['NAME'].unique())
     except Exception as e:
         st.error(f"Map error: {e}"); return None, set()
 
 data = load_data()
 base_gdf, valid_map_names = load_map()
+
+# Countries with subdivision splits available (mirrors COUNTRIES_TO_KEEP_SPLIT in Timeguessr_Aggregation.ipynb)
+_splittable_isos = {
+    'USA', 'GBR', 'FRA', 'NLD', 'ITA', 'CAN', 'DEU', 'POL',
+    'JPN', 'AUS', 'CHN', 'CHE', 'GRC', 'NOR', 'ESP', 'IRL',
+    'RUS', 'BRA', 'BEL', 'IND', 'MEX',
+}
+
+# Build display-name → ISO3 dict (SPLIT_CONFIG names take priority for configured countries)
+split_options = {}
+for _iso, _cfg in SPLIT_CONFIG.items():
+    if _iso in _splittable_isos:
+        split_options[_cfg['name']] = _iso
+_EXTRA_NAMES = {
+    'JPN': 'Japan', 'GRC': 'Greece',
+    'NOR': 'Norway', 'IRL': 'Ireland',
+    'BRA': 'Brazil', 'MEX': 'Mexico',
+}
+for _iso in sorted(_splittable_isos - set(SPLIT_CONFIG.keys())):
+    split_options[_EXTRA_NAMES.get(_iso, _iso)] = _iso
 
 # --- Geometry Functions ---
 
@@ -540,7 +580,11 @@ def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_sub
         return iso
 
     work_gdf['Dissolve_Key'] = work_gdf.apply(get_dissolve_key, axis=1)
-    return json.loads(work_gdf.dissolve(by='Dissolve_Key', as_index=False).to_json())
+    # Only keep geometry + Dissolve_Key (choropleth needs nothing else), then
+    # simplify to reduce coordinate count — critical for large multi-country splits
+    dissolved = work_gdf[['Dissolve_Key', 'geometry']].dissolve(by='Dissolve_Key', as_index=False)
+    dissolved['geometry'] = dissolved['geometry'].simplify(tolerance=0.005, preserve_topology=True)
+    return json.loads(dissolved.to_json())
 
 # --- Stats Calculation ---
 
@@ -801,8 +845,7 @@ with st.sidebar:
     score_mode = st.radio("Score Type:", ["Total Score", "Geography Score", "Time Score"]) if map_metric != "Count" else "Total Score"
     view_mode = st.radio("View Level:", ["Countries", "UN Regions", "Continents", "Languages"])
     
-    avail_splits = [cfg['name'] for cfg in SPLIT_CONFIG.values()]
-    sel_splits = st.multiselect("Split Countries:", avail_splits, default=[])
+    sel_splits = st.multiselect("Split Countries:", sorted(split_options.keys()), default=[])
     
     if "Date" in data.columns:
         min_d = data[data['Country'].notna()]["Date"].min().date()
@@ -812,16 +855,19 @@ with st.sidebar:
     else: filtered_data = data.copy()
 
     active_splits = set()
-    for iso, cfg in SPLIT_CONFIG.items():
-        if cfg['name'] in sel_splits:
-            active_splits.add(iso)
-            mask = filtered_data['ISO3'] == iso
-            if mask.any() and cfg['map']:
-                filtered_data.loc[mask, 'Subdivision'] = filtered_data.loc[mask, 'Subdivision'].replace(cfg['map'])
+    for display_name in sel_splits:
+        iso = split_options[display_name]
+        active_splits.add(iso)
+        mask = filtered_data['ISO3'] == iso
+        if mask.any():
+            cfg = SPLIT_CONFIG.get(iso, {})
+            name_map = cfg.get('map', {})
+            if name_map:
+                filtered_data.loc[mask, 'Subdivision'] = filtered_data.loc[mask, 'Subdivision'].replace(name_map)
                 if valid_map_names:
-                    bad = filtered_data[mask & ~filtered_data['Subdivision'].isin(valid_map_names)]
-                    if not bad.empty: 
-                        st.error(f"Unknown subdivision in {cfg['name']}: {bad['Subdivision'].unique()}")
+                    bad = filtered_data[mask & filtered_data['Subdivision'].notna() & ~filtered_data['Subdivision'].isin(valid_map_names)]
+                    if not bad.empty:
+                        st.error(f"Unknown subdivision in {display_name}: {bad['Subdivision'].unique()}")
                         st.stop()
     
     # Filter TBD Languages for Display
