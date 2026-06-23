@@ -998,3 +998,10 @@ TimeGuessr #1117
 3. Paris (Ile-de-France), France, 1969
 4. Sydney (New South Wales), Australia, 1932 
 5. Lisbon, Portugal, 1900
+
+TimeGuessr #1118
+1. Bucharest, Romania, 1967
+2. Manila, Philippines, 1958
+3. Starke (Florida), United States, 1940
+4. Guayaquil, Ecuador, 2008
+5. Gyöngyös, Hungary, 1935
