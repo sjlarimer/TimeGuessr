@@ -18,7 +18,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 867,2,Tokyo,,Japan,2008
 867,3,Brussels,Brussels,Belgium,1982
 867,4,New Orleans,Louisiana,United States,1943
-867,5,Mexico City,,Mexico,1962
+867,5,Mexico City,Mexico City,Mexico,1962
 868,1,London,England,United Kingdom,1970
 868,2,Katowice,Silesian,Poland,1929
 868,3,Edmonton,Alberta,Canada,1913
@@ -187,7 +187,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 924,1,Wellington,,New Zealand,1933
 924,2,Athens,,Greece,1973
 924,3,Zandvoort,North Holland,Netherlands,2025
-924,4,Mexico City,,Mexico,1956
+924,4,Mexico City,Mexico City,Mexico,1956
 924,5,Kansas City,Missouri,United States,1906
 925,1,Srebenica,,Bosnia and Herzegovina,2015
 925,2,Macao,Macao,China,2007
@@ -212,7 +212,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 931,1,Dardghaya,,Lebanon,2024
 931,2,Paris,Ile-de-France,France,1925
 931,3,Houston,Texas,United States,1943
-931,4,Mexico City,,Mexico,1955
+931,4,Mexico City,Mexico City,Mexico,1955
 931,5,Helsinki,,Finland,1984
 932,1,Amsterdam,North Holland,Netherlands,1973
 932,2,Accra,,Ghana,2023
@@ -225,7 +225,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 935,4,Vienna,,Austria,1975
 935,5,Luxembourg,,Luxembourg,2013
 936,1,Kalofer,,Bulgaria,2024
-936,2,Mexico City,,Mexico,1962
+936,2,Mexico City,Mexico City,Mexico,1962
 936,3,Washington DC,Washington DC,United States,1979
 936,4,Greymouth,,New Zealand,1904
 936,5,Salacgriva,,Latvia,1991
@@ -300,7 +300,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 959,4,Sao Paolo,,Brazil,1958
 959,5,Amsterdam,North Holland,Netherlands,1950
 960,1,Paris,Ile-de-France,France,1978
-960,2,Mexico City,,Mexico,1970
+960,2,Mexico City,Mexico City,Mexico,1970
 960,3,Athens,,Greece,2024
 960,4,Dublin,Leinster,Ireland,1903
 960,5,Tokyo,,Japan,1957
@@ -325,7 +325,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 967,4,Stockholm,,Sweden,1958
 967,5,Albuquerque,New Mexico,United States,2014
 970,1,Athens,,Greece,1962
-970,2,Ciudad Juarez,,Mexico,1972
+970,2,Ciudad Juarez,Chihuahua,Mexico,1972
 970,3,Gyor,,Hungary,1948
 970,4,Washington DC,Washington DC,United States,2025
 970,5,Oslo,,Norway,1954
@@ -705,7 +705,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1110,4,Panama City,,Panama,1945
 1110,5,London,England,United Kingdom,1967
 1113,1,Los Angeles,California,United States,1923
-1113,2,Mexico City,,Mexico,1993
+1113,2,Mexico City,Mexico City,Mexico,1993
 1113,3,Wellington,,New Zealand,1995
 1113,4,Rotterdam,South Holland,Netherlands,1960
 1113,5,Nairobi,,Kenya,2009
@@ -714,3 +714,23 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1117,3,Paris,Ile-de-France,France,1969
 1117,4,Sydney,New South Wales,Australia,1932
 1117,5,Lisbon,,Portugal,1900
+1118,1,Bucharest,,Romania,1967
+1118,2,Manila,,Philippines,1958
+1118,3,Starke,Florida,United States,1940
+1118,4,Guayaquil,,Ecuador,2008
+1118,5,Gyöngyös,,Hungary,1935
+1119,1,Tokyo,,Japan,2009
+1119,2,Milwaukee,Wisconsin,United States,1950
+1119,3,The Hague,South Holland,Netherlands,1945
+1119,4,Madrid,Community of Madrid,Spain,1968
+1119,5,Berlin,Berlin,Germany,1973
+1120,1,Oslo,,Norway,1940
+1120,2,Kyustendil,,Bulgaria,1984
+1120,3,New York,New York,United States,2017
+1120,4,Inverness,Scotland,United Kingdom,1992
+1120,5,Madrid,Community of Madrid,Spain,1968
+1121,1,Paris,Ile-de-France,France,1998
+1121,2,Betws-y-Coed,Wales,United Kingdom,2002
+1121,3,Algiers,,Algeria,2019
+1121,4,Sikasso,,Mali,1972
+1121,5,Saint Petersburg,Saint Petersburg,Russia,1917

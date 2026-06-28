@@ -24,7 +24,7 @@ TimeGuessr #867
 2. Tokyo, Japan, 2008
 3. Brussels (Brussels), Belgium, 1982
 4. New Orleans (Louisiana), United States, 1943
-5. Mexico City, Mexico, 1962
+5. Mexico City (Mexico City), Mexico, 1962
 
 TimeGuessr #868
 1. London (England), United Kingdom, 1970
@@ -261,7 +261,7 @@ TimeGuessr #924
 1. Wellington, New Zealand, 1933
 2. Athens, Greece, 1973
 3. Zandvoort (North Holland), Netherlands, 2025
-4. Mexico City, Mexico, 1956
+4. Mexico City (Mexico City), Mexico, 1956
 5. Kansas City (Missouri), United States, 1906
 
 TimeGuessr #925
@@ -296,7 +296,7 @@ TimeGuessr #931
 1. Dardghaya, Lebanon, 2024
 2. Paris (Ile-de-France), France, 1925
 3. Houston (Texas), United States, 1943
-4. Mexico City, Mexico, 1955
+4. Mexico City (Mexico City), Mexico, 1955
 5. Helsinki, Finland, 1984
 
 TimeGuessr #932
@@ -315,7 +315,7 @@ TimeGuessr #935
 
 TimeGuessr #936
 1. Kalofer, Bulgaria, 2024
-2. Mexico City, Mexico, 1962
+2. Mexico City (Mexico City), Mexico, 1962
 3. Washington DC (Washington DC), United States, 1979
 4. Greymouth, New Zealand, 1904
 5. Salacgriva, Latvia, 1991
@@ -420,7 +420,7 @@ TimeGuessr #959
 
 TimeGuessr #960
 1. Paris (Ile-de-France), France, 1978
-2. Mexico City, Mexico, 1970
+2. Mexico City (Mexico City), Mexico, 1970
 3. Athens, Greece, 2024
 4. Dublin (Leinster), Ireland, 1903
 5. Tokyo, Japan, 1957
@@ -455,7 +455,7 @@ TimeGuessr #967
 
 TimeGuessr #970
 1. Athens, Greece, 1962
-2. Ciudad Juarez, Mexico, 1972
+2. Ciudad Juarez (Chihuahua), Mexico, 1972
 3. Gyor, Hungary, 1948
 4. Washington DC (Washington DC), United States, 2025
 5. Oslo, Norway, 1954
@@ -987,7 +987,7 @@ TimeGuessr #1110
 
 TimeGuessr #1113
 1. Los Angeles (California), United States, 1923
-2. Mexico City, Mexico, 1993
+2. Mexico City (Mexico City), Mexico, 1993
 3. Wellington, New Zealand, 1995
 4. Rotterdam (South Holland), Netherlands, 1960
 5. Nairobi, Kenya, 2009
@@ -998,3 +998,31 @@ TimeGuessr #1117
 3. Paris (Ile-de-France), France, 1969
 4. Sydney (New South Wales), Australia, 1932 
 5. Lisbon, Portugal, 1900
+
+TimeGuessr #1118
+1. Bucharest, Romania, 1967
+2. Manila, Philippines, 1958
+3. Starke (Florida), United States, 1940
+4. Guayaquil, Ecuador, 2008
+5. Gyöngyös, Hungary, 1935
+
+TimeGuessr #1119
+1. Tokyo, Japan, 2009
+2. Milwaukee (Wisconsin), United States, 1950
+3. The Hague (South Holland), Netherlands, 1945
+4. Madrid (Community of Madrid), Spain, 1968
+5. Berlin (Berlin), Germany, 1973
+
+TimeGuessr #1120
+1. Oslo, Norway, 1940
+2. Kyustendil, Bulgaria, 1984
+3. New York (New York), United States, 2017
+4. Inverness (Scotland), United Kingdom, 1992
+5. Madrid (Community of Madrid), Spain, 1968
+
+TimeGuessr #1121
+1. Paris (Ile-de-France), France, 1998
+2. Betws-y-Coed (Wales), United Kingdom, 2002
+3. Algiers, Algeria, 2019
+4. Sikasso, Mali, 1972
+5. Saint Petersburg (Saint Petersburg), Russia, 1917

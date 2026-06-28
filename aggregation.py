@@ -58,9 +58,7 @@ def parse_user_blocks(lines, user):
                                     "Time": np.nan,
                                 })
                                 rounds_found += 1
-                            k += 1
-                        else:
-                            break
+                        k += 1
                     i = k
 
                 # CASE 2: Detailed format with scores (Year: X. Location: Y)
@@ -90,12 +88,13 @@ def parse_user_blocks(lines, user):
                 # CASE 3: Ultra-simplified format (year, distance only — no scores)
                 elif j < len(lines) and lines[j].startswith("🌎"):
                     test_line = lines[j]
-                    if re.search(r"\d{3,4},\s*[\d.]+\s*k?m", test_line) and "Year:" not in test_line:
+                    # Modified to check for any word characters (\w+) instead of just k?m
+                    if re.search(r"\d{3,4},\s*[\d.]+\s*\w+", test_line) and "Year:" not in test_line:
                         for k in range(j, j + 5):
                             if k >= len(lines):
                                 break
                             simple_match = re.search(
-                                r"🌎([🟩🟨⬛️]*)\s*📅([🟩🟨⬛️]*)\s+(?:([^,]+),\s*)?(\d{3,4}),\s*([\d.]+)\s*(k?m)",
+                                r"🌎([🟩🟨⬛️]*)\s*📅([🟩🟨⬛️]*)\s+(?:([^,]+),\s*)?(\d{3,4}),\s*([\d.]+)\s*(\w+)",
                                 lines[k]
                             )
                             if simple_match:
@@ -165,14 +164,27 @@ def parse_user_blocks(lines, user):
         if pd.isna(value):
             return np.nan
         val = str(value).strip().lower()
+        
+        # Safely extract numeric value using regex (protects against missing spaces like "1.5mi")
+        num_match = re.search(r"([\d.,]+)", val)
+        if not num_match:
+            return np.nan
+            
         try:
-            num = float(val.split()[0])
+            num = float(num_match.group(1).replace(",", ""))
         except Exception:
             return np.nan
+            
+        # Prioritize matching multi-letter units containing 'm' before falling back to isolated 'm'
         if "km" in val:
             return num * 1000
+        elif "mi" in val:
+            return num * 1609.344
+        elif "ft" in val:
+            return num * 0.3048
         elif "m" in val:
             return num
+            
         return np.nan
 
     df_user["Geography Distance"] = df_user["Geography Distance"].apply(convert_to_meters)
