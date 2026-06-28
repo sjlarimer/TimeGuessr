@@ -268,7 +268,6 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
     ))
-    
     # Rolling average - positive segment
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"],
@@ -312,27 +311,56 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     
     # Layout
     fig.add_hline(y=0, line=dict(color="#8f8d85", dash="dash", width=1))
-    
-    # Determine x-axis tick positions at the start of each month
-    month_starts = pd.date_range(
-        start=mask_filtered["Date"].min().replace(day=1),
-        end=mask_filtered["Date"].max(),
-        freq="MS"  # Month start frequency
-    )
 
-    tick_indices = []
-    tick_labels = []
+    # Best reference lines (midnight points only)
+    actual_diffs = mask_filtered.loc[is_midnight, "Score Diff"]
+    if not actual_diffs.empty:
+        m_best = actual_diffs.max()
+        s_best = actual_diffs.min()
+        fig.add_hline(y=m_best, line=dict(color="#221e8f", width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=s_best, line=dict(color="#8a005c", width=1, dash='dash'), opacity=0.45)
 
-    # For each month start, find where it would appear on the x-axis
-    for m in month_starts:
-        # Find the first date in the data that's in this month (or later)
-        dates_in_month = mask_filtered[mask_filtered["Date"] >= m]
-        if not dates_in_month.empty:
-            first_date_idx = dates_in_month.index[0]
-            tick_indices.append(mask_filtered.loc[first_date_idx, "x_index"])
-            tick_labels.append(m.strftime("%b %Y"))
+    # Determine x-axis tick positions (first data point per month, midnight only)
+    midnight_df = mask_filtered[is_midnight].copy()
+    midnight_df['month_year'] = midnight_df['Date'].dt.to_period('M')
+    first_of_month_indices = midnight_df.groupby('month_year').head(1).index.tolist()
+    tick_indices = [mask_filtered.loc[idx, 'x_index'] for idx in first_of_month_indices]
+    tick_labels = [mask_filtered.loc[idx, 'Date'].strftime('%b %Y') for idx in first_of_month_indices]
 
-    
+    # Score Tracking Start vertical line
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    if not midnight_df.empty and midnight_df['Date'].min() <= score_tracking_date <= midnight_df['Date'].max():
+        midnight_ge = midnight_df[midnight_df['Date'] >= score_tracking_date]
+        if not midnight_ge.empty:
+            target_idx = midnight_ge.index[0]
+            score_tracking_pos = mask_filtered.loc[target_idx, 'x_index']
+            fig.add_vline(x=score_tracking_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if score_tracking_pos in tick_indices:
+                i = tick_indices.index(score_tracking_pos)
+                tick_labels[i] += "<br>Tracking Start"
+            else:
+                tick_indices.append(score_tracking_pos)
+                tick_labels.append("Tracking Start")
+            combined = sorted(zip(tick_indices, tick_labels))
+            tick_indices, tick_labels = [list(x) for x in zip(*combined)]
+
+    # TimeGuessr Survey vertical line (May 18, 2026)
+    survey_date = pd.Timestamp('2026-05-18')
+    if not midnight_df.empty and midnight_df['Date'].min() <= survey_date <= midnight_df['Date'].max():
+        midnight_ge = midnight_df[midnight_df['Date'] >= survey_date]
+        if not midnight_ge.empty:
+            target_idx = midnight_ge.index[0]
+            survey_pos = mask_filtered.loc[target_idx, 'x_index']
+            fig.add_vline(x=survey_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if survey_pos in tick_indices:
+                i = tick_indices.index(survey_pos)
+                tick_labels[i] += "<br>TimeGuessr Survey"
+            else:
+                tick_indices.append(survey_pos)
+                tick_labels.append("TimeGuessr Survey")
+            combined = sorted(zip(tick_indices, tick_labels))
+            tick_indices, tick_labels = [list(x) for x in zip(*combined)]
+
     fig.update_layout(
         xaxis_title="Date",
         yaxis_title="Score Difference (Michael − Sarah)",
@@ -342,7 +370,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         font=dict(family="Poppins, Arial, sans-serif", size=14, color="#000000"),
         paper_bgcolor="#eae8dc",
         plot_bgcolor="#d9d7cc",
-        margin=dict(l=60, r=40, t=60, b=60),
+        margin=dict(l=60, r=20, t=60, b=60),
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -354,7 +382,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
             font=dict(color="#696761")
         ),
     )
-    
+
     # Axes styling
     fig.update_xaxes(
         showgrid=True,
@@ -367,7 +395,8 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         tickmode='array',
         tickvals=tick_indices,
         ticktext=tick_labels,
-        tickangle=-45
+        tickangle=-45,
+        range=[-0.5, mask_filtered["x_index"].max() + 0.5]
     )
     
     fig.update_yaxes(
@@ -387,72 +416,72 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
 
 def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
     """
-    Generates a single horizontal bar representing the last (window_length * 4) games.
+    Generates a bar chart strip for the last (window_length * 4) games.
+    Each game is a bar whose height is proportional to the win margin.
     """
-    # 1. Calculate dynamic range
     n_games = window_length * 4
     recent_data = data.tail(n_games).reset_index(drop=True)
-    
+
     if len(recent_data) == 0:
         return ""
 
-    # 2. Colors
-    colors = {
-        'michael': '#221e8f', # Dark Blue
-        'sarah': '#8a005c',   # Dark Magenta
-        'tie': '#8f8d85',     # Gray
-        'text_sub': '#696761'
-    }
+    COLOR_MICHAEL = '#221e8f'
+    COLOR_SARAH   = '#8a005c'
+    COLOR_TIE     = '#8f8d85'
+    COLOR_TEXT    = '#696761'
+    MIN_HEIGHT_PCT = 10  # minimum fill height so even small margins are visible
 
-    # 3. Build Segments
+    diffs = recent_data['Score Diff'].fillna(0)
+    max_abs = diffs.abs().max() or 1
+
     segments = []
-    width_pct = 100 / len(recent_data)
+    slot_pct = 100 / len(recent_data)
 
-    for i, row in recent_data.iterrows():
+    for _, row in recent_data.iterrows():
         diff = row['Score Diff']
         date_str = row['Date'].strftime('%b %d')
-        
+        intensity = min(1.0, abs(diff) / max_abs)
+        height_pct = MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * intensity
+
         if diff > 0:
-            color = colors['michael']
-            winner_text = "Michael"
+            color = COLOR_MICHAEL
+            label = f"Michael (+{diff:,.0f})"
         elif diff < 0:
-            color = colors['sarah']
-            winner_text = "Sarah"
+            color = COLOR_SARAH
+            label = f"Sarah (+{abs(diff):,.0f})"
         else:
-            color = colors['tie']
-            winner_text = "Tie"
-            
-        title_text = f"{date_str}: {winner_text} ({abs(diff):,.0f})"
+            color = COLOR_TIE
+            label = "Tie"
 
-        segment_html = f'<div style="width: {width_pct}%; background-color: {color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.3); box-sizing: border-box;" title="{title_text}"></div>'
-        segments.append(segment_html)
+        segments.append(
+            f'<div style="width:{slot_pct}%;display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;padding:0 1px;">'
+            f'<div style="width:100%;height:{height_pct:.1f}%;background-color:{color};border-radius:3px;" title="{date_str}: {label}"></div>'
+            f'</div>'
+        )
 
-    # 4. Summary Stats
-    m_wins = len(recent_data[recent_data['Score Diff'] > 0])
-    s_wins = len(recent_data[recent_data['Score Diff'] < 0])
+    m_wins = (diffs > 0).sum()
+    s_wins = (diffs < 0).sum()
     start_date = recent_data.iloc[0]['Date'].strftime('%b %d')
-    end_date = recent_data.iloc[-1]['Date'].strftime('%b %d')
+    end_date   = recent_data.iloc[-1]['Date'].strftime('%b %d')
     bar_segments = "".join(segments)
-    
-    # 5. Return HTML (Flush left to prevent code block rendering)
+
     html = f"""
-<div style="font-family: 'Poppins', sans-serif; margin-top: 20px; padding: 15px; background-color: #eae8dc; border-radius: 12px; border: 1px solid #d9d7cc;">
-<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
-<h4 style="margin: 0; color: {colors['text_sub']}; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
-Momentum <span style="font-size: 12px; text-transform: none; opacity: 0.8;">(Last {n_games} Games)</span>
+<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:#eae8dc;border-radius:12px;border:1px solid #d9d7cc;">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+<h4 style="margin:0;color:{COLOR_TEXT};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_games} Games)</span>
 </h4>
-<div style="font-size: 12px; font-weight: 600;">
-<span style="color: {colors['michael']};">Michael: {m_wins}</span> 
-<span style="color: #b0afaa; margin: 0 6px;">|</span>
-<span style="color: {colors['sarah']};">Sarah: {s_wins}</span>
+<div style="font-size:12px;font-weight:600;">
+<span style="color:{COLOR_MICHAEL};">Michael: {m_wins}</span>
+<span style="color:#b0afaa;margin:0 6px;">|</span>
+<span style="color:{COLOR_SARAH};">Sarah: {s_wins}</span>
 </div>
 </div>
-<div style="width: 100%; height: 24px; border-radius: 6px; overflow: hidden; display: flex; background-color: #d9d7cc;">
+<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
 {bar_segments}
 </div>
-<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #8f8d85; font-size: 10px;">
-<span>{start_date}</span>
-<span>{end_date}</span>
+<div style="display:flex;justify-content:space-between;margin-top:4px;color:#8f8d85;font-size:10px;">
+<span>{start_date}</span><span>{end_date}</span>
 </div>
 </div>
 """
@@ -616,9 +645,8 @@ with st.sidebar:
         key="page_selector"
     )
 
-    remove_estimated = False
-    if page_type in ["Time Win Margins", "Geography Win Margins"]:
-        remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
+    remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
+    remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
 
 # Prepare data and win categories based on page type selection
 if page_type == "Total Win Margins":
@@ -631,7 +659,7 @@ if page_type == "Total Win Margins":
         "Very Close Wins (<1k)": (0, 1000)
     }
 elif page_type == "Time Win Margins":
-    mask = prepare_time_margins_data(data, remove_estimated)
+    mask = prepare_time_margins_data(data, False)
     win_categories = {
         "Massive Wins (>5k)": (5000, np.inf),
         "Big Wins (2.5–5k)": (2500, 5000),
@@ -640,7 +668,7 @@ elif page_type == "Time Win Margins":
         "Very Close Wins (<0.5k)": (0, 500)
     }
 else:  # Geography Win Margins
-    mask = prepare_geography_margins_data(data, remove_estimated)
+    mask = prepare_geography_margins_data(data, False)
     win_categories = {
         "Massive Wins (>5k)": (5000, np.inf),
         "Big Wins (2.5–5k)": (2500, 5000),
@@ -648,6 +676,12 @@ else:  # Geography Win Margins
         "Close Wins (0.5–1.25k)": (500, 1250),
         "Very Close Wins (<0.5k)": (0, 500)
     }
+
+# Apply pre-tracking / pre-survey filters
+if remove_pre_tracking:
+    mask = mask[mask['Date'] >= pd.Timestamp('2025-10-20')].copy()
+if remove_pre_survey:
+    mask = mask[mask['Date'] >= pd.Timestamp('2026-05-18')].copy()
 
 # Date range limits based on current mask
 min_date, max_date = mask["Date"].min(), mask["Date"].max()

@@ -778,6 +778,25 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
             tickvals = list(tickvals)
             ticktext = list(ticktext)
 
+    # TimeGuessr Survey vertical line (May 18, 2026)
+    survey_date = pd.Timestamp('2026-05-18')
+    if not mask_filtered.empty and mask_filtered['Date'].min() <= survey_date <= mask_filtered['Date'].max():
+        dates_ge = mask_filtered[mask_filtered['Date'] >= survey_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            survey_pos = mask_filtered.index.get_loc(target_idx)
+            fig.add_vline(x=survey_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if survey_pos in tickvals:
+                idx_pos = tickvals.index(survey_pos)
+                ticktext[idx_pos] += "<br>TimeGuessr Survey"
+            else:
+                tickvals.append(survey_pos)
+                ticktext.append("TimeGuessr Survey")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = zip(*combined)
+            tickvals = list(tickvals)
+            ticktext = list(ticktext)
+
     # Add shaded rectangles for single-player days if toggle is on
     if show_single_player_days:
         for i in range(len(mask_filtered)):
@@ -857,7 +876,6 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
-    
     fig.add_trace(go.Scatter(
         x=x_values, y=mask_filtered["Sarah Cumulative Avg"],
         mode='lines', name='Sarah Cumulative Avg',
@@ -866,6 +884,15 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
+    # Best / worst reference lines
+    m_vals = mask_filtered[michael_col].dropna()
+    s_vals = mask_filtered[sarah_col].dropna()
+    if not m_vals.empty:
+        fig.add_hline(y=m_vals.max(), line=dict(color=COLORS['michael'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=m_vals.min(), line=dict(color=COLORS['michael'], width=1, dash='dash'), opacity=0.45)
+    if not s_vals.empty:
+        fig.add_hline(y=s_vals.max(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=s_vals.min(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
 
     # Layout
     fig.update_layout(
@@ -875,7 +902,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         font=FONT_CONFIG,
         paper_bgcolor=COLORS['bg_paper'],
         plot_bgcolor=COLORS['bg_plot'],
-        margin=dict(l=60, r=40, t=60, b=60),
+        margin=dict(l=60, r=20, t=60, b=60),
         legend=dict(
             orientation='h', yanchor='bottom', y=1.02,
             xanchor='right', x=1,
@@ -899,7 +926,9 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         **axis_config,
         tickmode='array',
         tickvals=tickvals,
-        ticktext=ticktext
+        ticktext=ticktext,
+        tickangle=-45,
+        range=[-0.5, len(mask_filtered) - 0.5]
     )
     
     fig.update_yaxes(**axis_config)
@@ -1191,11 +1220,9 @@ with st.sidebar:
         key="page_selector"
     )
 
-    remove_estimated = False
-    if page_type in ["Time Scores", "Geography Scores"]:
-        remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
-
     include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
+    remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
+    remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
 
 # Prepare data based on page type
 if page_type == "Total Scores":
@@ -1206,19 +1233,27 @@ if page_type == "Total Scores":
     bin_options = [1000, 2500, 5000, 10000]
     change_threshold = 5000
 elif page_type == "Time Scores":
-    df_daily, mask = prepare_time_scores_data(data, remove_estimated, include_single_player_days)
+    df_daily, mask = prepare_time_scores_data(data, False, include_single_player_days)
     ceiling = 25000
     score_type = "time"
     default_bin_size = 2500
     bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
 else:  # Geography Scores
-    df_daily, mask = prepare_geography_scores_data(data, remove_estimated, include_single_player_days)
+    df_daily, mask = prepare_geography_scores_data(data, False, include_single_player_days)
     ceiling = 25000
     score_type = "geography"
     default_bin_size = 2500
     bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
+
+# Apply pre-tracking / pre-survey filters
+if remove_pre_tracking:
+    mask = mask[mask['Date'] >= pd.Timestamp('2025-10-20')].copy()
+    df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2025-10-20')].copy()
+if remove_pre_survey:
+    mask = mask[mask['Date'] >= pd.Timestamp('2026-05-18')].copy()
+    df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-05-18')].copy()
 
 # Date range logic
 if not mask.empty:

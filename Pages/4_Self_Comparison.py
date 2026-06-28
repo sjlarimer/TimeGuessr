@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import scipy.stats as stats
 from pathlib import Path
 from typing import Tuple, List, Dict
 
@@ -629,69 +630,107 @@ def create_scores_streaks_table(time_scores: pd.Series, geo_scores: pd.Series, d
     </table>
     """
 
-def create_histogram(time_scores: pd.Series, geo_scores: pd.Series, bin_size: int, ceiling: int) -> go.Figure:
-    """Create histogram figure for Time vs Geography."""
-    hist_fig = go.Figure()
-    
+def create_density_plot(time_scores: pd.Series, geo_scores: pd.Series, ceiling: int) -> go.Figure:
+    """Create density plot figure for Time vs Geography."""
+    fig = go.Figure()
+
     if len(time_scores) == 0 and len(geo_scores) == 0:
-        return hist_fig
-    
-    min_score = min(time_scores.min() if len(time_scores) > 0 else ceiling, 
-                   geo_scores.min() if len(geo_scores) > 0 else ceiling)
-    bins_needed = int(np.ceil((ceiling - min_score) / bin_size))
-    tick_start = ceiling - (bins_needed * bin_size)
-    
-    if len(time_scores) > 0:
-        hist_fig.add_trace(go.Histogram(
-            x=time_scores,
-            name='Time',
-            marker_color=COLORS['time'],
-            opacity=0.7,
-            xbins=dict(size=bin_size, start=tick_start, end=ceiling)
-        ))
-    
-    if len(geo_scores) > 0:
-        hist_fig.add_trace(go.Histogram(
-            x=geo_scores,
-            name='Geography',
-            marker_color=COLORS['geography'],
-            opacity=0.7,
-            xbins=dict(size=bin_size, start=tick_start, end=ceiling)
-        ))
-    
-    tick_values = list(range(tick_start, ceiling + 1, bin_size))
-    
-    hist_fig.update_layout(
-        barmode='overlay',
-        xaxis_title='Score',
-        yaxis_title='Count',
+        return fig
+
+    min_score = min(time_scores.min() if len(time_scores) > 0 else ceiling,
+                    geo_scores.min() if len(geo_scores) > 0 else ceiling)
+    x_min = max(0, min_score - (ceiling * 0.05))
+    x_max = ceiling
+    x_vals = np.linspace(x_min, x_max, 500)
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    if len(time_scores) > 1:
+        try:
+            kde_t = stats.gaussian_kde(time_scores)
+            fig.add_trace(go.Scatter(
+                x=x_vals, y=kde_t(x_vals), name='Time',
+                mode='lines', line=dict(color=COLORS['time'], width=3),
+                fill='tozeroy', fillcolor=hex_to_rgba(COLORS['time'], 0.4),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+        except Exception:
+            pass
+
+    if len(geo_scores) > 1:
+        try:
+            kde_g = stats.gaussian_kde(geo_scores)
+            fig.add_trace(go.Scatter(
+                x=x_vals, y=kde_g(x_vals), name='Geography',
+                mode='lines', line=dict(color=COLORS['geography'], width=3),
+                fill='tozeroy', fillcolor=hex_to_rgba(COLORS['geography'], 0.4),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+        except Exception:
+            pass
+
+    avg_scores = ((time_scores + geo_scores) / 2).dropna()
+    if len(avg_scores) > 1:
+        try:
+            kde_a = stats.gaussian_kde(avg_scores)
+            fig.add_trace(go.Scatter(
+                x=x_vals, y=kde_a(x_vals), name='Average',
+                mode='lines', line=dict(color='black', width=2, dash='dash'),
+                fill='tozeroy', fillcolor=hex_to_rgba('#000000', 0.1),
+                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+            ))
+
+            percentiles = [20, 40, 60, 80, 90]
+            plotted_vals = set()
+            avg_clean = avg_scores.dropna()
+            for p in percentiles:
+                exact_val = np.percentile(avg_clean, p)
+                rounded_val = round(exact_val / 500) * 500
+                if rounded_val not in plotted_vals:
+                    plotted_vals.add(rounded_val)
+                    actual_p = stats.percentileofscore(avg_clean, rounded_val)
+                    fig.add_vline(
+                        x=rounded_val, line_width=1, line_dash="dot", line_color="#8f8d85",
+                        opacity=0.7,
+                        annotation_text=f"{actual_p:.1f}th ({int(rounded_val):,})",
+                        annotation_position="top right", annotation_textangle=-90,
+                        annotation_font=dict(size=10, color="#696761")
+                    )
+        except Exception:
+            pass
+
+    fig.update_layout(
+        xaxis_title='Score', yaxis_title='Density',
         height=400,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
-        paper_bgcolor=COLORS['bg_paper'],
-        plot_bgcolor=COLORS['bg_plot'],
+        paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
         margin=dict(l=60, r=40, t=40, b=60),
         legend=dict(
             orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
             bgcolor='rgba(0,0,0,0)', bordercolor='rgba(0,0,0,0)',
             font=dict(color=COLORS['text'])
         ),
+        hovermode='x unified'
     )
-    
-    hist_fig.update_xaxes(
+    fig.update_xaxes(
         showgrid=True, gridcolor=COLORS['grid'],
         zeroline=False, linecolor=COLORS['line'],
         tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
-        tickmode='array', tickvals=tick_values
+        range=[x_min, x_max]
     )
-    hist_fig.update_yaxes(
+    fig.update_yaxes(
         showgrid=True, gridcolor=COLORS['grid'],
-        zeroline=False, linecolor=COLORS['line'],
+        zeroline=True, zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
         tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']),
-        title_font=dict(color=COLORS['text'])
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero', showticklabels=False
     )
-    
-    return hist_fig
+    return fig
 
 def create_plotly_figure(df: pd.DataFrame, window_length: int, player: str) -> go.Figure:
     """Create the main Plotly figure showing time vs geography."""
@@ -708,6 +747,40 @@ def create_plotly_figure(df: pd.DataFrame, window_length: int, player: str) -> g
     
     tickvals = [i for i, idx in enumerate(df.index) if idx in first_of_month_indices]
     ticktext = [df.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
+
+    # Score Tracking Start vertical line
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    if not df.empty and df['Date'].min() <= score_tracking_date <= df['Date'].max():
+        dates_ge = df[df['Date'] >= score_tracking_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            score_tracking_pos = df.index.get_loc(target_idx)
+            fig.add_vline(x=score_tracking_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if score_tracking_pos in tickvals:
+                i = tickvals.index(score_tracking_pos)
+                ticktext[i] += "<br>Tracking Start"
+            else:
+                tickvals.append(score_tracking_pos)
+                ticktext.append("Tracking Start")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = [list(x) for x in zip(*combined)]
+
+    # TimeGuessr Survey vertical line (May 18, 2026)
+    survey_date = pd.Timestamp('2026-05-18')
+    if not df.empty and df['Date'].min() <= survey_date <= df['Date'].max():
+        dates_ge = df[df['Date'] >= survey_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            survey_pos = df.index.get_loc(target_idx)
+            fig.add_vline(x=survey_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if survey_pos in tickvals:
+                i = tickvals.index(survey_pos)
+                ticktext[i] += "<br>TimeGuessr Survey"
+            else:
+                tickvals.append(survey_pos)
+                ticktext.append("TimeGuessr Survey")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = [list(x) for x in zip(*combined)]
 
     # Scatter plots
     fig.add_trace(go.Scatter(
@@ -745,20 +818,31 @@ def create_plotly_figure(df: pd.DataFrame, window_length: int, player: str) -> g
         customdata=df["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Geography Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
 
+    # Best / worst reference lines
+    t_vals = df[time_col].dropna()
+    g_vals = df[geo_col].dropna()
+    if not t_vals.empty:
+        fig.add_hline(y=t_vals.max(), line=dict(color=COLORS['time'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=t_vals.min(), line=dict(color=COLORS['time'], width=1, dash='dash'), opacity=0.45)
+    if not g_vals.empty:
+        fig.add_hline(y=g_vals.max(), line=dict(color=COLORS['geography'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=g_vals.min(), line=dict(color=COLORS['geography'], width=1, dash='dash'), opacity=0.45)
+
     # Layout
     fig.update_layout(
         xaxis_title='Date', yaxis_title='Score',
         width=1400, height=600, hovermode='closest',
         font=FONT_CONFIG, paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
-        margin=dict(l=60, r=40, t=60, b=40),
+        margin=dict(l=60, r=20, t=60, b=40),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
                     bgcolor='rgba(0,0,0,0)', bordercolor='rgba(0,0,0,0)', font=dict(color=COLORS['text'])),
     )
 
     axis_config = dict(showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
                        tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']))
-    
-    fig.update_xaxes(**axis_config, tickmode='array', tickvals=tickvals, ticktext=ticktext, tickangle=-45)
+
+    fig.update_xaxes(**axis_config, tickmode='array', tickvals=tickvals, ticktext=ticktext, tickangle=-45,
+                     range=[-0.5, len(df) - 0.5])
     fig.update_yaxes(**axis_config)
 
     return fig
@@ -792,7 +876,6 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int, p
         name="Cumulative Avg", line=dict(color="black", width=1.5, dash="dot"), opacity=0.7,
         customdata=mask_filtered["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
     ))
-    
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Pos"], mode="lines",
         name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['time'], width=2.5), opacity=0.8, showlegend=False,
@@ -815,26 +898,70 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int, p
     tick_text = [str(abs(int(t))) for t in tick_vals]
     
     fig.add_hline(y=0, line=dict(color="#8f8d85", dash="dash", width=1))
-    
+
+    # Best reference lines (actual data points only)
+    actual_mask = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
+    actual_diffs = mask_filtered.loc[actual_mask, "Score Diff"]
+    if not actual_diffs.empty:
+        t_best = actual_diffs.max()
+        g_best = actual_diffs.min()
+        fig.add_hline(y=t_best, line=dict(color=COLORS['time'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=g_best, line=dict(color=COLORS['geography'], width=1, dash='dash'), opacity=0.45)
+
     df_copy = mask_filtered.copy()
     df_copy['month_year'] = df_copy['Date'].dt.to_period('M')
     first_of_month_indices = df_copy.groupby('month_year').head(1).index.tolist()
     
     tickvals = [mask_filtered.loc[idx, "x_index"] for idx in first_of_month_indices]
     ticktext = [mask_filtered.loc[idx, 'Date'].strftime('%b %Y') for idx in first_of_month_indices]
-    
+
+    # Score Tracking Start vertical line
+    score_tracking_date = pd.Timestamp('2025-10-20')
+    if not mask_filtered.empty and mask_filtered['Date'].min() <= score_tracking_date <= mask_filtered['Date'].max():
+        dates_ge = mask_filtered[mask_filtered['Date'] >= score_tracking_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            score_tracking_pos = mask_filtered.loc[target_idx, 'x_index']
+            fig.add_vline(x=score_tracking_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if score_tracking_pos in tickvals:
+                i = tickvals.index(score_tracking_pos)
+                ticktext[i] += "<br>Tracking Start"
+            else:
+                tickvals.append(score_tracking_pos)
+                ticktext.append("Tracking Start")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = [list(x) for x in zip(*combined)]
+
+    # TimeGuessr Survey vertical line (May 18, 2026)
+    survey_date = pd.Timestamp('2026-05-18')
+    if not mask_filtered.empty and mask_filtered['Date'].min() <= survey_date <= mask_filtered['Date'].max():
+        dates_ge = mask_filtered[mask_filtered['Date'] >= survey_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            survey_pos = mask_filtered.loc[target_idx, 'x_index']
+            fig.add_vline(x=survey_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if survey_pos in tickvals:
+                i = tickvals.index(survey_pos)
+                ticktext[i] += "<br>TimeGuessr Survey"
+            else:
+                tickvals.append(survey_pos)
+                ticktext.append("TimeGuessr Survey")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = [list(x) for x in zip(*combined)]
+
     fig.update_layout(
         xaxis_title="Date", yaxis_title="Score Difference (Time − Geography)",
         width=1400, height=600, hovermode="closest",
         font=FONT_CONFIG, paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
-        margin=dict(l=60, r=40, t=60, b=60),
+        margin=dict(l=60, r=20, t=60, b=60),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", font=dict(color=COLORS['text'])),
     )
-    
+
     fig.update_xaxes(showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
                      tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']),
-                     tickmode='array', tickvals=tickvals, ticktext=ticktext, tickangle=-45)
+                     tickmode='array', tickvals=tickvals, ticktext=ticktext, tickangle=-45,
+                     range=[-0.5, len(mask_filtered) - 0.5])
     
     fig.update_yaxes(showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
                      tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']),
@@ -879,6 +1006,148 @@ def add_zero_crossing_interpolation(mask_filtered: pd.DataFrame, window_length: 
     
     return mask_filtered
 
+def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
+    """Momentum bar for Time vs Geography: cell height proportional to margin, centered."""
+    n_games = window_length * 4
+    recent_data = data.tail(n_games).reset_index(drop=True)
+
+    if len(recent_data) == 0:
+        return ""
+
+    COLOR_TIME = COLORS['time']
+    COLOR_GEO  = COLORS['geography']
+    COLOR_TIE  = COLORS['line']
+    COLOR_TEXT = COLORS['text']
+    MIN_HEIGHT_PCT = 10
+
+    diffs = recent_data['Score Diff'].fillna(0)
+    max_abs = diffs.abs().max() or 1
+
+    segments = []
+    slot_pct = 100 / len(recent_data)
+
+    for _, row in recent_data.iterrows():
+        diff = row['Score Diff']
+        date_str = row['Date'].strftime('%b %d')
+        intensity = min(1.0, abs(diff) / max_abs)
+        height_pct = MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * intensity
+
+        if diff > 0:
+            color = COLOR_TIME
+            label = f"Time (+{diff:,.0f})"
+        elif diff < 0:
+            color = COLOR_GEO
+            label = f"Geography (+{abs(diff):,.0f})"
+        else:
+            color = COLOR_TIE
+            label = "Tie"
+
+        segments.append(
+            f'<div style="width:{slot_pct}%;display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;padding:0 1px;">'
+            f'<div style="width:100%;height:{height_pct:.1f}%;background-color:{color};border-radius:3px;" title="{date_str}: {label}"></div>'
+            f'</div>'
+        )
+
+    t_wins = (diffs > 0).sum()
+    g_wins = (diffs < 0).sum()
+    start_date = recent_data.iloc[0]['Date'].strftime('%b %d')
+    end_date   = recent_data.iloc[-1]['Date'].strftime('%b %d')
+    bar_segments = "".join(segments)
+
+    return f"""
+<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+<h4 style="margin:0;color:{COLOR_TEXT};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_games} Games)</span>
+</h4>
+<div style="font-size:12px;font-weight:600;">
+<span style="color:{COLOR_TIME};">Time: {t_wins}</span>
+<span style="color:#b0afaa;margin:0 6px;">|</span>
+<span style="color:{COLOR_GEO};">Geography: {g_wins}</span>
+</div>
+</div>
+<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
+{bar_segments}
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
+<span>{start_date}</span><span>{end_date}</span>
+</div>
+</div>"""
+
+
+def create_scores_momentum_html(data: pd.DataFrame, player: str, window_length: int, ceiling: int) -> str:
+    """Stacked momentum bars for Time and Geography scores, mirroring the Scores page style."""
+    n_days = window_length * 4
+    recent_data = data.tail(n_days).reset_index(drop=True)
+
+    if len(recent_data) == 0:
+        return ""
+
+    time_col = f"{player} Time Midpoint"
+    geo_col  = f"{player} Geography Midpoint"
+    max_score = n_days * ceiling
+    t_total = recent_data[time_col].sum()
+    g_total = recent_data[geo_col].sum()
+
+    def hex_to_rgb(h):
+        h = h.lstrip('#')
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+    def interpolate_color(c_start, c_end, factor):
+        c1, c2 = hex_to_rgb(c_start), hex_to_rgb(c_end)
+        return '#{:02x}{:02x}{:02x}'.format(
+            int(c1[0] + (c2[0] - c1[0]) * factor),
+            int(c1[1] + (c2[1] - c1[1]) * factor),
+            int(c1[2] + (c2[2] - c1[2]) * factor),
+        )
+
+    def generate_bar(col, color_dark, color_light):
+        valid = recent_data[col].dropna()
+        valid = valid[valid > 0]
+        min_val = valid.min() if len(valid) > 0 else 0
+        max_val = valid.max() if len(valid) > 0 else 1
+        segments = []
+        accumulated = 0
+        for _, row in recent_data.iterrows():
+            score = np.nan_to_num(row[col])
+            if score > 0:
+                pct = (score / max_score) * 100
+                factor = 1.0 if max_val == min_val else (score - min_val) / (max_val - min_val)
+                seg_color = interpolate_color(color_light, color_dark, factor)
+                date_str = row['Date'].strftime('%b %d')
+                segments.append(f'<div style="width:{pct}%;background-color:{seg_color};height:100%;border-right:1px solid rgba(255,255,255,0.4);box-sizing:border-box;" title="{date_str}: {score:,.0f}"></div>')
+                accumulated += pct
+        remaining = max(0, 100 - accumulated)
+        return f'<div style="background-color:{COLORS["line"]};width:100%;height:16px;border-radius:8px;overflow:hidden;display:flex;">{"".join(segments)}<div style="width:{remaining}%;background-color:transparent;"></div></div>'
+
+    t_bar = generate_bar(time_col, COLORS['time'], COLORS['time_light'])
+    g_bar = generate_bar(geo_col,  COLORS['geography'], COLORS['geography_light'])
+    t_weight = "800" if t_total >= g_total else "400"
+    g_weight = "800" if g_total > t_total else "400"
+
+    return f"""
+    <div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+        <h4 style="margin:0 0 15px 0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+            Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span>
+        </h4>
+        <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:{COLORS['time']};">
+                <span style="font-weight:600;">Time</span>
+                <span style="font-weight:{t_weight};">{t_total:,.0f} <span style="font-weight:400;font-size:0.9em;opacity:0.7;">/ {max_score:,.0f}</span></span>
+            </div>
+            {t_bar}
+        </div>
+        <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:{COLORS['geography']};">
+                <span style="font-weight:600;">Geography</span>
+                <span style="font-weight:{g_weight};">{g_total:,.0f} <span style="font-weight:400;font-size:0.9em;opacity:0.7;">/ {max_score:,.0f}</span></span>
+            </div>
+            {g_bar}
+        </div>
+    </div>
+    """
+
+
 # --- Main App ---
 
 data = load_data()
@@ -887,7 +1156,8 @@ with st.sidebar:
     st.header("Dashboard Settings")
     view_mode = st.radio("View Mode:", options=["Scores", "Win Margins"], horizontal=True, index=0, key="view_mode_toggle")
     player = st.radio("Select Player:", options=["Combined", "Michael", "Sarah"], horizontal=True, index=0, key="player_selector")
-    remove_estimated = st.toggle("Remove Estimated Scores", value=False, key="remove_estimated_toggle")
+    remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
+    remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
     window_length = st.slider("Rolling Average Window", min_value=1, max_value=30, value=5, step=1)
 
     # Bucket Size Slider (Only for Scores view)
@@ -902,7 +1172,11 @@ with st.sidebar:
         
         bucket_size = st.select_slider("Bucket Size", options=bucket_options, value=bucket_options[default_idx])
 
-    player_data = prepare_player_data(data, player, remove_estimated)
+    player_data = prepare_player_data(data, player, False)
+    if remove_pre_tracking:
+        player_data = player_data[player_data['Date'] >= pd.Timestamp('2025-10-20')].copy()
+    if remove_pre_survey:
+        player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-05-18')].copy()
 
     if not player_data.empty:
         min_date, max_date = player_data["Date"].min(), player_data["Date"].max()
@@ -920,12 +1194,10 @@ if view_mode == "Scores":
     st.subheader("Time vs Geography Scores")
     fig = create_plotly_figure(player_data_filtered, window_length, player)
     st.plotly_chart(fig, use_container_width=True, key="main_chart")
-    
-    st.divider()
-    
+
     time_col = f"{player} Time Midpoint"
     geo_col = f"{player} Geography Midpoint"
-    
+
     # Determine bucket settings
     if player == "Combined":
         streak_ceiling = 50000
@@ -933,6 +1205,10 @@ if view_mode == "Scores":
     else:
         streak_ceiling = 25000
         change_threshold = 2500
+
+    st.markdown(create_scores_momentum_html(player_data_filtered, player, window_length, streak_ceiling), unsafe_allow_html=True)
+
+    st.divider()
     
     col1, col2 = st.columns(2)
     
@@ -948,13 +1224,12 @@ if view_mode == "Scores":
         st.markdown(stats_html, unsafe_allow_html=True)
         
         st.subheader("Score Distribution")
-        hist_fig = create_histogram(
-            player_data_filtered[time_col], 
+        density_fig = create_density_plot(
+            player_data_filtered[time_col],
             player_data_filtered[geo_col],
-            bin_size=bucket_size, 
             ceiling=streak_ceiling
         )
-        st.plotly_chart(hist_fig, use_container_width=True)
+        st.plotly_chart(density_fig, use_container_width=True)
         
     with col2:
         st.subheader("Score Streaks")
@@ -973,11 +1248,13 @@ else:
     margin_data["Score Diff"] = margin_data[f"{player} Time Midpoint"] - margin_data[f"{player} Geography Midpoint"]
     margin_data["Rolling Diff"] = margin_data["Score Diff"].rolling(window=window_length, min_periods=1).mean()
     margin_data["Cumulative Diff"] = margin_data["Score Diff"].expanding().mean()
+    margin_data_original = margin_data.copy()
     margin_data = add_zero_crossing_interpolation(margin_data, window_length)
 
     st.subheader("Score Differential (Time - Geography)")
     margin_fig = create_win_margins_figure(margin_data, window_length, player)
     st.plotly_chart(margin_fig, use_container_width=True, key="margin_chart")
+    st.markdown(create_momentum_timeline(margin_data_original, window_length), unsafe_allow_html=True)
     
     st.divider()
     
