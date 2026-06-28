@@ -236,7 +236,7 @@ def calculate_time_score(year_guessed, actual_year):
     elif 15 < years_off < 21: return 1000
     else: return 0
 
-def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
+def validate_distance_pattern(dist_meters, geo_pattern, round_num, unit):
     patterns = {
         "OOO": (0, 50), "OO%": (50, 37500), "OOX": (37500, 100000),
         "O%X": (100000, 250000), "OXX": (250000, 1000000),
@@ -244,27 +244,25 @@ def validate_distance_pattern(dist_meters, geo_pattern, round_num, is_km):
     }
     if geo_pattern not in patterns: return (True, "")
     low, high = patterns[geo_pattern]
-    
+
+    def fmt(meters):
+        if unit == "km":   return f"{meters/1000:.3f} km"
+        if unit == "mi":   return f"{meters/1609.344:.3f} mi"
+        if unit == "ft":   return f"{meters/0.3048:.0f} ft"
+        return f"{meters:.0f} m"
+
     if geo_pattern == "OOO":
         if dist_meters <= high: return (True, "")
-        excess = dist_meters - high
-        unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
-        return (False, f"Round {round_num}: Distance is {unit} too great (🟩🟩🟩 requires ≤ 50 m)")
+        return (False, f"Round {round_num}: Distance is {fmt(dist_meters - high)} too great (🟩🟩🟩 requires ≤ 50 m)")
     elif geo_pattern == "XXX":
         if dist_meters > low: return (True, "")
-        deficit = low - dist_meters + 1
-        unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
-        return (False, f"Round {round_num}: Distance is {unit} too few (⬛⬛⬛ requires > 2000 km)")
+        return (False, f"Round {round_num}: Distance is {fmt(low - dist_meters + 1)} too few (⬛⬛⬛ requires > 2000 km)")
     else:
         if low < dist_meters <= high: return (True, "")
         elif dist_meters <= low:
-            deficit = low - dist_meters + 1
-            unit = f"{deficit/1000:.3f} km" if is_km else f"{deficit} m"
-            return (False, f"Round {round_num}: Distance is {unit} too few")
+            return (False, f"Round {round_num}: Distance is {fmt(low - dist_meters + 1)} too few")
         else:
-            excess = dist_meters - high
-            unit = f"{excess/1000:.3f} km" if is_km else f"{excess} m"
-            return (False, f"Round {round_num}: Distance is {unit} too great")
+            return (False, f"Round {round_num}: Distance is {fmt(dist_meters - high)} too great")
 
 def validate_time_pattern(guessed_year, actual_year, time_pattern, round_num):
     if actual_year is None or time_pattern == "": return True, ""
@@ -707,8 +705,13 @@ if date:
             with col:
                 st_state = p_state[p_name]
                 if not st_state['is_hid']:
-                    d_dist, d_km, d_year = "", False, ""
-                    
+                    d_dist, d_year = "", ""
+
+                    unit_key = f"u_{p_name}_{r}_{date}"
+                    unit = st.session_state.get(unit_key, "ft")
+                    if unit not in ["ft", "mi", "m", "km"]:
+                        unit = "ft"
+
                     if st_state['has_g']:
                         r_row = st_state['curr'][st_state['curr']['Timeguessr Round'] == r]
                         if not r_row.empty:
@@ -716,27 +719,26 @@ if date:
                             dist_raw = rw.get(f'{p_name} Geography Distance')
                             if pd.notna(dist_raw):
                                 val = float(dist_raw)
-                                if val >= 1000: d_dist, d_km = str(val/1000), True
-                                else: d_dist, d_km = str(val), False
+                                if unit == "km":  d_dist = f"{val/1000:.3f}"
+                                elif unit == "mi": d_dist = f"{val/1609.344:.3f}"
+                                elif unit == "ft": d_dist = f"{val/0.3048:.0f}"
+                                else:             d_dist = f"{val:.0f}"
                             time_raw = rw.get(f'{p_name} Time Guessed')
                             if pd.notna(time_raw): d_year = str(int(time_raw))
 
-                    ukey = f"u_{p_name}_{r}_{date}"
-                    is_km_current = st.session_state.get(ukey, d_km)
                     d_key = f"d_{p_name}_{r}_{date}"
                     y_key = f"y_{p_name}_{r}_{date}"
 
                     st.markdown(f"**Round {r}**")
 
                     row_cols = st.columns(2)
-                    
+
                     with row_cols[0]:
                         dist_col, tog_col = st.columns([1.5, 1])
                         with dist_col:
                             dist_val = st.text_input("Dist", value=d_dist, key=d_key, disabled=(st_state['has_g'] and not st_state['edit']))
                         with tog_col:
-                            st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-                            is_km = st.toggle("KM" if is_km_current else "M", value=d_km, key=ukey, disabled=(st_state['has_g'] and not st_state['edit']))
+                            unit = st.selectbox("Unit", ["ft", "mi", "m", "km"], index=["ft", "mi", "m", "km"].index(unit), key=unit_key, disabled=(st_state['has_g'] and not st_state['edit']))
                             
                         g_score_disp = None
                         d_meters_calc = 0
@@ -748,19 +750,22 @@ if date:
                             try:
                                 v = float(current_dist_val)
                                 if v >= 0:
-                                    d_meters_calc = v * 1000 if is_km else v
+                                    if unit == "km":   d_meters_calc = v * 1000
+                                    elif unit == "mi": d_meters_calc = v * 1609.344
+                                    elif unit == "ft": d_meters_calc = v * 0.3048
+                                    else:              d_meters_calc = v
                                     g_score_disp = geography_score(d_meters_calc)
                                     st_state['comp_tot'] += g_score_disp
                             except: pass
-                            
+
                         if has_dist_val and g_score_disp is not None:
                             c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
                             c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
                             warning_html = ""
-                            
+
                             pat = st_state['geo_pats'][r-1]
                             if pat:
-                                dist_valid, dist_msg = validate_distance_pattern(d_meters_calc, pat, r, is_km)
+                                dist_valid, dist_msg = validate_distance_pattern(d_meters_calc, pat, r, unit)
                                 if not dist_valid:
                                     c_color = "#d32f2f"
                                     c_bg = "#ffd6d6"
@@ -812,7 +817,7 @@ if date:
                                 st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Time Score</p></label><div class="score-box" style="background-color:#bcb0ff; color:#221e8f; border-left:5px solid #221e8f;" title="Submit actuals to see score">📅 ?</div></div>', unsafe_allow_html=True)
 
                     st_state['input'][r] = {
-                        'dist': dist_val, 'dist_m': d_meters_calc, 'km': is_km, 
+                        'dist': dist_val, 'dist_m': d_meters_calc, 'unit': unit,
                         'year': year_val_in, 'year_int': year_int, 'y_valid': y_valid,
                         'g_score': g_score_disp
                     }
@@ -893,7 +898,7 @@ if date:
                                 if float(d['dist']) < 0: 
                                     st.error(f"Round {r} negative distance"); return
                                 
-                                ok, msg = validate_distance_pattern(d['dist_m'], geo_pats[r-1], r, d['km'])
+                                ok, msg = validate_distance_pattern(d['dist_m'], geo_pats[r-1], r, d['unit'])
                                 if not ok: 
                                     st.error(msg); return
                                 
