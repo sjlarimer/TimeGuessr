@@ -1040,3 +1040,10 @@ TimeGuessr #1125
 3. New Delhi (Delhi), India, 1992
 4. Hamburg (Hamburg), Germany, 1989
 5. Rio de Janeiro, Brazil, 2026
+
+TimeGuessr #1126
+1. Amman, Jordan, 2026
+2. Atlantic City (New Jersey), United States, 1906
+3. Cairo, Egypt, 1961
+4. Copenhagen, Denmark, 1967
+5. Ottawa (Ontario), Canada, 2003
