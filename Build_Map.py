@@ -6,6 +6,7 @@ import country_converter as coco
 # --- Configuration ---
 INPUT_FILE = "./Data/World_Administrative_Divisions.geojson"
 OUTPUT_FILE = "./Data/Custom_World_Map.geojson"
+SIMPLIFIED_OUTPUT_FILE = "./Data/Custom_World_Map_New.json"
 
 # List of Countries to KEEP subdivisions for (ISO Alpha-3 Codes)
 COUNTRIES_TO_KEEP_SPLIT = [
@@ -44,6 +45,25 @@ COUNTRIES_TO_KEEP_SPLIT = [
     'VNM', # Vietnam
     'CZE', # Czechia
 ]
+
+POL_NAME_MAP = {
+    'Dolnośląskie':       'Lower Silesia',
+    'Kujawsko-pomorskie': 'Kuyavian-Pomeranian',
+    'Łódzkie':            'Lodz',
+    'Lubelskie':          'Lublin',
+    'Lubuskie':           'Lubusz',
+    'Małopolskie':        'Lesser Poland',
+    'Mazowieckie':        'Masovia',
+    'Opolskie':           'Opole',
+    'Podkarpackie':       'Subcarpathian',
+    'Podlaskie':          'Podlachia',
+    'Pomorskie':          'Pomerania',
+    'Śląskie':            'Silesia',
+    'Świętokrzyskie':     'Holy Cross',
+    'Warmińsko-mazurskie':'Warmia-Masuria',
+    'Wielkopolskie':      'Greater Poland',
+    'Zachodniopomorskie': 'West Pomerania',
+}
 
 def process_map():
     if not os.path.exists(INPUT_FILE):
@@ -88,12 +108,27 @@ def process_map():
     print("COMBINING: merging layers...")
     gdf_final = pd.concat([gdf_split, gdf_dissolved], ignore_index=True)
 
+    print("RENAMING: Translating Polish voivodeship names to English...")
+    if 'NAME' in gdf_final.columns:
+        pol_mask = gdf_final['ISO3'] == 'POL'
+        gdf_final.loc[pol_mask, 'NAME'] = gdf_final.loc[pol_mask, 'NAME'].replace(POL_NAME_MAP)
+
     print(f"WRITING: Saving to {OUTPUT_FILE}...")
     try:
         gdf_final.to_file(OUTPUT_FILE, driver='GeoJSON')
-        print("✅ Done! File saved.")
+        print("✅ GeoJSON saved.")
     except Exception as e:
         print(f"❌ Error writing file: {e}")
+        return
+
+    print(f"SIMPLIFYING: Applying Visvalingam simplification (tolerance=0.05°, preserve topology)...")
+    gdf_simplified = gdf_final.copy()
+    gdf_simplified.geometry = gdf_final.geometry.simplify(tolerance=0.05, preserve_topology=True)
+    try:
+        gdf_simplified.to_file(SIMPLIFIED_OUTPUT_FILE, driver='GeoJSON')
+        print(f"✅ Done! Simplified file saved to {SIMPLIFIED_OUTPUT_FILE}")
+    except Exception as e:
+        print(f"❌ Error writing simplified file: {e}")
 
 if __name__ == "__main__":
     process_map()
