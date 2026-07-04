@@ -10,6 +10,9 @@ st.set_page_config(page_title="Welcome", layout='wide')
 from utils import load_css
 load_css()
 
+import importlib, sys as _sys
+if "aggregation" in _sys.modules:
+    importlib.reload(_sys.modules["aggregation"])
 from aggregation import run_aggregation
 run_aggregation()
 

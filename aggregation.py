@@ -1,7 +1,13 @@
+import math
 import os
 import re
 import numpy as np
 import pandas as pd
+
+try:
+    pd.set_option("future.infer_string", False)
+except Exception:
+    pass
 
 MICHAEL_TXT = "Data/TimeGuessr_Michael.txt"
 SARAH_TXT   = "Data/TimeGuessr_Sarah.txt"
@@ -147,47 +153,61 @@ def parse_user_blocks(lines, user):
         else:
             i += 1
 
-    df_user = pd.DataFrame(user_data)
+    _STRIP_CHARS = ('️', '‍', 'ï', '¸', '⃣')
 
-    for col in ["Time", "Geography"]:
-        df_user[col] = (
-            df_user[col]
-            .astype(str)
-            .str.replace("🟩", "O", regex=False)
-            .str.replace("🟨", "%", regex=False)
-            .str.replace("⬛", "X", regex=False)
-            .apply(lambda x: re.sub(r"[️‍ï¸]", "", x))
-            .str.strip()
-        )
+    for _rd in user_data:
+        for _field in ("Geography", "Time"):
+            _v = _rd.get(_field)
+            if _v is None or (isinstance(_v, float) and _v != _v):
+                _rd[_field] = ''
+            else:
+                _s = str(_v).replace("🟩", "O").replace("🟨", "%").replace("⬛", "X")
+                for _ch in _STRIP_CHARS:
+                    _s = _s.replace(_ch, '')
+                _rd[_field] = _s.strip()
 
-    def convert_to_meters(value):
-        if pd.isna(value):
-            return np.nan
-        val = str(value).strip().lower()
-        
-        # Safely extract numeric value using regex (protects against missing spaces like "1.5mi")
-        num_match = re.search(r"([\d.,]+)", val)
-        if not num_match:
-            return np.nan
-            
-        try:
-            num = float(num_match.group(1).replace(",", ""))
-        except Exception:
-            return np.nan
-            
-        # Prioritize matching multi-letter units containing 'm' before falling back to isolated 'm'
-        if "km" in val:
-            return num * 1000
-        elif "mi" in val:
-            return num * 1609.344
-        elif "ft" in val:
-            return num * 0.3048
-        elif "m" in val:
-            return num
-            
-        return np.nan
+        _gd = _rd.get("Geography Distance")
+        if _gd is None or (isinstance(_gd, float) and _gd != _gd):
+            _rd["Geography Distance"] = np.nan
+        elif isinstance(_gd, str):
+            _gval = _gd.strip().lower()
+            _nm = re.search(r"([\d.,]+)", _gval)
+            if not _nm:
+                _rd["Geography Distance"] = np.nan
+            else:
+                try:
+                    _num = float(_nm.group(1).replace(",", ""))
+                    if "km" in _gval:
+                        _rd["Geography Distance"] = _num * 1000
+                    elif "mi" in _gval:
+                        _rd["Geography Distance"] = _num * 1609.344
+                    elif "ft" in _gval:
+                        _rd["Geography Distance"] = _num * 0.3048
+                    elif "m" in _gval:
+                        _rd["Geography Distance"] = _num
+                    else:
+                        _rd["Geography Distance"] = np.nan
+                except Exception:
+                    _rd["Geography Distance"] = np.nan
+        else:
+            _rd["Geography Distance"] = np.nan
 
-    df_user["Geography Distance"] = df_user["Geography Distance"].apply(convert_to_meters)
+    _cols = [
+        "Timeguessr Day", "Timeguessr Round", "Total Score", "Round Score",
+        "Geography", "Geography Distance", "Time", "Time Distance",
+        "Time Guessed", "Time Score", "Geography Score",
+    ]
+    _float_cols = {"Round Score", "Geography Distance", "Time Distance",
+                   "Time Guessed", "Time Score", "Geography Score"}
+    _int_cols   = {"Timeguessr Day", "Timeguessr Round", "Total Score"}
+    _str_cols   = {"Geography", "Time"}
+    _col_data   = {c: [_rd.get(c, np.nan) for _rd in user_data] for c in _cols}
+    df_user = pd.DataFrame({
+        c: (np.array(_col_data[c], dtype=object) if c in _str_cols else
+            np.array(_col_data[c], dtype=np.float64) if c in _float_cols else
+            np.array(_col_data[c], dtype=np.int64))
+        for c in _cols
+    })
 
     mask = df_user["Geography Score"].isna() & (df_user["Geography"] == "OOO")
     df_user.loc[mask, "Geography Score"] = 5000
@@ -290,7 +310,16 @@ def parse_actuals(lines):
                                 "Year": year,
                             })
         i += 1
-    return pd.DataFrame(actuals_data)
+    if not actuals_data:
+        return pd.DataFrame(columns=["Timeguessr Day", "Timeguessr Round", "City", "Subdivision", "Country", "Year"])
+    return pd.DataFrame({
+        "Timeguessr Day":   np.array([r["Timeguessr Day"]   for r in actuals_data], dtype=np.int64),
+        "Timeguessr Round": np.array([r["Timeguessr Round"] for r in actuals_data], dtype=np.int64),
+        "City":             np.array([r["City"]             for r in actuals_data], dtype=object),
+        "Subdivision":      np.array([r["Subdivision"]      for r in actuals_data], dtype=object),
+        "Country":          np.array([r["Country"]          for r in actuals_data], dtype=object),
+        "Year":             np.array([r["Year"]             for r in actuals_data], dtype=np.int64),
+    })
 
 
 def run_aggregation():
@@ -335,8 +364,13 @@ def run_aggregation():
     df_all = df_all.sort_values(["Timeguessr Day", "Timeguessr Round"]).reset_index(drop=True)
 
     def calc_time_score(years_off):
-        if pd.isna(years_off):
+        if years_off is None:
             return None
+        try:
+            if math.isnan(years_off):
+                return None
+        except (TypeError, ValueError):
+            pass
         y = float(years_off)
         if y == 0:   return 5000
         if y == 1:   return 4950
@@ -363,7 +397,11 @@ def run_aggregation():
         df_all.loc[mask, time_score_col] = 0
 
         mask = df_all[time_score_col].isna()
-        df_all.loc[mask, time_score_col] = df_all.loc[mask, time_dist_col].apply(calc_time_score)
+        _dist_vals = df_all.loc[mask, time_dist_col]
+        df_all.loc[mask, time_score_col] = pd.Series(
+            [calc_time_score(v) for v in list(_dist_vals)],
+            index=_dist_vals.index,
+        )
 
     for player in ["Michael", "Sarah"]:
         time_score_col = f"{player} Time Score"
