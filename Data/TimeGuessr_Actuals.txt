@@ -1054,3 +1054,10 @@ TimeGuessr #1127
 3. Brussels (Brussels Capital Region), Belgium, 1974
 4. Old Delhi (Delhi), India, 1986
 5. Brasilia (Center-West), Brazil, 1960
+
+TimeGuessr #1131
+1. Veliko Tarnovo, Bulgaria, 1997
+2. Auckland (Auckland), New Zealand, 1981
+3. Newark (New Jersey), United States, 1957
+4. Ho Chi Minh (Southeast), Vietnam, 1995
+5. Venice (Veneto), Italy, 1962
