@@ -179,65 +179,21 @@ TERRITORY_PARENT_MAP = {
 
 # Split Configuration
 SPLIT_CONFIG = {
-    "ESP": {"name": "Spain", "map": {
-        "Canary Islands": "Canarias",
-        "Catalonia": "Catalunya",
-        "Community of Madrid": "Madrid, Comunidad de",
-        "Valencian Community": "Valenciana, Comunidad",
-    }},
-    "NLD": {"name": "Netherlands", "map": {
-        "North Holland": "Noord-Holland",
-        "South Holland": "Zuid-Holland",
-        "North Brabant": "Noord-Brabant",
-    }},
+    "ESP": {"name": "Spain", "map": {}},
+    "NLD": {"name": "Netherlands", "map": {}},
     "AUS": {"name": "Australia", "map": {}},
     "CAN": {"name": "Canada", "map": {"Québec": "Quebec", "Newfoundland": "Newfoundland and Labrador"}},
-    "CHN": {"name": "China", "map": {"Beijing": "Beijing Shi", "Shanghai": "Shanghai Shi", "Tianjin": "Tianjin Shi", "Chongqing": "Chongqing Shi", "Inner Mongolia": "Nei Mongol Zizhiqu", "Guangxi": "Guangxi Zhuangzu Zizhiqu", "Tibet": "Xizang Zizhiqu", "Ningxia": "Ningxia Zizhiiqu", "Xinjiang": "Xinjiang Uygur Zizhiqu", "Hong Kong": "Hong Kong", "Macau": "Macao", "Anhui": "Anhui Sheng", "Fujian": "Fujian Sheng", "Gansu": "Gansu Sheng", "Guangdong": "Guangdong Sheng", "Guizhou": "Guizhou Sheng", "Hainan": "Hainan Sheng", "Hebei": "Hebei Sheng", "Heilongjiang": "Heilongjiang Sheng", "Henan": "Henan Sheng", "Hubei": "Hubei Sheng", "Hunan": "Hunan Sheng", "Jiangsu": "Jiangsu Sheng", "Jiangxi": "Jiangxi Sheng", "Jilin": "Jilin Sheng", "Liaoning": "Liaoning Sheng", "Qinghai": "Qinghai Sheng", "Shaanxi": "Shaanxi Sheng", "Shandong": "Shandong Sheng", "Shanxi": "Shanxi Sheng", "Sichuan": "Sichuan Sheng", "Yunnan": "Yunnan Sheng", "Zhejiang": "Zhejiang Sheng"}},
-    "FRA": {"name": "France", "map": {"Auvergne-Rhone-Alpes": "Auvergne-Rhône-Alpes", "Brittany": "Bretagne", "Burgundy-Franche-Comte": "Bourgogne-Franche-Comté", "Centre-Val de Loire": "Centre-Val de Loire", "Corsica": "Corse", "Grand Est": "Grand Est", "Hauts-de-France": "Hauts-de-France", "Ile-de-France": "Île-de-France", "Normandy": "Normandie", "Nouvelle-Aquitaine": "Nouvelle-Aquitaine", "Occitania": "Occitanie", "Pays de la Loire": "Pays de la Loire", "Provence-Alpes-Cote d'Azur": "Provence-Alpes-Côte d'Azur"}},
-    "DEU": {"name": "Germany", "map": {"Baden-Wurttemberg": "Baden-Württemberg", "Bavaria": "Bayern", "Hesse": "Hessen", "Lower Saxony": "Niedersachsen", "North Rhine-Westphalia": "Nordrhein-Westfalen", "Rhineland-Palatinate": "Rheinland-Pfalz", "Saxony": "Sachsen", "Saxony-Anhalt": "Sachsen-Anhalt", "Thuringia": "Thüringen"}},
+    "CHN": {"name": "China", "map": {}},
+    "FRA": {"name": "France", "map": {}},
+    "DEU": {"name": "Germany", "map": {}},
     "IND": {"name": "India", "map": {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"}},
-    "ITA": {"name": "Italy", "map": {
-        "Apulia": "Puglia", "Lombardy": "Lombardia", "Piedmont": "Piemonte", "Sardinia": "Sardegna", "Sicily": "Sicilia", "Tuscany": "Toscana", "Trentino-South Tyrol": "Trentino-Alto Adige", "Valley of Aosta": "Valle d'Aosta", "Friuli Venezia Giulia": "Friuli-Venezia Giulia"
-    }},
-    "POL": {"name": "Poland", "map": {"Lower Silesian": "Dolnośląskie", "Kuyavian-Pomeranian": "Kujawsko-pomorskie", "Lublin": "Lubelskie", "Lubelskie": "Lubelskie", "Lubusz": "Lubuskie", "Łódź": "Łódzkie", "Lesser Poland": "Małopolskie", "Masovian": "Mazowieckie", "Opole": "Opolskie", "Podlaskie": "Podlaskie", "Pomeranian": "Pomorskie", "Silesian": "Śląskie", "Subcarpathian": "Podkarpackie", "Świętokrzyskie": "Świętokrzyskie", "Warmian-Masurian": "Warmińsko-mazurskie", "Greater Poland": "Wielkopolskie", "West Pomeranian": "Zachodniopomorskie"}},
-    "RUS": {"name": "Russia", "map": {
-        "Adygea": "Adygeya, Respublika", "Altai": "Altay, Respublika", "Altai Krai": "Altayskiy kray", "Amur Oblast": "Amurskaya oblast'", "Arkhangelsk Oblast": "Arkhangel'skaya oblast'", "Astrakhan Oblast": "Astrakhanskaya oblast'", "Bashkortostan": "Bashkortostan, Respublika", "Belgorod Oblast": "Belgorodskaya oblast'", "Bryansk Oblast": "Bryanskaya oblast'", "Buryatia": "Buryatiya, Respublika", "Chechnya": "Chechenskaya Respublika", "Chelyabinsk Oblast": "Chelyabinskaya oblast'", "Chukotka Autonomous Okrug": "Chukotskiy avtonomnyy okrug", "Chuvashia": "Chuvashskaya Respublika", "Dagestan": "Dagestan, Respublika", "Ingushetia": "Ingushskaya, Respublika", "Irkutsk Oblast": "Irkutskaya oblast'", "Ivanovo Oblast": "Ivanovskaya oblast'", "Kabardino-Balkaria": "Kabardino-Balkarskaya Respublika", "Kaliningrad Oblast": "Kaliningradskaya oblast'", "Kalmykia": "Kalmykiya, Respublika", "Kaluga Oblast": "Kaluzhskaya oblast'", "Kamchatka Krai": "Kamchatskiy kray", "Karachay-Cherkessia": "Karachayevo-Cherkesskaya Respublika", "Karelia": "Kareliya, Respublika", "Kemerovo Oblast": "Kemerovskaya oblast'", "Khabarovsk Krai": "Khabarovskiy kray", "Khakassia": "Khakasiya, Respublika", "Khanty-Mansi Autonomous Okrug": "Khanty-Mansiyskiy avtonomnyy okrug", "Kirov Oblast": "Kirovskaya oblast'", "Komi": "Komi, Respublika", "Kostroma Oblast": "Kostromskaya oblast'", "Krasnodar Krai": "Krasnodyarskiy kray", "Krasnoyarsk Krai": "Krasnoyarskiy kray", "Kurgan Oblast": "Kurganskaya oblast'", "Kursk Oblast": "Kurskaya oblast'", "Leningrad Oblast": "Leningradskaya oblast'", "Lipetsk Oblast": "Lipetskaya oblast'", "Magadan Oblast": "Magadanskaya oblast'", "Mari El": "Mariy El, Respublika", "Mordovia": "Mordoviya, Respublika", "Moscow": "Moskva", "Moscow Oblast": "Moskovskaya oblast'", "Murmansk Oblast": "Murmanskaya oblast'", "Nenets Autonomous Okrug": "Nenetskiy avtonomnyy okrug", "Nizhny Novgorod Oblast": "Nizhegorodskaya oblast'", "North Ossetia–Alania": "Severnaya Osetiya-Alaniya, Respublika", "Novgorod Oblast": "Novgorodskaya oblast'", "Novosibirsk Oblast": "Novosibirskaya oblast'", "Omsk Oblast": "Omskaya oblast'", "Orenburg Oblast": "Orenburgskaya oblast'", "Oryol Oblast": "Orlovskaya oblast'", "Penza Oblast": "Penzenskaya oblast'", "Perm Krai": "Permskiy kray", "Primorsky Krai": "Primorskiy kray", "Pskov Oblast": "Pskovskaya oblast'", "Rostov Oblast": "Rostovskaya oblast'", "Ryazan Oblast": "Ryazanskaya oblast'", "Saint Petersburg": "Sankt-Peterburg", "Sakha (Yakutia)": "Sakha, Respublika", "Sakhalin Oblast": "Sakhalinskaya oblast'", "Samara Oblast": "Samarskaya oblast'", "Saratov Oblast": "Saratovskaya oblast'", "Smolensk Oblast": "Smolenskaya oblast'", "Stavropol Krai": "Stavropol'skiy kray", "Sverdlovsk Oblast": "Sverdlovskaya oblast'", "Tambov Oblast": "Tambovskaya oblast'", "Tatarstan": "Tatarstan, Respublika", "Tomsk Oblast": "Tomskaya oblast'", "Tula Oblast": "Tul'skaya oblast'", "Tuva": "Tyva, Respublika", "Tver Oblast": "Tverskaya oblast'", "Tyumen Oblast": "Tyumenskaya oblast'", "Udmurtia": "Udmurtskaya Respublika", "Ulyanovsk Oblast": "Ul'yanovskaya oblast'", "Vladimir Oblast": "Vladimirskaya oblast'", "Volgograd Oblast": "Volgogradskaya oblast'", "Vologda Oblast": "Vologodskaya oblast'", "Voronezh Oblast": "Voronezhskaya oblast'", "Yamalo-Nenets Autonomous Okrug": "Yamalo-Nenentskiy avtonomnyy okrug", "Yaroslavl Oblast": "Yaroslavskaya oblast'", "Jewish Autonomous Oblast": "Yeveryskaya avtonomnaya oblast'", "Zabaykalsky Krai": "Zabaykal'skiy kray", "Sevastopol": "Sevastopol"
-    }},
+    "ITA": {"name": "Italy", "map": {}},
+    "POL": {"name": "Poland", "map": {}},
+    "RUS": {"name": "Russia", "map": {}},
     "GBR": {"name": "United Kingdom", "map": {}},
     "USA": {"name": "United States", "map": {"Washington DC": "District of Columbia", "Puerto Rico": "Puerto Rico"}},
-    "BEL": {"name": "Belgium", "map": {
-        "Brussels": "Bruxelles-Capitale: Région de",
-        "Flanders": "Vlaamse Gewest",
-        "Wallonia": "wallonne, Région"
-    }},
-    "CHE": {"name": "Switzerland", "map": {
-        "Aargau": "Aargau",
-        "Appenzell Ausserrhoden": "Appenzell Ausserrhoden",
-        "Appenzell Innerrhoden": "Appenzell Innerrhoden",
-        "Basel-Landschaft": "Basel-Landschaft",
-        "Basel-Stadt": "Basel-Stadt",
-        "Bern": "Bern",
-        "Fribourg": "Freiburg",         
-        "Geneva": "Genève",          
-        "Glarus": "Glarus",
-        "Graubünden": "Graubünden",
-        "Jura": "Jura",
-        "Lucerne": "Luzern",            
-        "Neuchâtel": "Neuchâtel",
-        "Nidwalden": "Nidwalden",
-        "Obwalden": "Obwalden",
-        "Schaffhausen": "Schaffhausen",
-        "Schwyz": "Schwyz",
-        "Solothurn": "Solothurn",
-        "St. Gallen": "Sankt Gallen", 
-        "Thurgau": "Thurgau",
-        "Ticino": "Ticino",
-        "Uri": "Uri",
-        "Valais": "Valais",          
-        "Vaud": "Vaud",
-        "Zug": "Zug",
-        "Zurich": "Zürich",        
-    }},
+    "BEL": {"name": "Belgium", "map": {}},
+    "CHE": {"name": "Switzerland", "map": {}},
 }
 
 # Microstates
@@ -357,16 +313,14 @@ def load_data():
         # Special Language Logic for Belgium
         df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Flanders'), 'Language'] = 'Germanic'
         df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Wallonia'), 'Language'] = 'French'
-        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Brussels'), 'Language'] = 'French'
+        df.loc[(df['ISO3'] == 'BEL') & (df['Subdivision'] == 'Brussels Capital Region'), 'Language'] = 'French'
 
-        # Special Language Logic for Switzerland
-        _che_french   = ['Geneva', 'Vaud', 'Neuchâtel', 'Jura', 'Fribourg', 'Valais']
-        _che_italian_romansch  = ['Ticino','Graubünden']
+        # Special Language Logic for Switzerland (cantons dissolved into 7 macroregions in Build_Map.py)
+        _che_french   = ['Lake Geneva Region']
+        _che_italian_romansch  = ['Ticino']
         _che_germanic = [
-            'Aargau', 'Appenzell Ausserrhoden', 'Appenzell Innerrhoden',
-            'Basel-Landschaft', 'Basel-Stadt', 'Bern', 'Glarus', 
-            'Lucerne', 'Nidwalden', 'Obwalden', 'Schaffhausen', 'Schwyz',
-            'Solothurn', 'St. Gallen', 'Thurgau', 'Uri', 'Zug', 'Zurich'
+            'Espace Mittelland', 'Northwestern Switzerland', 'Zurich',
+            'Eastern Switzerland', 'Central Switzerland'
         ]
         df.loc[(df['ISO3'] == 'CHE') & (df['Subdivision'].isin(_che_french)),   'Language'] = 'French'
         df.loc[(df['ISO3'] == 'CHE') & (df['Subdivision'].isin(_che_italian_romansch)),  'Language'] = 'Other Romance'
@@ -429,30 +383,28 @@ def load_map():
         gdf.loc[(gdf['ISO3'] == 'USA') & (gdf['NAME'] == 'Puerto Rico'), 'Language'] = 'Spanish'
         
         # Special Map Logic for China Subdivisions -> "Other"
-        chn_map_names = ['Hong Kong', 'Macao', 'Xizang Zizhiqu', 'Xinjiang Uygur Zizhiqu']
+        chn_map_names = ['Hong Kong', 'Macau', 'Tibet', 'Xinjiang']
         gdf.loc[(gdf['ISO3'] == 'CHN') & (gdf['NAME'].isin(chn_map_names)), 'Language'] = 'Other'
 
         # Special Map Logic for Belgium
-        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Vlaamse Gewest'), 'Language'] = 'Germanic'
-        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'wallonne, Région'), 'Language'] = 'French'
-        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de'), 'Language'] = 'French'
-        
-        # Special Map Logic for Switzerland
-        _che_map_french   = ['Genève', 'Vaud', 'Neuchâtel', 'Jura', 'Freiburg', 'Wallis']
-        _che_map_italian_romansch  = ['Ticino','Graubünden']
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Flanders'), 'Language'] = 'Germanic'
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Wallonia'), 'Language'] = 'French'
+        gdf.loc[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Brussels Capital Region'), 'Language'] = 'French'
+
+        # Special Map Logic for Switzerland (cantons dissolved into 7 macroregions in Build_Map.py)
+        _che_map_french   = ['Lake Geneva Region']
+        _che_map_italian_romansch  = ['Ticino']
         _che_map_germanic = [
-            'Aargau', 'Appenzell Ausserrhoden', 'Appenzell Innerrhoden',
-            'Basel-Landschaft', 'Basel-Stadt', 'Bern', 'Glarus', 
-            'Luzern', 'Nidwalden', 'Obwalden', 'Schaffhausen', 'Schwyz',
-            'Solothurn', 'Sankt Gallen', 'Thurgau', 'Uri', 'Zug', 'Zürich'
+            'Espace Mittelland', 'Northwestern Switzerland', 'Zurich',
+            'Eastern Switzerland', 'Central Switzerland'
         ]
         gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_french)),   'Language'] = 'French'
         gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_italian_romansch)),  'Language'] = 'Other Romance'
         gdf.loc[(gdf['ISO3'] == 'CHE') & (gdf['NAME'].isin(_che_map_germanic)), 'Language'] = 'Germanic'
 
         # Brussels is geographically enclosed by Flanders — subtract it so Brussels remains visible
-        bru_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Bruxelles-Capitale: Région de')]
-        fla_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Vlaamse Gewest')]
+        bru_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Brussels Capital Region')]
+        fla_rows = gdf[(gdf['ISO3'] == 'BEL') & (gdf['NAME'] == 'Flanders')]
         if not bru_rows.empty and not fla_rows.empty:
             bru_geom = unary_union(bru_rows['geometry'].tolist())
             gdf.loc[fla_rows.index, 'geometry'] = gdf.loc[fla_rows.index, 'geometry'].apply(
@@ -463,14 +415,29 @@ def load_map():
     except Exception as e:
         st.error(f"Map error: {e}"); return None, set()
 
+@st.cache_resource
+def precompute_iso_merged(_gdf):
+    """Pre-merge each country's subdivision polygons into one clean shape (runs once at startup).
+    Buffer+debuffer snaps near-touching edges so the result is a proper Polygon rather
+    than a seam-riddled MultiPolygon when rendered by Plotly."""
+    if _gdf is None: return None
+    cols = [c for c in ['ISO3', 'Continent', 'UN_Region', 'Language', 'geometry'] if c in _gdf.columns]
+    iso_gdf = _gdf[cols].dissolve(by='ISO3', as_index=False)
+    iso_gdf['geometry'] = iso_gdf['geometry'].buffer(0.001).buffer(-0.001)
+    iso_gdf['NAME'] = iso_gdf['ISO3']
+    return iso_gdf
+
 data = load_data()
 base_gdf, valid_map_names = load_map()
+iso_gdf = precompute_iso_merged(base_gdf)
 
-# Countries with subdivision splits available (mirrors COUNTRIES_TO_KEEP_SPLIT in Timeguessr_Aggregation.ipynb)
+# Countries with subdivision splits available (mirrors COUNTRIES_TO_KEEP_SPLIT in Build_Map.py)
 _splittable_isos = {
     'USA', 'GBR', 'FRA', 'NLD', 'ITA', 'CAN', 'DEU', 'POL',
-    'JPN', 'AUS', 'CHN', 'CHE', 'GRC', 'NOR', 'ESP', 'IRL',
-    'RUS', 'BRA', 'BEL', 'IND', 'MEX',
+    'SWE', 'JPN', 'AUS', 'CHN', 'CHE', 'HUN', 'GRC', 'DNK',
+    'NOR', 'ESP', 'FIN', 'IRL', 'RUS', 'BRA', 'BEL', 'KOR',
+    'PRT', 'NZL', 'IND', 'ZAF', 'MEX', 'PER', 'TUR', 'AUT',
+    'VNM', 'CZE', 'THA', 'CHL', 'ISR',
 }
 
 # Build display-name → ISO3 dict (SPLIT_CONFIG names take priority for configured countries)
@@ -482,6 +449,11 @@ _EXTRA_NAMES = {
     'JPN': 'Japan', 'GRC': 'Greece',
     'NOR': 'Norway', 'IRL': 'Ireland',
     'BRA': 'Brazil', 'MEX': 'Mexico',
+    'SWE': 'Sweden', 'HUN': 'Hungary', 'DNK': 'Denmark',
+    'FIN': 'Finland', 'KOR': 'South Korea', 'PRT': 'Portugal',
+    'NZL': 'New Zealand', 'ZAF': 'South Africa', 'PER': 'Peru',
+    'TUR': 'Turkiye', 'AUT': 'Austria', 'VNM': 'Vietnam',
+    'CZE': 'Czechia', 'THA': 'Thailand', 'CHL': 'Chile', 'ISR': 'Israel',
 }
 for _iso in sorted(_splittable_isos - set(SPLIT_CONFIG.keys())):
     split_options[_EXTRA_NAMES.get(_iso, _iso)] = _iso
@@ -497,92 +469,93 @@ def get_background_layer(_gdf):
     return json.loads(bg_gdf.to_json())
 
 @st.cache_data
-def generate_dynamic_map_layer(_gdf, active_iso_tuple, active_splits, active_subdivs_tuple, view_mode):
+def generate_dynamic_map_layer(_gdf, _iso_gdf, active_iso_tuple, active_splits, active_subdivs_tuple, view_mode):
     """
     Generates map geometry only for active locations.
-    Overseas territories automatically merge into their parent country if they 
-    lack their own data but the parent country has data.
+    Non-split countries use pre-merged ISO-level geometries (seam-free).
+    Split countries and overseas territories use individual subdivision rows.
+    All row operations are vectorized to preserve GeoDataFrame type throughout.
     """
     if _gdf is None: return None
-    
+
     active_subdivs = {k: set(v) for k, v in active_subdivs_tuple}
-    
-    # 1. Expand active ISOs to include dependencies if parent is present
-    isos_to_fetch = set(active_iso_tuple)
+    active_iso_set = set(active_iso_tuple)
+
+    # 1. Expand active ISOs to include territory dependencies
+    isos_to_fetch = set(active_iso_set)
     for dep_iso, parent_iso in TERRITORY_PARENT_MAP.items():
         if parent_iso in isos_to_fetch:
             isos_to_fetch.add(dep_iso)
-    
-    work_gdf = _gdf[_gdf['ISO3'].isin(isos_to_fetch)].copy()
+
+    # 2. Route ISOs to their source:
+    #    territories → _gdf (need real geometry + parent attribute reassignment)
+    #    split countries → _gdf (individual subdivisions)
+    #    everything else → _iso_gdf (pre-merged, seam-free)
+    territory_isos = {iso for iso in isos_to_fetch
+                      if iso in TERRITORY_PARENT_MAP and iso not in active_iso_set}
+    split_isos_active = set(active_splits) & isos_to_fetch
+    non_split_non_territory = isos_to_fetch - split_isos_active - territory_isos
+
+    parts = []
+    if non_split_non_territory and _iso_gdf is not None:
+        parts.append(_iso_gdf[_iso_gdf['ISO3'].isin(non_split_non_territory)].copy())
+    if split_isos_active or territory_isos:
+        parts.append(_gdf[_gdf['ISO3'].isin(split_isos_active | territory_isos)].copy())
+
+    if not parts: return None
+    work_gdf = gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), geometry='geometry')
     if work_gdf.empty: return None
 
-    # 2. Assign effective ISOs and properties to dependencies acting as parents
-    def apply_parent_attributes(row):
-        iso = row['ISO3']
-        # If this is a territory, AND the territory itself has no stats, BUT the parent does:
-        if iso in TERRITORY_PARENT_MAP and iso not in active_iso_tuple:
-            parent_iso = TERRITORY_PARENT_MAP[iso]
-            if parent_iso in active_iso_tuple:
-                row['ISO3_Effective'] = parent_iso
-                
-                # Grab parent's Continent, Region, Language to ensure aggregate views match
-                parent_rows = _gdf[_gdf['ISO3'] == parent_iso]
-                if not parent_rows.empty:
-                    parent_row = parent_rows.iloc[0]
-                    row['Continent'] = parent_row['Continent']
-                    row['UN_Region'] = parent_row['UN_Region']
-                    row['Language'] = parent_row['Language']
-                return row
-        row['ISO3_Effective'] = iso
-        return row
-        
-    work_gdf = work_gdf.apply(apply_parent_attributes, axis=1)
+    # 3. Set ISO3_Effective; reassign Continent/UN_Region/Language for territories (vectorized)
+    work_gdf['ISO3_Effective'] = work_gdf['ISO3']
+    for dep_iso, parent_iso in TERRITORY_PARENT_MAP.items():
+        if parent_iso not in active_iso_set: continue
+        dep_mask = (work_gdf['ISO3'] == dep_iso) & ~work_gdf['ISO3'].isin(active_iso_set)
+        if not dep_mask.any(): continue
+        work_gdf.loc[dep_mask, 'ISO3_Effective'] = parent_iso
+        parent_rows = _gdf[_gdf['ISO3'] == parent_iso]
+        if not parent_rows.empty:
+            p = parent_rows.iloc[0]
+            for col in ('Continent', 'UN_Region', 'Language'):
+                if col in work_gdf.columns and col in parent_rows.columns:
+                    work_gdf.loc[dep_mask, col] = p[col]
 
-    # 3. Filter subdivisions for split countries
-    def filter_subdivs(row):
-        orig_iso = row['ISO3']
-        eff_iso = row['ISO3_Effective']
-        
-        # Keep territories acting as their parent (e.g. Martinique acting as France)
-        if orig_iso != eff_iso: return True
-        
-        # Keep all parts of a split country so they can be re-aggregated correctly
-        if eff_iso not in active_splits:
-            return True
-            
-        allowed = active_subdivs.get(eff_iso, set())
-        return row['NAME'] in allowed
+    # 4. Filter subdivisions for split countries (vectorized)
+    if active_splits:
+        is_territory = work_gdf['ISO3'] != work_gdf['ISO3_Effective']
+        not_in_split  = ~work_gdf['ISO3_Effective'].isin(active_splits)
+        split_allowed = pd.Series(False, index=work_gdf.index)
+        for iso, allowed_set in active_subdivs.items():
+            if iso not in active_splits: continue
+            row_mask = ((work_gdf['ISO3_Effective'] == iso) &
+                        (work_gdf['ISO3'] == work_gdf['ISO3_Effective']))
+            split_allowed |= row_mask & work_gdf['NAME'].isin(allowed_set)
+        work_gdf = work_gdf[is_territory | not_in_split | split_allowed]
+
+    if work_gdf.empty: return None
+
+    # 5. Assign dissolve key (vectorized)
+    attr_col = {'Continents': 'Continent', 'UN Regions': 'UN_Region', 'Languages': 'Language'}.get(view_mode)
+    if attr_col and attr_col in work_gdf.columns:
+        key_series = work_gdf[attr_col].astype(str)
+    else:
+        key_series = work_gdf['ISO3_Effective']
 
     if active_splits:
-        work_gdf = work_gdf[work_gdf.apply(filter_subdivs, axis=1)]
+        split_mask = work_gdf['ISO3_Effective'].isin(active_splits)
+        if view_mode == "Countries":
+            key_series = key_series.copy()
+            key_series[split_mask] = work_gdf.loc[split_mask, 'NAME']
+        elif attr_col and attr_col in work_gdf.columns:
+            key_series = key_series.copy()
+            key_series[split_mask] = (work_gdf.loc[split_mask, 'ISO3_Effective'] + '___' +
+                                      work_gdf.loc[split_mask, attr_col].fillna('').astype(str))
 
-    if work_gdf.empty: return None
-
-    # 4. Dissolve geometries together based on the view level
-    def get_dissolve_key(row):
-        iso = row['ISO3_Effective']
-        name = row['NAME']
-        
-        attr_val = None
-        if view_mode == "Continents": attr_val = row['Continent']
-        elif view_mode == "UN Regions": attr_val = row['UN_Region']
-        elif view_mode == "Languages": attr_val = row['Language']
-        
-        if iso in active_splits:
-             if view_mode == "Countries":
-                 return name
-             else:
-                 return f"{iso}___{attr_val}"
-
-        # If not split, just return the aggregate group
-        if attr_val: return attr_val
-        
-        return iso
-
-    work_gdf['Dissolve_Key'] = work_gdf.apply(get_dissolve_key, axis=1)
-    # Only keep geometry + Dissolve_Key (choropleth needs nothing else), then
-    # simplify to reduce coordinate count — critical for large multi-country splits
+    work_gdf['Dissolve_Key'] = key_series
     dissolved = work_gdf[['Dissolve_Key', 'geometry']].dissolve(by='Dissolve_Key', as_index=False)
+    # Snap near-touching edges after dissolve so MultiPolygon seams close cleanly.
+    # Fast because geometries are already 1.5%-simplified by mapshaper (very few vertices).
+    dissolved['geometry'] = dissolved['geometry'].buffer(0.001).buffer(-0.001)
     dissolved['geometry'] = dissolved['geometry'].simplify(tolerance=0.005, preserve_topology=True)
     return json.loads(dissolved.to_json())
 
@@ -956,7 +929,7 @@ if active_splits:
 
 active_subdivs_tuple = tuple(active_subdivs.items())
 
-map_geojson = generate_dynamic_map_layer(base_gdf, active_iso_tuple, active_splits_frozen, active_subdivs_tuple, view_mode)
+map_geojson = generate_dynamic_map_layer(base_gdf, iso_gdf, active_iso_tuple, active_splits_frozen, active_subdivs_tuple, view_mode)
 bg_geojson = get_background_layer(base_gdf)
 
 fig = go.Figure()

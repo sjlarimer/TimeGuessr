@@ -1,42 +1,42 @@
 Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 862,1,London,England,United Kingdom,1970
-862,2,Helsinki,,Finland,1926
+862,2,Helsinki,Helsinki-Uusimaa,Finland,1926
 862,3,Pyongyang,,North Korea,1994
 862,4,Chicago,Illinois,United States,1940
 862,5,Paris,Ile-de-France,France,2025
 865,1,Zurich,Zurich,Switzerland,1953
-865,2,Helsinki,,Finland,1926
+865,2,Helsinki,Helsinki-Uusimaa,Finland,1926
 865,3,St. George's,,Grenada,1983
 865,4,Baghdad,,Iraq,2017
 865,5,Trinity Test Site,New Mexico,United States,1945
-866,1,Budapest,,Hungary,1956
+866,1,Budapest,Central Hungary,Hungary,1956
 866,2,Sarajevo,,Bosnia and Herzegovina,1984
 866,3,Manchester,New Hampshire,United States,1918
 866,4,Brisbane,Queensland,Australia,1910
 866,5,Collana,,Bolivia,2012
-867,1,Lisbon,,Portugal,1935
-867,2,Tokyo,,Japan,2008
-867,3,Brussels,Brussels,Belgium,1982
+867,1,Lisbon,Lisbon,Portugal,1935
+867,2,Tokyo,Kanto,Japan,2008
+867,3,Brussels,Brussels Capital Region,Belgium,1982
 867,4,New Orleans,Louisiana,United States,1943
 867,5,Mexico City,Mexico City,Mexico,1962
 868,1,London,England,United Kingdom,1970
-868,2,Katowice,Silesian,Poland,1929
+868,2,Katowice,Silesia,Poland,1929
 868,3,Edmonton,Alberta,Canada,1913
 868,4,Venice,Veneto,Italy,1973
 868,5,Memphis,Tennessee,United States,2025
 869,1,Heemskerk,North Holland,Netherlands,1990
-869,2,Istanbul,,Türkiye,2005
-869,3,Copenhagen,,Denmark,1953
+869,2,Istanbul,Marmara,Turkiye,2005
+869,3,Copenhagen,Capital Region,Denmark,1953
 869,4,Manila,,Philippines,1986
 869,5,Chicago,Illinois,United States,1941
 872,1,Vatican City,,Vatican City,1959
 872,2,London,England,United Kingdom,1911
 872,3,Havana,,Cuba,2006
 872,4,Ocean City,New Jersey,United States,2017
-872,5,Oslo,,Norway,1950
+872,5,Oslo,Eastern Norway,Norway,1950
 873,1,Washington DC,Washington DC,United States,1964
 873,2,Zagreb,,Croatia,1947
-873,3,Moscow,Moscow,Russia,1991
+873,3,Moscow,Central,Russia,1991
 873,4,Monrovia,,Liberia,2014
 873,5,Milan,Lombardy,Italy,1975
 874,1,Moab,Utah,United States,2025
@@ -46,26 +46,26 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 874,5,Paris,Ile-de-France,France,1924
 875,1,Zurich,Zurich,Switzerland,1962
 875,2,Philadelphia,Pennsylvania,United States,1986
-875,3,Jerusalem,,Israel,1940
-875,4,Gyor,,Hungary,1956
-875,5,Tokyo,,Japan,2015
+875,3,Jerusalem,Jerusalem,Israel,1940
+875,4,Gyor,Western Transdanubia,Hungary,1956
+875,5,Tokyo,Kanto,Japan,2015
 876,1,Oklahoma City,Oklahoma,United States,1995
 876,2,Dublin,Leinster,Ireland,1946
 876,3,Dresden,Saxony,Germany,1978
-876,4,Warsaw,Masovian,Poland,1959
+876,4,Warsaw,Masovia,Poland,1959
 876,5,Thimphu,,Bhutan,2008
 879,1,Montreal,Quebec,Canada,1967
 879,2,Shanghai,Shanghai,China,2012
 879,3,Berlin,Berlin,Germany,1941
 879,4,New York,New York,United States,1911
-879,5,Athens,,Greece,1991
+879,5,Athens,Attica,Greece,1991
 880,1,Washington DC,Washington DC,United States,1945
-880,2,Helsinki,,Finland,1950
-880,3,Abidja,,Côte d'Ivoire,2025
-880,4,Saint Petersburg,Saint Petersburg,Russia,1968
+880,2,Helsinki,Helsinki-Uusimaa,Finland,1950
+880,3,Abidjan,,Cote d'Ivoire,2025
+880,4,Saint Petersburg,Northwestern,Russia,1968
 880,5,Dubai,,United Arab Emirates,2006
-881,1,Tokyo,,Japan,2012
-881,2,Jerusalem,,Israel,2025
+881,1,Tokyo,Kanto,Japan,2012
+881,2,Jerusalem,Jerusalem,Israel,2025
 881,3,Los Angeles,California,United States,1994
 881,4,Caracas,,Venezuela,1988
 881,5,Amsterdam,North Holland,Netherlands,1950
@@ -79,16 +79,16 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 883,3,Krefeld,North Rhine-Westphalia,Germany,1945
 883,4,Bratislava,,Slovakia,1974
 883,5,Mulhouse,Grand Est,France,1959
-886,1,Moscow,Moscow,Russia,1990
+886,1,Moscow,Central,Russia,1990
 886,2,Berlin,Berlin,Germany,1955
-886,3,Santiago,,Chile,1910
-886,4,Lisbon,,Portugal,1982
+886,3,Santiago,Santiago Metropolitan,Chile,1910
+886,4,Lisbon,Lisbon,Portugal,1982
 886,5,Indianapolis,Indiana,United States,1918
 887,1,Beirut,,Lebanon,2020
 887,2,Dublin,Leinster,Ireland,1996
 887,3,Barcelona,Catalonia,Spain,1957
 887,4,Denver,Colorado,United States,1966
-887,5,Helsinki,,Finland,1936
+887,5,Helsinki,Helsinki-Uusimaa,Finland,1936
 888,1,New York,New York,United States,2025
 888,2,Vilnius,,Lithuania,1939
 888,3,Cologne,North Rhine-Westphalia,Germany,1976
@@ -96,48 +96,48 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 888,5,Nouakchott,,Mauritania,2016
 889,1,Kingston,,Jamaica,2016
 889,2,Washington DC,Washington DC,United States,1911
-889,3,Tel Aviv,,Israel,1933
-889,4,Budapest,,Hungary,1985
-889,5,Athens,,Greece,1964
+889,3,Tel Aviv,Tel Aviv,Israel,1933
+889,4,Budapest,Central Hungary,Hungary,1985
+889,5,Athens,Attica,Greece,1964
 890,1,Memphis,Tennessee,United States,1977
-890,2,Copenhagen,,Denmark,1923
+890,2,Copenhagen,Capital Region,Denmark,1923
 890,3,New Delhi,Delhi,India,2008
 890,4,Belfast,Northern Ireland,United Kingdom,1912
 890,5,Paris,Ile-de-France,France,1930
 900,1,Toronto,Ontario,Canada,2022
 900,2,Sofia,,Bulgaria,1995
 900,3,Paris,Ile-de-France,France,1909
-900,4,Athens,,Greece,1989
+900,4,Athens,Attica,Greece,1989
 900,5,Bloomington,Indiana,United States,1911
 901,1,Cambridge,England,United Kingdom,1939
 901,2,San Francisco,California,United States,2016
 901,3,Havana,,Cuba,1960
-901,4,Rio de Janeiro,,Brazil,1991
+901,4,Rio de Janeiro,Southeast,Brazil,1991
 901,5,Amsterdam,North Holland,Netherlands,1949
 902,1,RAF Harwell,England,United Kingdom,1944
 902,2,Bratislava,,Slovakia,2016
-902,3,Copenhagen,,Denmark,1972
-902,4,Stockholm,,Sweden,1958
+902,3,Copenhagen,Capital Region,Denmark,1972
+902,4,Stockholm,Svealand,Sweden,1958
 902,5,Washington DC,Washington DC,United States,1962
 903,1,Chicago,Illinois,United States,1920
 903,2,Essen,North Rhine-Westphalia,Germany,1981
 903,3,Placencia,,Belize,2018
-903,4,Madrid,Community of Madrid,Spain,1965
+903,4,Madrid,Madrid,Spain,1965
 903,5,Shanghai,Shanghai,China,1972
-904,1,Moscow,Moscow,Russia,1991
-904,2,Oslo,,Norway,1950
-904,3,Istanbul,,Türkiye,1910
+904,1,Moscow,Central,Russia,1991
+904,2,Oslo,Eastern Norway,Norway,1950
+904,3,Istanbul,Marmara,Turkiye,1910
 904,4,Washington DC,Washington DC,United States,2025
 904,5,Dublin,Leinster,Ireland,1916
 907,1,San Francisco,California,United States,1992
-907,2,Madrid,Community of Madrid,Spain,1965
+907,2,Madrid,Madrid,Spain,1965
 907,3,Buenos Aires,,Argentina,1987
-907,4,Lillehammer,,Norway,1906
-907,5,Lima,,Peru,2015
+907,4,Lillehammer,Eastern Norway,Norway,1906
+907,5,Lima,Lima,Peru,2015
 908,1,Beirut,,Lebanon,2025
 908,2,Sydney,New South Wales,Australia,1927
 908,3,Paris,Ile-de-France,France,1912
-908,4,Prague,,Czechia,1960
+908,4,Prague,Bohemia,Czechia,1960
 908,5,Washington DC,Washington DC,United States,2009
 909,1,London,England,United Kingdom,1981
 909,2,Chicago,Illinois,United States,1903
@@ -149,19 +149,19 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 914,3,Miami,Florida,United States,1963
 914,4,Manila,,Philippines,1986
 914,5,Managua,,Nicaragua,1990
-915,1,Oslo,,Norway,1954
+915,1,Oslo,Eastern Norway,Norway,1954
 915,2,Kathmandu,,Nepal,2021
 915,3,Tunis,,Tunisia,1943
 915,4,New York,New York,United States,1964
-915,5,Warsaw,Masovian,Poland,1989
+915,5,Warsaw,Masovia,Poland,1989
 916,1,Amsterdam,North Holland,Netherlands,1947
 916,2,Sydney,New South Wales,Australia,1983
 916,3,Edmonton,Alberta,Canada,1931
-916,4,Saint Petersburg,Saint Petersburg,Russia,1974
-916,5,Seoul,,South Korea,1991
+916,4,Saint Petersburg,Northwestern,Russia,1974
+916,5,Seoul,Seoul Capital Area,South Korea,1991
 917,1,Montevideo,,Uruguay,2008
 917,2,Auschwitz,Lesser Poland,Poland,1945
-917,3,Vienna,,Austria,1959
+917,3,Vienna,Vienna,Austria,1959
 917,4,Key West,Florida,United States,1960
 917,5,Tbilisi,,Georgia,1992
 918,1,Blackpool,England,United Kingdom,1972
@@ -170,50 +170,50 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 918,4,Cairo,,Egypt,1961
 918,5,Lahore,,Pakistan,2025
 921,1,Sant Julia de Loria,,Andorra,1967
-921,2,Jerusalem,,Israel,1940
-921,3,Ho Chi Minh,,Vietnam,2015
+921,2,Jerusalem,Jerusalem,Israel,1940
+921,3,Ho Chi Minh,Southeast,Vietnam,2015
 921,4,Chicago,Illinois,United States,1909
 921,5,Berlin,Berlin,Germany,1953
 922,1,London,England,United Kingdom,1978
-922,2,Madre de Dios,,Peru,2023
+922,2,Madre de Dios,Madre de Dios,Peru,2023
 922,3,Atlanta,Georgia,United States,1996
-922,4,Warsaw,Masovian,Poland,1930
+922,4,Warsaw,Masovia,Poland,1930
 922,5,Vatican City,,Vatican City,1984
 923,1,San Francisco,California,United States,1964
 923,2,Zurich,Zurich,Switzerland,1949
 923,3,Chisinau,,Moldova,2024
-923,4,Santa Domingo,,Ecuador,1974
+923,4,Santo Domingo,,Ecuador,1974
 923,5,Sydney,New South Wales,Australia,1954
-924,1,Wellington,,New Zealand,1933
-924,2,Athens,,Greece,1973
+924,1,Wellington,Wellington,New Zealand,1933
+924,2,Athens,Attica,Greece,1973
 924,3,Zandvoort,North Holland,Netherlands,2025
 924,4,Mexico City,Mexico City,Mexico,1956
 924,5,Kansas City,Missouri,United States,1906
-925,1,Srebenica,,Bosnia and Herzegovina,2015
-925,2,Macao,Macao,China,2007
-925,3,Rio de Janeiro,,Brazil,2025
+925,1,Srebrenica,,Bosnia and Herzegovina,2015
+925,2,Macao,Macau,China,2007
+925,3,Rio de Janeiro,Southeast,Brazil,2025
 925,4,Antwerp,Flanders,Belgium,1985
 925,5,Olney,England,United Kingdom,1950
-928,1,Oslo,,Norway,1962
+928,1,Oslo,Eastern Norway,Norway,1962
 928,2,Las Vegas,Nevada,United States,1964
 928,3,Ohrid,,North Macedonia,2009
 928,4,London,England,United Kingdom,1972
 928,5,Camp Point Salines,,Grenada,1983
-929,1,Tokyo,,Japan,2014
+929,1,Tokyo,Kanto,Japan,2014
 929,2,Bogota,,Colombia,1948
 929,3,Milwaukee,Wisconsin,United States,1939
-929,4,Budapest,,Hungary,1981
-929,5,Brussels,Brussels,Belgium,1958
+929,4,Budapest,Central Hungary,Hungary,1981
+929,5,Brussels,Brussels Capital Region,Belgium,1958
 930,1,New York,New York,United States,2025
 930,2,Ballygawley,Northern Ireland,United Kingdom,1900
-930,3,Copenhagen,,Denmark,1967
-930,4,Istanbul,,Türkiye,1983
+930,3,Copenhagen,Capital Region,Denmark,1967
+930,4,Istanbul,Marmara,Turkiye,1983
 930,5,Vancouver,British Columbia,Canada,2015
 931,1,Dardghaya,,Lebanon,2024
 931,2,Paris,Ile-de-France,France,1925
 931,3,Houston,Texas,United States,1943
 931,4,Mexico City,Mexico City,Mexico,1955
-931,5,Helsinki,,Finland,1984
+931,5,Helsinki,Helsinki-Uusimaa,Finland,1984
 932,1,Amsterdam,North Holland,Netherlands,1973
 932,2,Accra,,Ghana,2023
 932,3,Rome,Lazio,Italy,1984
@@ -221,40 +221,40 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 932,5,Washington DC,Washington DC,United States,2025
 935,1,Cibitoke,,Burundi,2025
 935,2,Atlanta,Georgia,United States,1939
-935,3,Johannesburg,,South Africa,1951
-935,4,Vienna,,Austria,1975
+935,3,Johannesburg,Gauteng,South Africa,1951
+935,4,Vienna,Vienna,Austria,1975
 935,5,Luxembourg,,Luxembourg,2013
 936,1,Kalofer,,Bulgaria,2024
 936,2,Mexico City,Mexico City,Mexico,1962
 936,3,Washington DC,Washington DC,United States,1979
-936,4,Greymouth,,New Zealand,1904
+936,4,Greymouth,West Coast,New Zealand,1904
 936,5,Salacgriva,,Latvia,1991
 937,1,Amsterdam,North Holland,Netherlands,1961
 937,2,Washington DC,Washington DC,United States,2025
 937,3,Buenos Aires,,Argentina,2006
-937,4,Kobe,,Japan,1971
+937,4,Kobe,Kansai,Japan,1971
 937,5,London,England,United Kingdom,1947
 939,1,Vientiane,,Laos,2015
 939,2,Belfast,Northern Ireland,United Kingdom,1941
 939,3,West Danville,Vermont,United States,1942
-939,4,Warsaw,Masovian,Poland,1930
-939,5,Rio de Janeiro,,Brazil,2025
-942,1,Ramsau am Dachstein,,Austria,2025
-942,2,Rio de Janeiro,,Brazil,1942
-942,3,Wellington,,New Zealand,1930
+939,4,Warsaw,Masovia,Poland,1930
+939,5,Rio de Janeiro,Southeast,Brazil,2025
+942,1,Ramsau am Dachstein,Styria,Austria,2025
+942,2,Rio de Janeiro,Southeast,Brazil,1942
+942,3,Wellington,Wellington,New Zealand,1930
 942,4,Mount Rushmore,South Dakota,United States,2018
 942,5,Rome,Lazio,Italy,1963
 943,1,London,England,United Kingdom,1963
 943,2,Silema,,Malta,1985
 943,3,San Francisco,California,United States,1939
-943,4,Madrid,Community of Madrid,Spain,1961
-943,5,Copenhagen,,Denmark,1967
+943,4,Madrid,Madrid,Spain,1961
+943,5,Copenhagen,Capital Region,Denmark,1967
 944,1,Washington DC,Washington DC,United States,2000
-944,2,Istanbul,,Türkiye,1993
+944,2,Istanbul,Marmara,Turkiye,1993
 944,3,Rome,Lazio,Italy,1985
 944,4,Saint-Louis,,Senegal,2005
 944,5,London,England,United Kingdom,1969
-949,1,Prague,,Czechia,1968
+949,1,Prague,Bohemia,Czechia,1968
 949,2,Rome,Lazio,Italy,1985
 949,3,Tbilisi,,Georgia,1992
 949,4,Kuwait City,,Kuwait,2010
@@ -265,50 +265,50 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 950,4,Singapore,,Singapore,1955
 950,5,Amsterdam,North Holland,Netherlands,1949
 951,1,Havana,,Cuba,1941
-951,2,Hanoi,,Vietnam,2015
+951,2,Hanoi,Red River Delta,Vietnam,2015
 951,3,New York,New York,United States,1936
-951,4,Copenhagen,,Denmark,1967
+951,4,Copenhagen,Capital Region,Denmark,1967
 951,5,London,England,United Kingdom,2025
 952,1,Paris,Ile-de-France,France,1966
 952,2,Verviers,Wallonia,Belgium,1918
 952,3,Ottawa,Ontario,Canada,2009
 952,4,Omaha,Nebraska,United States,1996
-952,5,Seoul,,South Korea,1988
+952,5,Seoul,Seoul Capital Area,South Korea,1988
 953,1,Berlin,Berlin,Germany,1995
 953,2,Selma,Alabama,United States,1936
-953,3,Budapest,,Hungary,1970
+953,3,Budapest,Central Hungary,Hungary,1970
 953,4,Tallinn,,Estonia,2007
-953,5,Taumatawhakatangi­hangakoauauotamatea­turipukakapikimaunga­horonukupokaiwhen­uakitanatahu,,New Zealand,1948
+953,5,Taumatawhakatangihangakoauauotamateaturipukakapikimaungahoronukupokaiwhenuakitanatahu,Hawke's Bay,New Zealand,1948
 956,1,Breda,North Brabant,Netherlands,2017
 956,2,Cairo,,Egypt,1979
-956,3,Uppsala,,Sweden,1925
+956,3,Uppsala,Svealand,Sweden,1925
 956,4,Aspen,Colorado,United States,1957
 956,5,Winnipeg,Manitoba,Canada,2015
 957,1,Amman,,Jordan,1958
-957,2,Gothenburg,,Sweden,1968
+957,2,Gothenburg,Gotaland,Sweden,1968
 957,3,Thimphu,,Bhutan,2011
 957,4,Kuala Lumpur,,Malaysia,1996
 957,5,New York,New York,United States,1903
 958,1,Orlando,Florida,United States,1977
 958,2,Dortmund,North Rhine-Westphalia,Germany,1980
-958,3,Bangkok,,Thailand,1958
-958,4,Lima,,Peru,2022
-958,5,Moscow,Moscow,Russia,1991
+958,3,Bangkok,Central Thailand,Thailand,1958
+958,4,Lima,Lima,Peru,2022
+958,5,Moscow,Central,Russia,1991
 959,1,Rome,Lazio,Italy,1962
 959,2,New Orleans,Louisiana,United States,1960
 959,3,Minsk,,Belarus,2020
-959,4,Sao Paolo,,Brazil,1958
+959,4,Sao Paulo,Southeast,Brazil,1958
 959,5,Amsterdam,North Holland,Netherlands,1950
 960,1,Paris,Ile-de-France,France,1978
 960,2,Mexico City,Mexico City,Mexico,1970
-960,3,Athens,,Greece,2024
+960,3,Athens,Attica,Greece,2024
 960,4,Dublin,Leinster,Ireland,1903
-960,5,Tokyo,,Japan,1957
-964,1,Seoul,,South Korea,1988
-964,2,Rio de Janeiro,,Brazil,1960
+960,5,Tokyo,Kanto,Japan,1957
+964,1,Seoul,Seoul Capital Area,South Korea,1988
+964,2,Rio de Janeiro,Southeast,Brazil,1960
 964,3,Morano sul Po,Piedmont,Italy,1973
 964,4,West Danville,Vermont,United States,1942
-964,5,Huepetuhe,,Peru,2014
+964,5,Huepetuhe,Madre de Dios,Peru,2014
 965,1,Bogota,,Colombia,2021
 965,2,Brisbane,Queensland,Australia,1953
 965,3,Washington DC,Washington DC,United States,1973
@@ -318,46 +318,46 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 966,2,Seattle,Washington,United States,1961
 966,3,Jakarta,,Indonesia,1974
 966,4,Beamish,England,United Kingdom,1990
-966,5,Oslo,,Norway,1939
+966,5,Oslo,Eastern Norway,Norway,1939
 967,1,Manila,,Philippines,1945
 967,2,Bogota,,Colombia,2025
-967,3,Johannesburg,,South Africa,1960
-967,4,Stockholm,,Sweden,1958
+967,3,Johannesburg,Gauteng,South Africa,1960
+967,4,Stockholm,Svealand,Sweden,1958
 967,5,Albuquerque,New Mexico,United States,2014
-970,1,Athens,,Greece,1962
+970,1,Athens,Attica,Greece,1962
 970,2,Ciudad Juarez,Chihuahua,Mexico,1972
-970,3,Gyor,,Hungary,1948
+970,3,Gyor,Western Transdanubia,Hungary,1948
 970,4,Washington DC,Washington DC,United States,2025
-970,5,Oslo,,Norway,1954
-971,1,Santiago,,Chile,2011
+970,5,Oslo,Eastern Norway,Norway,1954
+971,1,Santiago,Santiago Metropolitan,Chile,2011
 971,2,Ljubljana,,Slovenia,1931
-971,3,Pretoria,,South Africa,1961
-971,4,St. Wolfgang im Salzkammergut,,Austria,1966
+971,3,Pretoria,Gauteng,South Africa,1961
+971,4,St. Wolfgang im Salzkammergut,Upper Austria,Austria,1966
 971,5,Boston,Massachusetts,United States,1906
 972,1,Mauna Kea,Hawaii,United States,2019
-972,2,Madrid,Community of Madrid,Spain,1972
+972,2,Madrid,Madrid,Spain,1972
 972,3,Nablus,,Palestine,1941
-972,4,Katowice,Silesian,Poland,1993
-972,5,Osaka,,Japan,1947
-973,1,Høyanger,,Norway,1965
+972,4,Katowice,Silesia,Poland,1993
+972,5,Osaka,Kansai,Japan,1947
+973,1,Hoyanger,Western Norway,Norway,1965
 973,2,Washington DC,Washington DC,United States,2025
-973,3,Saint Petersburg,Saint Petersburg,Russia,1935
+973,3,Saint Petersburg,Northwestern,Russia,1935
 973,4,Dhaka,,Bangladesh,1981
 973,5,Amsterdam,North Holland,Netherlands,1971
 974,1,Taipei,,Taiwan,2022
-974,2,Copenhagen,,Denmark,1960
-974,3,Istanbul,,Türkiye,1984
+974,2,Copenhagen,Capital Region,Denmark,1960
+974,3,Istanbul,Marmara,Turkiye,1984
 974,4,Paris,Ile-de-France,France,1999
 974,5,London,England,United Kingdom,1940
 977,1,Amsterdam,North Holland,Netherlands,1964
 977,2,Baltimore,Maryland,United States,1954
-977,3,Tønsberg,,Norway,1906
-977,4,Brasilia,,Brazil,2023
-977,5,Tokyo,,Japan,1949
+977,3,Tonsberg,Eastern Norway,Norway,1906
+977,4,Brasilia,Center-West,Brazil,2023
+977,5,Tokyo,Kanto,Japan,1949
 978,1,Venice,Veneto,Italy,1927
 978,2,Sydney,New South Wales,Australia,1980
 978,3,Tehran,,Iran,2008
-978,4,Thessaloniki,,Greece,1963
+978,4,Thessaloniki,Central Macedonia,Greece,1963
 978,5,Chicago,Illinois,United States,1952
 979,1,Vancouver,Washington,United States,1960
 979,2,Capri,Campania,Italy,1960
@@ -366,44 +366,44 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 979,5,Vancouver,British Columbia,Canada,1932
 980,1,New York,New York,United States,2025
 980,2,New Delhi,Delhi,India,1959
-980,3,Madrid,Community of Madrid,Spain,1984
-980,4,Budapest,,Hungary,1961
+980,3,Madrid,Madrid,Spain,1984
+980,4,Budapest,Central Hungary,Hungary,1961
 980,5,Katoomba,New South Wales,Australia,1918
-998,1,Hanoi,,Vietnam,2019
+998,1,Hanoi,Red River Delta,Vietnam,2019
 998,2,Cardiff,Wales,United Kingdom,1958
 998,3,Zurich,Zurich,Switzerland,1984
-998,4,Gothenburg,,Sweden,1901
+998,4,Gothenburg,Gotaland,Sweden,1901
 998,5,Gaza,,Palestine,2026
 999,1,Miami,Florida,United States,1979
-999,2,Prague,,Czechia,1960
-999,3,Machu Picchu,,Peru,2016
-999,4,Brussels,Brussels,Belgium,1980
+999,2,Prague,Bohemia,Czechia,1960
+999,3,Machu Picchu,Cusco,Peru,2016
+999,4,Brussels,Brussels Capital Region,Belgium,1980
 999,5,Washington DC,Washington DC,United States,1911
-1000,1,Macao,Macao,China,2008
-1000,2,Helsinki,,Finland,1945
+1000,1,Macao,Macau,China,2008
+1000,2,Helsinki,Helsinki-Uusimaa,Finland,1945
 1000,3,Paris,Ile-de-France,France,1978
-1000,4,Busan,,South Korea,1980
+1000,4,Busan,Gyeongsang,South Korea,1980
 1000,5,Seattle,Washington,United States,1925
 1001,1,Milan,Lombardy,Italy,1988
 1001,2,Washington DC,Washington DC,United States,2026
-1001,3,Wellington,,New Zealand,1940
+1001,3,Wellington,Wellington,New Zealand,1940
 1001,4,Ibadan,,Nigeria,1962
 1001,5,Sarajevo,,Bosnia and Herzegovina,1994
-1002,1,Athens,,Greece,1910
+1002,1,Athens,Attica,Greece,1910
 1002,2,New York,New York,United States,1956
 1002,3,Quito,,Ecuador,2009
 1002,4,Paris,Ile-de-France,France,1969
 1002,5,Toronto,Ontario,Canada,2019
-1005,1,Bangkok,,Thailand,2020
-1005,2,Copenhagen,,Denmark,1960
+1005,1,Bangkok,Central Thailand,Thailand,2020
+1005,2,Copenhagen,Capital Region,Denmark,1960
 1005,3,Yogyakarta,,Indonesia,1974
 1005,4,London,England,United Kingdom,1964
-1005,5,Stockholm,,Sweden,1941
+1005,5,Stockholm,Svealand,Sweden,1941
 1006,1,Amersfoort,Utrecht,Netherlands,1963
 1006,2,West Allis,Wisconsin,United States,2013
-1006,3,Helsinki,,Finland,1948
+1006,3,Helsinki,Helsinki-Uusimaa,Finland,1948
 1006,4,San Francisco,California,United States,1992
-1006,5,Dunedin,,New Zealand,1920
+1006,5,Dunedin,Otago,New Zealand,1920
 1007,1,Phoenix,Arizona,United States,1940
 1007,2,Montreal,Quebec,Canada,1973
 1007,3,Sarajevo,,Bosnia and Herzegovina,1997
@@ -411,14 +411,14 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1007,5,Varanasi,Uttar Pradesh,India,2019
 1008,1,Nampa,Idaho,United States,1941
 1008,2,Bratislava,,Slovakia,1960
-1008,3,Oslo,,Norway,1951
-1008,4,Hanoi,,Vietnam,1978
-1008,5,Santiago,,Chile,2015
+1008,3,Oslo,Eastern Norway,Norway,1951
+1008,4,Hanoi,Red River Delta,Vietnam,1978
+1008,5,Santiago,Santiago Metropolitan,Chile,2015
 1009,1,Minsk,,Belarus,2020
 1009,2,Amsterdam,North Holland,Netherlands,1950
 1009,3,New York,New York,United States,1985
 1009,4,Bogota,,Colombia,2017
-1009,5,Kozani,,Greece,1964
+1009,5,Kozani,Western Macedonia,Greece,1964
 1012,1,Tirana,,Albania,2025
 1012,2,Buenos Aires,,Argentina,1974
 1012,3,Amsterdam,North Holland,Netherlands,1951
@@ -428,55 +428,55 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1013,2,Jakarta,,Indonesia,1971
 1013,3,Washington DC,Washington DC,United States,1930
 1013,4,Antwerp,Flanders,Belgium,1997
-1013,5,Lisbon,,Portugal,1983
+1013,5,Lisbon,Lisbon,Portugal,1983
 1014,1,New York,New York,United States,1939
-1014,2,Istanbul,,Türkiye,1965
+1014,2,Istanbul,Marmara,Turkiye,1965
 1014,3,Phnom Penh,,Cambodia,2014
 1014,4,Ljubljana,,Slovenia,1932
-1014,5,Copenhagen,,Denmark,1917
+1014,5,Copenhagen,Capital Region,Denmark,1917
 1015,1,Wrzesnia,Greater Poland,Poland,1984
-1015,2,Stockholm,,Sweden,1965
+1015,2,Stockholm,Svealand,Sweden,1965
 1015,3,Chicago,Illinois,United States,1905
 1015,4,N'Djamena,,Chad,2017
-1015,5,Santiago,,Chile,2025
+1015,5,Santiago,Santiago Metropolitan,Chile,2025
 1016,1,Dallas,Texas,United States,1943
 1016,2,Genghis Khan Statue,,Mongolia,2024
 1016,3,Zagreb,,Croatia,1903
 1016,4,Quebec City,Quebec,Canada,2010
 1016,5,Amsterdam,North Holland,Netherlands,1950
 1019,1,Gibraltar,Gibraltar,United Kingdom,2018
-1019,2,Brussels,Brussels,Belgium,1960
+1019,2,Brussels,Brussels Capital Region,Belgium,1960
 1019,3,Berlin,Berlin,Germany,1975
 1019,4,Washington DC,Washington DC,United States,1981
 1019,5,London,England,United Kingdom,1919
 1020,1,Dublin,Leinster,Ireland,2016
-1020,2,St. Anton am Arlberg,,Austria,1955
+1020,2,St. Anton am Arlberg,Tyrol,Austria,1955
 1020,3,Manila,,Philippines,1945
 1020,4,Riga,,Latvia,1991
 1020,5,Plymouth,New Hampshire,United States,1988
-1021,1,Johannesburg,,South Africa,2010
+1021,1,Johannesburg,Gauteng,South Africa,2010
 1021,2,Paris,Ile-de-France,France,1967
 1021,3,Damascus,,Syria,1995
-1021,4,Valencia,Valencian Community,Spain,1961
+1021,4,Valencia,Valencia,Spain,1961
 1021,5,Shelbyville,Kentucky,United States,1940
-1022,1,Geneva,Geneva,Switzerland,1983
+1022,1,Geneva,Lake Geneva Region,Switzerland,1983
 1022,2,Venice,Veneto,Italy,1960
 1022,3,Portland,Oregon,United States,2012
-1022,4,Seoul,,South Korea,1990
+1022,4,Seoul,Seoul Capital Area,South Korea,1990
 1022,5,Amsterdam,North Holland,Netherlands,1946
 1023,1,Doha,,Qatar,2025
 1023,2,Belfast,Northern Ireland,United Kingdom,1999
-1023,3,Stockholm,,Sweden,1972
-1023,4,Nowa Sól,Lubusz,Poland,1993
+1023,3,Stockholm,Svealand,Sweden,1972
+1023,4,Nowa Sol,Lubusz,Poland,1993
 1023,5,Arlington,Virginia,United States,1924
 1026,1,Astana,,Kazakhstan,2024
-1026,2,Athens,,Greece,1960
+1026,2,Athens,Attica,Greece,1960
 1026,3,Sofia,,Bulgaria,1989
 1026,4,Makawao,Hawaii,United States,1959
 1026,5,Ottawa,Ontario,Canada,1939
 1027,1,Montevideo,,Uruguay,1917
 1027,2,London,England,United Kingdom,1962
-1027,3,Warsaw,Masovian,Poland,1991
+1027,3,Warsaw,Masovia,Poland,1991
 1027,4,Milan,Lombardy,Italy,1995
 1027,5,Washington DC,Washington DC,United States,1939
 1028,1,Herten,North Rhine-Westphalia,Germany,2013
@@ -488,36 +488,36 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1029,2,Paris,Ile-de-France,France,1982
 1029,3,Edmonton,Alberta,Canada,2014
 1029,4,Sydney,New South Wales,Australia,1932
-1029,5,Copenhagen,,Denmark,1907
-1030,1,Lisbon,,Portugal,1917
+1029,5,Copenhagen,Capital Region,Denmark,1907
+1030,1,Lisbon,Lisbon,Portugal,1917
 1030,2,Hong Kong,Hong Kong,China,1998
-1030,3,Istanbul,,Türkiye,1988
+1030,3,Istanbul,Marmara,Turkiye,1988
 1030,4,Tenerife,Canary Islands,Spain,2010
 1030,5,Rutland,Vermont,United States,1941
 1033,1,Guatemala City,,Guatemala,2018
-1033,2,Lisbon,,Portugal,1918
+1033,2,Lisbon,Lisbon,Portugal,1918
 1033,3,Montreal,Quebec,Canada,1973
 1033,4,New Orleans,Louisiana,United States,1995
 1033,5,Zurich,Zurich,Switzerland,1959
 1034,1,Rome,Lazio,Italy,1947
 1034,2,Dublin,Leinster,Ireland,1932
 1034,3,New York,New York,United States,2010
-1034,4,Moscow,Moscow,Russia,1967
+1034,4,Moscow,Central,Russia,1967
 1034,5,Kigali,,Rwanda,2025
 1035,1,London,England,United Kingdom,2018
 1035,2,Paris,Ile-de-France,France,1965
 1035,3,Washington DC,Washington DC,United States,1993
-1035,4,Gdansk,Pomeranian,Poland,2010
+1035,4,Gdansk,Pomerania,Poland,2010
 1035,5,Zurich,Zurich,Switzerland,1952
 1036,1,London,England,United Kingdom,1947
 1036,2,Munich,Bavaria,Germany,1970
-1036,3,Vienna,,Austria,1966
+1036,3,Vienna,Vienna,Austria,1966
 1036,4,Houston,Texas,United States,1943
 1036,5,Buenos Aires,,Argentina,2020
 1037,1,Amsterdam,North Holland,Netherlands,1969
 1037,2,New Delhi,Delhi,India,1978
-1037,3,Budapest,,Hungary,1930
-1037,4,Stockholm,,Sweden,1940
+1037,3,Budapest,Central Hungary,Hungary,1930
+1037,4,Stockholm,Svealand,Sweden,1940
 1037,5,Cape Canaveral,Florida,United States,2026
 1040,1,Milan,Lombardy,Italy,2000
 1040,2,Paris,Ile-de-France,France,1982
@@ -526,33 +526,33 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1040,5,Caracas,,Venezuela,2026
 1041,1,Burkburnett,Texas,United States,1919
 1041,2,The Hague,South Holland,Netherlands,1943
-1041,3,Yokosuka,,Japan,1967
+1041,3,Yokosuka,Kanto,Japan,1967
 1041,4,Blaenau Ffestiniog,Wales,United Kingdom,1980
-1041,5,Cape Town,,South Africa,2020
-1042,1,Seoul,,South Korea,2026
-1042,2,Stockholm,,Sweden,1941
+1041,5,Cape Town,Western Cape,South Africa,2020
+1042,1,Seoul,Seoul Capital Area,South Korea,2026
+1042,2,Stockholm,Svealand,Sweden,1941
 1042,3,Paris,Ile-de-France,France,1960
-1042,4,Vienna,,Austria,1989
+1042,4,Vienna,Vienna,Austria,1989
 1042,5,Philadelphia,Pennsylvania,United States,1914
 1043,1,Albuquerque,New Mexico,United States,1943
 1043,2,London,England,United Kingdom,1986
-1043,3,Brno,,Czechia,1921
+1043,3,Brno,Moravia,Czechia,1921
 1043,4,Berlin,Berlin,Germany,2001
 1043,5,Pyongyang,,North Korea,2017
-1047,1,Lisbon,,Portugal,1997
+1047,1,Lisbon,Lisbon,Portugal,1997
 1047,2,Milan,Lombardy,Italy,1953
 1047,3,Harare,,Zimbabwe,2009
 1047,4,Washington DC,Washington DC,United States,1927
-1047,5,Budapest,,Hungary,2026
+1047,5,Budapest,Central Hungary,Hungary,2026
 1048,1,New York,New York,United States,1913
-1048,2,Warsaw,Masovian,Poland,1995
+1048,2,Warsaw,Masovia,Poland,1995
 1048,3,London,England,United Kingdom,1937
 1048,4,Vilnius,,Lithuania,2019
-1048,5,Tel Aviv,,Israel,1968
+1048,5,Tel Aviv,Tel Aviv,Israel,1968
 1049,1,Paris,Ile-de-France,France,1925
-1049,2,Moscow,Moscow,Russia,1969
-1049,3,Oslo,,Norway,1973
-1049,4,Lima,,Peru,2017
+1049,2,Moscow,Central,Russia,1969
+1049,3,Oslo,Eastern Norway,Norway,1973
+1049,4,Lima,Lima,Peru,2017
 1049,5,Siren,Wisconsin,United States,1941
 1050,1,Huangyaguan Great Wall,Tianjin,China,2009
 1050,2,London,England,United Kingdom,1939
@@ -566,46 +566,46 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1051,5,Washington DC,Washington DC,United States,1927
 1054,1,Paris,Ile-de-France,France,1969
 1054,2,Yerevan,,Armenia,2008
-1054,3,Assisi,Lazio,Italy,1947
-1054,4,Yokohama,,Japan,1989
+1054,3,Assisi,Umbria,Italy,1947
+1054,4,Yokohama,Kanto,Japan,1989
 1054,5,San Francisco,California,United States,1918
 1057,1,Boston,Massachusetts,United States,1962
 1057,2,The Hague,South Holland,Netherlands,1945
-1057,3,Bangkok,,Thailand,2011
-1057,4,Prague,,Czechia,1956
+1057,3,Bangkok,Central Thailand,Thailand,2011
+1057,4,Prague,Bohemia,Czechia,1956
 1057,5,London,England,United Kingdom,1974
 1058,1,Toronto,Ontario,Canada,2009
 1058,2,Jakarta,,Indonesia,1971
 1058,3,Atlanta,Georgia,United States,1968
 1058,4,Rome,Lazio,Italy,1918
 1058,5,Washington DC,Washington DC,United States,2026
-1061,1,Budapest,,Hungary,1935
-1061,2,Gothenburg,,Sweden,1923
+1061,1,Budapest,Central Hungary,Hungary,1935
+1061,2,Gothenburg,Gotaland,Sweden,1923
 1061,3,Guayaquil,,Ecuador,2006
 1061,4,Sydney,New South Wales,Australia,1952
-1061,5,Prague,,Czechia,1961
-1062,1,Tokyo,,Japan,2012
+1061,5,Prague,Bohemia,Czechia,1961
+1062,1,Tokyo,Kanto,Japan,2012
 1062,2,New York,New York,United States,1908
 1062,3,Bucharest,,Romania,1967
 1062,4,Zurich,Zurich,Switzerland,1959
 1062,5,London,England,United Kingdom,1940
 1063,1,Chicago,Illinois,United States,1941
-1063,2,Warsaw,Masovian,Poland,1921
+1063,2,Warsaw,Masovia,Poland,1921
 1063,3,Islamabad,,Pakistan,2009
 1063,4,Lagos,,Nigeria,1990
 1063,5,Paris,Ile-de-France,France,1982
 1064,1,Washington DC,Washington DC,United States,2026
-1064,2,Copenhagen,,Denmark,1919
+1064,2,Copenhagen,Capital Region,Denmark,1919
 1064,3,Berlin,Berlin,Germany,1975
-1064,4,Invercargill,,New Zealand,1966
-1064,5,Rio de Janeiro,,Brazil,2010
-1065,1,Moscow,Moscow,Russia,1931
+1064,4,Invercargill,Southland,New Zealand,1966
+1064,5,Rio de Janeiro,Southeast,Brazil,2010
+1065,1,Moscow,Central,Russia,1931
 1065,2,London,England,United Kingdom,1948
 1065,3,Amsterdam,North Holland,Netherlands,1939
-1065,4,Copenhagen,,Denmark,1967
+1065,4,Copenhagen,Capital Region,Denmark,1967
 1065,5,Louisiana State Penitentiary,Louisiana,United States,2008
 1068,1,New York,New York,United States,2007
-1068,2,Nagasaki,,Japan,1985
+1068,2,Nagasaki,Kyushu,Japan,1985
 1068,3,Waterford,Munster,Ireland,1902
 1068,4,Los Angeles,California,United States,1929
 1068,5,Port-au-Prince,,Haiti,2010
@@ -614,52 +614,52 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1069,3,Hong Kong,Hong Kong,China,1994
 1069,4,Berlin,Berlin,Germany,1903
 1069,5,Paris,Ile-de-France,France,2010
-1070,1,Seoul,,South Korea,2003
+1070,1,Seoul,Seoul Capital Area,South Korea,2003
 1070,2,Taos,New Mexico,United States,1941
-1070,3,Turku,,Finland,1972
-1070,4,Puno,,Peru,1967
-1070,5,Benidorm,Valencian Community,Spain,1992
-1071,1,Ho Chi Minh,,Vietnam,2017
+1070,3,Turku,Southern Finland,Finland,1972
+1070,4,Puno,Puno,Peru,1967
+1070,5,Benidorm,Valencia,Spain,1992
+1071,1,Ho Chi Minh,Southeast,Vietnam,2017
 1071,2,Zurich,Zurich,Switzerland,1971
 1071,3,Paris,Ile-de-France,France,1995
 1071,4,Waterford,Munster,Ireland,1914
 1071,5,Minneapolis,Minnesota,United States,1937
-1072,1,Helsinki,,Finland,1945
+1072,1,Helsinki,Helsinki-Uusimaa,Finland,1945
 1072,2,London,England,United Kingdom,1969
 1072,3,Toronto,Ontario,Canada,2019
 1072,4,New York,New York,United States,1920
-1072,5,Warsaw,Masovian,Poland,1983
+1072,5,Warsaw,Masovia,Poland,1983
 1082,1,Baku,,Azerbaijan,2022
 1082,2,Cobh,Munster,Ireland,1913
-1082,3,Tokyo,,Japan,1921
+1082,3,Tokyo,Kanto,Japan,1921
 1082,4,Montevideo,,Uruguay,2005
 1082,5,Kampala,,Uganda,1971
 1083,1,Quincy,Washington,United States,1980
 1083,2,Montreal,Quebec,Canada,1900
-1083,3,Di An,,Vietnam,1969
-1083,4,Helsinki,,Finland,1951
+1083,3,Di An,Southeast,Vietnam,1969
+1083,4,Helsinki,Helsinki-Uusimaa,Finland,1951
 1083,5,Tegucigalpa,,Honduras,2017
 1084,1,London,England,United Kingdom,1910
-1084,2,Bangkok,,Thailand,2005
+1084,2,Bangkok,Central Thailand,Thailand,2005
 1084,3,Amsterdam,North Holland,Netherlands,1949
 1084,4,Tunis,,Tunisia,1943
 1084,5,Agra,Uttar Pradesh,India,2019
-1085,1,Sao Paulo,,Brazil,1972
-1085,2,Stockholm,,Sweden,1940
+1085,1,Sao Paulo,Southeast,Brazil,1972
+1085,2,Stockholm,Svealand,Sweden,1940
 1085,3,Lusaka,,Zambia,2018
 1085,4,Marseille,Provence-Alpes-Cote d'Azur,France,1913
 1085,5,Pasadena,California,United States,1987
-1096,1,Rio de Janeiro,,Brazil,1940
+1096,1,Rio de Janeiro,Southeast,Brazil,1940
 1096,2,Singapore,,Singapore,2018
 1096,3,San Francisco,California,United States,1905
-1096,4,Geneva,Geneva,Switzerland,1978
+1096,4,Geneva,Lake Geneva Region,Switzerland,1978
 1096,5,Tallinn,,Estonia,1990
-1097,1,Budapest,,Hungary,1956
-1097,2,Poros,,Greece,1998
+1097,1,Budapest,Central Hungary,Hungary,1956
+1097,2,Poros,Attica,Greece,1998
 1097,3,Dakar,,Senegal,2007
 1097,4,Detroit,Michigan,United States,1942
 1097,5,Hong Kong,Hong Kong,China,2020
-1098,1,Stockholm,,Sweden,1967
+1098,1,Stockholm,Svealand,Sweden,1967
 1098,2,Panama City,,Panama,2022
 1098,3,Presque Isle,Maine,United States,1940
 1098,4,Bamako,,Mali,1984
@@ -667,7 +667,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1099,1,Col de Vergio,Corsica,France,2007
 1099,2,Sydney,New South Wales,Australia,1978
 1099,3,Dover,England,United Kingdom,1940
-1099,4,Warsaw,Masovian,Poland,1960
+1099,4,Warsaw,Masovia,Poland,1960
 1099,5,Los Angeles,California,United States,1984
 1100,1,Ottawa,Ontario,Canada,2010
 1100,2,Manila,,Philippines,1958
@@ -675,82 +675,82 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1100,4,Mumbai,Maharashtra,India,1998
 1100,5,Milwaukee,Wisconsin,United States,1943
 1103,1,Cairo,,Egypt,2011
-1103,2,Ankara,,Türkiye,1935
-1103,3,Brussels,Brussels,Belgium,1985
-1103,4,Sapporo,,Japan,2025
+1103,2,Ankara,Central Anatolia,Turkiye,1935
+1103,3,Brussels,Brussels Capital Region,Belgium,1985
+1103,4,Sapporo,Hokkaido,Japan,2025
 1103,5,Dakar,,Senegal,1961
 1104,1,Skopje,,North Macedonia,1963
 1104,2,Beijing,Beijing,China,1989
-1104,3,Stockholm,,Sweden,1944
-1104,4,Lisbon,,Portugal,1911
-1104,5,Santiago,,Chile,2016
+1104,3,Stockholm,Svealand,Sweden,1944
+1104,4,Lisbon,Lisbon,Portugal,1911
+1104,5,Santiago,Santiago Metropolitan,Chile,2016
 1105,1,Milan,Lombardy,Italy,1973
 1105,2,Buffalo,New York,United States,1900
-1105,3,Bangkok,,Thailand,1985
+1105,3,Bangkok,Central Thailand,Thailand,1985
 1105,4,Lyon,Auvergne-Rhone-Alpes,France,1946
 1105,5,Guatemala City,,Guatemala,2023
-1106,1,Seoul,,South Korea,1967
+1106,1,Seoul,Seoul Capital Area,South Korea,1967
 1106,2,Los Angeles,California,United States,1980
-1106,3,Grindelwald,Bern,Switzerland,1958
+1106,3,Grindelwald,Espace Mittelland,Switzerland,1958
 1106,4,Yaounde,,Cameroon,2010
 1106,5,Niagara Falls,New York,United States,1906
 1107,1,Belle Glade,Florida,United States,1940
 1107,2,London,England,United Kingdom,1981
-1107,3,Gyor,,Hungary,1938
-1107,4,Helsinki,,Finland,1969
-1107,5,Johannesburg,,South Africa,2010
-1110,1,Hiroshima,,Japan,1985
+1107,3,Gyor,Western Transdanubia,Hungary,1938
+1107,4,Helsinki,Helsinki-Uusimaa,Finland,1969
+1107,5,Johannesburg,Gauteng,South Africa,2010
+1110,1,Hiroshima,Chugoku,Japan,1985
 1110,2,Miami,Florida,United States,1922
-1110,3,Gordon's Bay,,South Africa,2025
+1110,3,Gordon's Bay,Western Cape,South Africa,2025
 1110,4,Panama City,,Panama,1945
 1110,5,London,England,United Kingdom,1967
 1113,1,Los Angeles,California,United States,1923
 1113,2,Mexico City,Mexico City,Mexico,1993
-1113,3,Wellington,,New Zealand,1995
+1113,3,Wellington,Wellington,New Zealand,1995
 1113,4,Rotterdam,South Holland,Netherlands,1960
 1113,5,Nairobi,,Kenya,2009
 1117,1,Slocan,British Columbia,Canada,1942
 1117,2,Hong Kong,Hong Kong,China,1996
 1117,3,Paris,Ile-de-France,France,1969
 1117,4,Sydney,New South Wales,Australia,1932
-1117,5,Lisbon,,Portugal,1900
+1117,5,Lisbon,Lisbon,Portugal,1900
 1118,1,Bucharest,,Romania,1967
 1118,2,Manila,,Philippines,1958
 1118,3,Starke,Florida,United States,1940
 1118,4,Guayaquil,,Ecuador,2008
-1118,5,Gyöngyös,,Hungary,1935
-1119,1,Tokyo,,Japan,2009
+1118,5,Gyongyos,Northern Hungary,Hungary,1935
+1119,1,Tokyo,Kanto,Japan,2009
 1119,2,Milwaukee,Wisconsin,United States,1950
 1119,3,The Hague,South Holland,Netherlands,1945
-1119,4,Madrid,Community of Madrid,Spain,1968
+1119,4,Madrid,Madrid,Spain,1968
 1119,5,Berlin,Berlin,Germany,1973
-1120,1,Oslo,,Norway,1940
+1120,1,Oslo,Eastern Norway,Norway,1940
 1120,2,Kyustendil,,Bulgaria,1984
 1120,3,New York,New York,United States,2017
 1120,4,Inverness,Scotland,United Kingdom,1992
-1120,5,Madrid,Community of Madrid,Spain,1968
+1120,5,Madrid,Madrid,Spain,1968
 1121,1,Paris,Ile-de-France,France,1998
 1121,2,Betws-y-Coed,Wales,United Kingdom,2002
 1121,3,Algiers,,Algeria,2019
 1121,4,Sikasso,,Mali,1972
-1121,5,Saint Petersburg,Saint Petersburg,Russia,1917
-1124,1,Prague,,Czechia,1968
+1121,5,Saint Petersburg,Northwestern,Russia,1917
+1124,1,Prague,Bohemia,Czechia,1968
 1124,2,Gadsden,Alabama,United States,1940
 1124,3,Amsterdam,North Holland,Netherlands,1951
-1124,4,Moscow,Moscow,Russia,1980
+1124,4,Moscow,Central,Russia,1980
 1124,5,Hawaii Kai,Hawaii,United States,2005
 1125,1,Washington DC,Washington DC,United States,1969
-1125,2,Trondheim,,Norway,1945
+1125,2,Trondheim,Trondelag,Norway,1945
 1125,3,New Delhi,Delhi,India,1992
 1125,4,Hamburg,Hamburg,Germany,1989
-1125,5,Rio de Janeiro,,Brazil,2026
+1125,5,Rio de Janeiro,Southeast,Brazil,2026
 1126,1,Amman,,Jordan,2026
 1126,2,Atlantic City,New Jersey,United States,1906
 1126,3,Cairo,,Egypt,1961
-1126,4,Copenhagen,,Denmark,1967
+1126,4,Copenhagen,Capital Region,Denmark,1967
 1126,5,Ottawa,Ontario,Canada,2003
-1127,1,Valencia,Valencian Community,Spain,1946
+1127,1,Valencia,Valencia,Spain,1946
 1127,2,Chicago,Illinois,United States,2018
-1127,3,Brussels,Brussels,Belgium,1974
+1127,3,Brussels,Brussels Capital Region,Belgium,1974
 1127,4,Old Delhi,Delhi,India,1986
-1127,5,Brasilia,,Brazil,1960
+1127,5,Brasilia,Center-West,Brazil,1960

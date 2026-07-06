@@ -113,7 +113,7 @@ TIME_RANGES = {
 
 # --- 2. Helper Functions (Visuals & Data) ---
 @st.cache_data
-def load_data(filepath):
+def load_data(filepath, _mtime):
     try:
         df = pd.read_csv(filepath)
         df["Date"] = pd.to_datetime(df["Date"]).dt.date
@@ -290,7 +290,8 @@ with input_col:
 df = None
 date_rows = pd.DataFrame()
 if date:
-    df = load_data("./Data/Timeguessr_Stats.csv")
+    _stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+    df = load_data("./Data/Timeguessr_Stats.csv", _stats_mtime)
     if df is not None:
         date_rows = df[df["Date"] == date]
 

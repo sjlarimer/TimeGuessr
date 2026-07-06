@@ -1,42 +1,42 @@
 TimeGuessr #862
 1. London (England), United Kingdom, 1970
-2. Helsinki, Finland, 1926
+2. Helsinki (Helsinki-Uusimaa), Finland, 1926
 3. Pyongyang, North Korea, 1994
 4. Chicago (Illinois), United States, 1940
 5. Paris (Ile-de-France), France, 2025
 
 TimeGuessr #865
 1. Zurich (Zurich), Switzerland, 1953
-2. Helsinki, Finland, 1926
+2. Helsinki (Helsinki-Uusimaa), Finland, 1926
 3. St. George's, Grenada, 1983
 4. Baghdad, Iraq, 2017
 5. Trinity Test Site (New Mexico), United States, 1945
 
 TimeGuessr #866
-1. Budapest, Hungary, 1956
+1. Budapest (Central Hungary), Hungary, 1956
 2. Sarajevo, Bosnia and Herzegovina, 1984
 3. Manchester (New Hampshire), United States, 1918
 4. Brisbane (Queensland), Australia, 1910
 5. Collana, Bolivia, 2012
 
 TimeGuessr #867
-1. Lisbon, Portugal, 1935
-2. Tokyo, Japan, 2008
-3. Brussels (Brussels), Belgium, 1982
+1. Lisbon (Lisbon), Portugal, 1935
+2. Tokyo (Kanto), Japan, 2008
+3. Brussels (Brussels Capital Region), Belgium, 1982
 4. New Orleans (Louisiana), United States, 1943
 5. Mexico City (Mexico City), Mexico, 1962
 
 TimeGuessr #868
 1. London (England), United Kingdom, 1970
-2. Katowice (Silesian), Poland, 1929
+2. Katowice (Silesia), Poland, 1929
 3. Edmonton (Alberta), Canada, 1913
 4. Venice (Veneto), Italy, 1973
 5. Memphis (Tennessee), United States, 2025
 
 TimeGuessr #869
 1. Heemskerk (North Holland), Netherlands, 1990
-2. Istanbul, Türkiye, 2005
-3. Copenhagen, Denmark, 1953
+2. Istanbul (Marmara), Turkiye, 2005
+3. Copenhagen (Capital Region), Denmark, 1953
 4. Manila, Philippines, 1986
 5. Chicago (Illinois), United States, 1941
 
@@ -45,12 +45,12 @@ TimeGuessr #872
 2. London (England), United Kingdom, 1911
 3. Havana, Cuba, 2006
 4. Ocean City (New Jersey), United States, 2017
-5. Oslo, Norway, 1950
+5. Oslo (Eastern Norway), Norway, 1950
 
 TimeGuessr #873
 1. Washington DC (Washington DC), United States, 1964
 2. Zagreb, Croatia, 1947
-3. Moscow (Moscow), Russia, 1991
+3. Moscow (Central), Russia, 1991
 4. Monrovia, Liberia, 2014
 5. Milan (Lombardy), Italy, 1975
 
@@ -64,15 +64,15 @@ TimeGuessr #874
 TimeGuessr #875
 1. Zurich (Zurich), Switzerland, 1962
 2. Philadelphia (Pennsylvania), United States, 1986
-3. Jerusalem, Israel, 1940
-4. Gyor, Hungary, 1956
-5. Tokyo, Japan, 2015
+3. Jerusalem (Jerusalem), Israel, 1940
+4. Gyor (Western Transdanubia), Hungary, 1956
+5. Tokyo (Kanto), Japan, 2015
 
 TimeGuessr #876
 1. Oklahoma City (Oklahoma), United States, 1995
 2. Dublin (Leinster), Ireland, 1946
 3. Dresden (Saxony), Germany, 1978
-4. Warsaw (Masovian), Poland, 1959
+4. Warsaw (Masovia), Poland, 1959
 5. Thimphu, Bhutan, 2008
 
 TimeGuessr #879
@@ -80,18 +80,18 @@ TimeGuessr #879
 2. Shanghai (Shanghai), China, 2012
 3. Berlin (Berlin), Germany, 1941
 4. New York (New York), United States, 1911
-5. Athens, Greece, 1991
+5. Athens (Attica), Greece, 1991
 
 TimeGuessr #880
 1. Washington DC (Washington DC), United States, 1945
-2. Helsinki, Finland, 1950
-3. Abidja, Côte d'Ivoire, 2025
-4. Saint Petersburg (Saint Petersburg), Russia, 1968
+2. Helsinki (Helsinki-Uusimaa), Finland, 1950
+3. Abidjan, Cote d'Ivoire, 2025
+4. Saint Petersburg (Northwestern), Russia, 1968
 5. Dubai, United Arab Emirates, 2006
 
 TimeGuessr #881
-1. Tokyo, Japan, 2012
-2. Jerusalem, Israel, 2025
+1. Tokyo (Kanto), Japan, 2012
+2. Jerusalem (Jerusalem), Israel, 2025
 3. Los Angeles (California), United States, 1994
 4. Caracas, Venezuela, 1988
 5. Amsterdam (North Holland), Netherlands, 1950
@@ -111,10 +111,10 @@ TimeGuessr #883
 5. Mulhouse (Grand Est), France, 1959
 
 TimeGuessr #886
-1. Moscow (Moscow), Russia, 1990
+1. Moscow (Central), Russia, 1990
 2. Berlin (Berlin), Germany, 1955
-3. Santiago, Chile, 1910
-4. Lisbon, Portugal, 1982
+3. Santiago (Santiago Metropolitan), Chile, 1910
+4. Lisbon (Lisbon), Portugal, 1982
 5. Indianapolis (Indiana), United States, 1918
 
 TimeGuessr #887
@@ -122,7 +122,7 @@ TimeGuessr #887
 2. Dublin (Leinster), Ireland, 1996
 3. Barcelona (Catalonia), Spain, 1957
 4. Denver (Colorado), United States, 1966
-5. Helsinki, Finland, 1936
+5. Helsinki (Helsinki-Uusimaa), Finland, 1936
 
 TimeGuessr #888
 1. New York (New York), United States, 2025
@@ -134,13 +134,13 @@ TimeGuessr #888
 TimeGuessr #889
 1. Kingston, Jamaica, 2016
 2. Washington DC (Washington DC), United States, 1911
-3. Tel Aviv, Israel, 1933
-4. Budapest, Hungary, 1985
-5. Athens, Greece, 1964
+3. Tel Aviv (Tel Aviv), Israel, 1933
+4. Budapest (Central Hungary), Hungary, 1985
+5. Athens (Attica), Greece, 1964
 
 TimeGuessr #890
 1. Memphis (Tennessee), United States, 1977
-2. Copenhagen, Denmark, 1923
+2. Copenhagen (Capital Region), Denmark, 1923
 3. New Delhi (Delhi), India, 2008
 4. Belfast (Northern Ireland), United Kingdom, 1912
 5. Paris (Ile-de-France), France, 1930
@@ -149,49 +149,49 @@ TimeGuessr #900
 1. Toronto (Ontario), Canada, 2022
 2. Sofia, Bulgaria, 1995
 3. Paris (Ile-de-France), France, 1909 
-4. Athens, Greece, 1989
+4. Athens (Attica), Greece, 1989
 5. Bloomington (Indiana), United States, 1911
 
 TimeGuessr #901
 1. Cambridge (England), United Kingdom, 1939
 2. San Francisco (California), United States, 2016
 3. Havana, Cuba, 1960
-4. Rio de Janeiro, Brazil, 1991
+4. Rio de Janeiro (Southeast), Brazil, 1991
 5. Amsterdam (North Holland), Netherlands, 1949
 
 TimeGuessr #902
 1. RAF Harwell (England), United Kingdom, 1944
 2. Bratislava, Slovakia, 2016
-3. Copenhagen, Denmark, 1972
-4. Stockholm, Sweden, 1958
+3. Copenhagen (Capital Region), Denmark, 1972
+4. Stockholm (Svealand), Sweden, 1958
 5. Washington DC (Washington DC), United States, 1962
 
 TimeGuessr #903
 1. Chicago (Illinois), United States, 1920
 2. Essen (North Rhine-Westphalia), Germany, 1981
 3. Placencia, Belize, 2018
-4. Madrid (Community of Madrid), Spain, 1965
+4. Madrid (Madrid), Spain, 1965
 5. Shanghai (Shanghai), China, 1972
 
 TimeGuessr #904
-1. Moscow (Moscow), Russia, 1991
-2. Oslo, Norway, 1950
-3. Istanbul, Türkiye, 1910
+1. Moscow (Central), Russia, 1991
+2. Oslo (Eastern Norway), Norway, 1950
+3. Istanbul (Marmara), Turkiye, 1910
 4. Washington DC (Washington DC), United States, 2025
 5. Dublin (Leinster), Ireland, 1916
 
 TimeGuessr #907
 1. San Francisco (California), United States, 1992
-2. Madrid (Community of Madrid), Spain, 1965
+2. Madrid (Madrid), Spain, 1965
 3. Buenos Aires, Argentina, 1987
-4. Lillehammer, Norway, 1906
-5. Lima, Peru, 2015
+4. Lillehammer (Eastern Norway), Norway, 1906
+5. Lima (Lima), Peru, 2015
 
 TimeGuessr #908
 1. Beirut, Lebanon, 2025
 2. Sydney (New South Wales), Australia, 1927
 3. Paris (Ile-de-France), France, 1912
-4. Prague, Czechia, 1960
+4. Prague (Bohemia), Czechia, 1960
 5. Washington DC (Washington DC), United States, 2009
 
 TimeGuessr #909
@@ -209,23 +209,23 @@ TimeGuessr #914
 5. Managua, Nicaragua, 1990
 
 TimeGuessr #915
-1. Oslo, Norway, 1954
+1. Oslo (Eastern Norway), Norway, 1954
 2. Kathmandu, Nepal, 2021
 3. Tunis, Tunisia, 1943
 4. New York (New York), United States, 1964
-5. Warsaw (Masovian), Poland, 1989
+5. Warsaw (Masovia), Poland, 1989
 
 TimeGuessr #916
 1. Amsterdam (North Holland), Netherlands, 1947
 2. Sydney (New South Wales), Australia, 1983 
 3. Edmonton (Alberta), Canada, 1931
-4. Saint Petersburg (Saint Petersburg), Russia, 1974
-5. Seoul, South Korea, 1991
+4. Saint Petersburg (Northwestern), Russia, 1974
+5. Seoul (Seoul Capital Area), South Korea, 1991
 
 TimeGuessr #917
 1. Montevideo, Uruguay, 2008
 2. Auschwitz (Lesser Poland), Poland, 1945
-3. Vienna, Austria, 1959
+3. Vienna (Vienna), Austria, 1959
 4. Key West (Florida), United States, 1960
 5. Tbilisi, Georgia, 1992
 
@@ -238,58 +238,58 @@ TimeGuessr #918
 
 TimeGuessr #921
 1. Sant Julia de Loria, Andorra, 1967
-2. Jerusalem, Israel, 1940
-3. Ho Chi Minh, Vietnam, 2015
+2. Jerusalem (Jerusalem), Israel, 1940
+3. Ho Chi Minh (Southeast), Vietnam, 2015
 4. Chicago (Illinois), United States, 1909
 5. Berlin (Berlin), Germany, 1953
 
 TimeGuessr #922
 1. London (England), United Kingdom, 1978
-2. Madre de Dios, Peru, 2023
+2. Madre de Dios (Madre de Dios), Peru, 2023
 3. Atlanta (Georgia), United States, 1996
-4. Warsaw (Masovian), Poland, 1930
+4. Warsaw (Masovia), Poland, 1930
 5. Vatican City, Vatican City, 1984
 
 TimeGuessr #923
 1. San Francisco (California), United States, 1964
 2. Zurich (Zurich), Switzerland, 1949
 3. Chisinau, Moldova, 2024
-4. Santa Domingo, Ecuador, 1974
+4. Santo Domingo, Ecuador, 1974
 5. Sydney (New South Wales), Australia, 1954
 
 TimeGuessr #924
-1. Wellington, New Zealand, 1933
-2. Athens, Greece, 1973
+1. Wellington (Wellington), New Zealand, 1933
+2. Athens (Attica), Greece, 1973
 3. Zandvoort (North Holland), Netherlands, 2025
 4. Mexico City (Mexico City), Mexico, 1956
 5. Kansas City (Missouri), United States, 1906
 
 TimeGuessr #925
-1. Srebenica, Bosnia and Herzegovina, 2015
-2. Macao (Macao), China, 2007
-3. Rio de Janeiro, Brazil, 2025
+1. Srebrenica, Bosnia and Herzegovina, 2015
+2. Macao (Macau), China, 2007
+3. Rio de Janeiro (Southeast), Brazil, 2025
 4. Antwerp (Flanders), Belgium, 1985
 5. Olney (England), United Kingdom, 1950
 
 TimeGuessr #928
-1. Oslo, Norway, 1962
+1. Oslo (Eastern Norway), Norway, 1962
 2. Las Vegas (Nevada), United States, 1964
 3. Ohrid, North Macedonia, 2009
 4. London (England), United Kingdom, 1972
 5. Camp Point Salines, Grenada, 1983
 
 TimeGuessr #929
-1. Tokyo, Japan, 2014
+1. Tokyo (Kanto), Japan, 2014
 2. Bogota, Colombia, 1948
 3. Milwaukee (Wisconsin), United States, 1939
-4. Budapest, Hungary, 1981
-5. Brussels (Brussels), Belgium, 1958
+4. Budapest (Central Hungary), Hungary, 1981
+5. Brussels (Brussels Capital Region), Belgium, 1958
 
 TimeGuessr #930
 1. New York (New York), United States, 2025
 2. Ballygawley (Northern Ireland), United Kingdom, 1900
-3. Copenhagen, Denmark, 1967
-4. Istanbul, Türkiye, 1983
+3. Copenhagen (Capital Region), Denmark, 1967
+4. Istanbul (Marmara), Turkiye, 1983
 5. Vancouver (British Columbia), Canada, 2015
 
 TimeGuessr #931
@@ -297,7 +297,7 @@ TimeGuessr #931
 2. Paris (Ile-de-France), France, 1925
 3. Houston (Texas), United States, 1943
 4. Mexico City (Mexico City), Mexico, 1955
-5. Helsinki, Finland, 1984
+5. Helsinki (Helsinki-Uusimaa), Finland, 1984
 
 TimeGuessr #932
 1. Amsterdam (North Holland), Netherlands, 1973
@@ -309,35 +309,35 @@ TimeGuessr #932
 TimeGuessr #935
 1. Cibitoke, Burundi, 2025
 2. Atlanta (Georgia), United States, 1939
-3. Johannesburg, South Africa, 1951
-4. Vienna, Austria, 1975
+3. Johannesburg (Gauteng), South Africa, 1951
+4. Vienna (Vienna), Austria, 1975
 5. Luxembourg, Luxembourg, 2013
 
 TimeGuessr #936
 1. Kalofer, Bulgaria, 2024
 2. Mexico City (Mexico City), Mexico, 1962
 3. Washington DC (Washington DC), United States, 1979
-4. Greymouth, New Zealand, 1904
+4. Greymouth (West Coast), New Zealand, 1904
 5. Salacgriva, Latvia, 1991
 
 TimeGuessr #937
 1. Amsterdam (North Holland), Netherlands, 1961
 2. Washington DC (Washington DC), United States, 2025
 3. Buenos Aires, Argentina, 2006
-4. Kobe, Japan, 1971
+4. Kobe (Kansai), Japan, 1971
 5. London (England), United Kingdom, 1947
 
 TimeGuessr #939
 1. Vientiane, Laos, 2015
 2. Belfast (Northern Ireland), United Kingdom, 1941
 3. West Danville (Vermont), United States, 1942
-4. Warsaw (Masovian), Poland, 1930
-5. Rio de Janeiro, Brazil, 2025
+4. Warsaw (Masovia), Poland, 1930
+5. Rio de Janeiro (Southeast), Brazil, 2025
 
 TimeGuessr #942
-1. Ramsau am Dachstein, Austria, 2025
-2. Rio de Janeiro, Brazil, 1942
-3. Wellington, New Zealand, 1930
+1. Ramsau am Dachstein (Styria), Austria, 2025
+2. Rio de Janeiro (Southeast), Brazil, 1942
+3. Wellington (Wellington), New Zealand, 1930
 4. Mount Rushmore (South Dakota), United States, 2018
 5. Rome (Lazio), Italy, 1963
 
@@ -345,18 +345,18 @@ TimeGuessr #943
 1. London (England), United Kingdom, 1963
 2. Silema, Malta, 1985
 3. San Francisco (California), United States, 1939
-4. Madrid (Community of Madrid), Spain, 1961
-5. Copenhagen, Denmark, 1967
+4. Madrid (Madrid), Spain, 1961
+5. Copenhagen (Capital Region), Denmark, 1967
 
 TimeGuessr #944
 1. Washington DC (Washington DC), United States, 2000
-2. Istanbul, Türkiye, 1993
+2. Istanbul (Marmara), Turkiye, 1993
 3. Rome (Lazio), Italy, 1985
 4. Saint-Louis, Senegal, 2005
 5. London (England), United Kingdom, 1969
 
 TimeGuessr #949
-1. Prague, Czechia, 1968
+1. Prague (Bohemia), Czechia, 1968
 2. Rome (Lazio), Italy, 1985
 3. Tbilisi, Georgia, 1992
 4. Kuwait City, Kuwait, 2010
@@ -371,9 +371,9 @@ TimeGuessr #950
 
 TimeGuessr #951
 1. Havana, Cuba, 1941
-2. Hanoi, Vietnam, 2015
+2. Hanoi (Red River Delta), Vietnam, 2015
 3. New York (New York), United States, 1936
-4. Copenhagen, Denmark, 1967
+4. Copenhagen (Capital Region), Denmark, 1967
 5. London (England), United Kingdom, 2025
 
 TimeGuessr #952
@@ -381,25 +381,25 @@ TimeGuessr #952
 2. Verviers (Wallonia), Belgium, 1918
 3. Ottawa (Ontario), Canada, 2009
 4. Omaha (Nebraska), United States, 1996
-5. Seoul, South Korea, 1988
+5. Seoul (Seoul Capital Area), South Korea, 1988
 
 TimeGuessr #953
 1. Berlin (Berlin), Germany, 1995
 2. Selma (Alabama), United States, 1936
-3. Budapest, Hungary, 1970
+3. Budapest (Central Hungary), Hungary, 1970
 4. Tallinn, Estonia, 2007
-5. Taumatawhakatangi­hangakoauauotamatea­turipukakapikimaunga­horonukupokaiwhen­uakitanatahu, New Zealand, 1948
+5. Taumatawhakatangihangakoauauotamateaturipukakapikimaungahoronukupokaiwhenuakitanatahu (Hawke's Bay), New Zealand, 1948
 
 TimeGuessr #956
 1. Breda (North Brabant), Netherlands, 2017
 2. Cairo, Egypt, 1979
-3. Uppsala, Sweden, 1925
+3. Uppsala (Svealand), Sweden, 1925
 4. Aspen (Colorado), United States, 1957
 5. Winnipeg (Manitoba), Canada, 2015
 
 TimeGuessr #957
 1. Amman, Jordan, 1958
-2. Gothenburg, Sweden, 1968
+2. Gothenburg (Gotaland), Sweden, 1968
 3. Thimphu, Bhutan, 2011
 4. Kuala Lumpur, Malaysia, 1996
 5. New York (New York), United States, 1903
@@ -407,30 +407,30 @@ TimeGuessr #957
 TimeGuessr #958
 1. Orlando (Florida), United States, 1977
 2. Dortmund (North Rhine-Westphalia), Germany, 1980
-3. Bangkok, Thailand, 1958
-4. Lima, Peru, 2022
-5. Moscow (Moscow), Russia, 1991
+3. Bangkok (Central Thailand), Thailand, 1958
+4. Lima (Lima), Peru, 2022
+5. Moscow (Central), Russia, 1991
 
 TimeGuessr #959
 1. Rome (Lazio), Italy, 1962
 2. New Orleans (Louisiana), United States, 1960
 3. Minsk, Belarus, 2020
-4. Sao Paolo, Brazil, 1958
+4. Sao Paulo (Southeast), Brazil, 1958
 5. Amsterdam (North Holland), Netherlands, 1950
 
 TimeGuessr #960
 1. Paris (Ile-de-France), France, 1978
 2. Mexico City (Mexico City), Mexico, 1970
-3. Athens, Greece, 2024
+3. Athens (Attica), Greece, 2024
 4. Dublin (Leinster), Ireland, 1903
-5. Tokyo, Japan, 1957
+5. Tokyo (Kanto), Japan, 1957
 
 TimeGuessr #964
-1. Seoul, South Korea, 1988
-2. Rio de Janeiro, Brazil, 1960
+1. Seoul (Seoul Capital Area), South Korea, 1988
+2. Rio de Janeiro (Southeast), Brazil, 1960
 3. Morano sul Po (Piedmont), Italy, 1973
 4. West Danville (Vermont), United States, 1942
-5. Huepetuhe, Peru, 2014
+5. Huepetuhe (Madre de Dios), Peru, 2014
 
 TimeGuessr #965
 1. Bogota, Colombia, 2021
@@ -444,62 +444,62 @@ TimeGuessr #966
 2. Seattle (Washington), United States, 1961
 3. Jakarta, Indonesia, 1974
 4. Beamish (England), United Kingdom, 1990
-5. Oslo, Norway, 1939
+5. Oslo (Eastern Norway), Norway, 1939
 
 TimeGuessr #967
 1. Manila, Philippines, 1945
 2. Bogota, Colombia, 2025
-3. Johannesburg, South Africa, 1960
-4. Stockholm, Sweden, 1958
+3. Johannesburg (Gauteng), South Africa, 1960
+4. Stockholm (Svealand), Sweden, 1958
 5. Albuquerque (New Mexico), United States, 2014
 
 TimeGuessr #970
-1. Athens, Greece, 1962
+1. Athens (Attica), Greece, 1962
 2. Ciudad Juarez (Chihuahua), Mexico, 1972
-3. Gyor, Hungary, 1948
+3. Gyor (Western Transdanubia), Hungary, 1948
 4. Washington DC (Washington DC), United States, 2025
-5. Oslo, Norway, 1954
+5. Oslo (Eastern Norway), Norway, 1954
 
 TimeGuessr #971
-1. Santiago, Chile, 2011
+1. Santiago (Santiago Metropolitan), Chile, 2011
 2. Ljubljana, Slovenia, 1931
-3. Pretoria, South Africa, 1961
-4. St. Wolfgang im Salzkammergut, Austria, 1966
+3. Pretoria (Gauteng), South Africa, 1961
+4. St. Wolfgang im Salzkammergut (Upper Austria), Austria, 1966
 5. Boston (Massachusetts), United States, 1906
 
 TimeGuessr #972
 1. Mauna Kea (Hawaii), United States, 2019
-2. Madrid (Community of Madrid), Spain, 1972
+2. Madrid (Madrid), Spain, 1972
 3. Nablus, Palestine, 1941
-4. Katowice (Silesian), Poland, 1993
-5. Osaka, Japan, 1947
+4. Katowice (Silesia), Poland, 1993
+5. Osaka (Kansai), Japan, 1947
 
 TimeGuessr #973
-1. Høyanger, Norway, 1965
+1. Hoyanger (Western Norway), Norway, 1965
 2. Washington DC (Washington DC), United States, 2025
-3. Saint Petersburg (Saint Petersburg), Russia, 1935
+3. Saint Petersburg (Northwestern), Russia, 1935
 4. Dhaka, Bangladesh, 1981
 5. Amsterdam (North Holland), Netherlands, 1971
 
 TimeGuessr #974
 1. Taipei, Taiwan, 2022
-2. Copenhagen, Denmark, 1960
-3. Istanbul, Türkiye, 1984
+2. Copenhagen (Capital Region), Denmark, 1960
+3. Istanbul (Marmara), Turkiye, 1984
 4. Paris (Ile-de-France), France, 1999
 5. London (England), United Kingdom, 1940
 
 TimeGuessr #977
 1. Amsterdam (North Holland), Netherlands, 1964
 2. Baltimore (Maryland), United States, 1954
-3. Tønsberg, Norway, 1906
-4. Brasilia, Brazil, 2023
-5. Tokyo, Japan, 1949
+3. Tonsberg (Eastern Norway), Norway, 1906
+4. Brasilia (Center-West), Brazil, 2023
+5. Tokyo (Kanto), Japan, 1949
 
 TimeGuessr #978
 1. Venice (Veneto), Italy, 1927
 2. Sydney (New South Wales), Australia, 1980
 3. Tehran, Iran, 2008
-4. Thessaloniki, Greece, 1963
+4. Thessaloniki (Central Macedonia), Greece, 1963
 5. Chicago (Illinois), United States, 1952
 
 TimeGuessr #979
@@ -512,58 +512,58 @@ TimeGuessr #979
 TimeGuessr #980
 1. New York (New York), United States, 2025
 2. New Delhi (Delhi), India, 1959
-3. Madrid (Community of Madrid), Spain, 1984
-4. Budapest, Hungary, 1961
+3. Madrid (Madrid), Spain, 1984
+4. Budapest (Central Hungary), Hungary, 1961
 5. Katoomba (New South Wales), Australia, 1918
 
 TimeGuessr #998
-1. Hanoi, Vietnam, 2019
+1. Hanoi (Red River Delta), Vietnam, 2019
 2. Cardiff (Wales), United Kingdom, 1958
 3. Zurich (Zurich), Switzerland, 1984
-4. Gothenburg, Sweden, 1901
+4. Gothenburg (Gotaland), Sweden, 1901
 5. Gaza, Palestine, 2026
 
 TimeGuessr #999
 1. Miami (Florida), United States, 1979
-2. Prague, Czechia, 1960
-3. Machu Picchu, Peru, 2016
-4. Brussels (Brussels), Belgium, 1980
+2. Prague (Bohemia), Czechia, 1960
+3. Machu Picchu (Cusco), Peru, 2016
+4. Brussels (Brussels Capital Region), Belgium, 1980
 5. Washington DC (Washington DC), United States, 1911
 
 TimeGuessr #1000
-1. Macao (Macao), China, 2008
-2. Helsinki, Finland, 1945
+1. Macao (Macau), China, 2008
+2. Helsinki (Helsinki-Uusimaa), Finland, 1945
 3. Paris (Ile-de-France), France, 1978
-4. Busan, South Korea, 1980
+4. Busan (Gyeongsang), South Korea, 1980
 5. Seattle (Washington), United States, 1925
 
 TimeGuessr #1001
 1. Milan (Lombardy), Italy, 1988
 2. Washington DC (Washington DC), United States, 2026
-3. Wellington, New Zealand, 1940
+3. Wellington (Wellington), New Zealand, 1940
 4. Ibadan, Nigeria, 1962
 5. Sarajevo, Bosnia and Herzegovina, 1994
 
 TimeGuessr #1002
-1. Athens, Greece, 1910
+1. Athens (Attica), Greece, 1910
 2. New York (New York), United States, 1956
 3. Quito, Ecuador, 2009
 4. Paris (Ile-de-France), France, 1969
 5. Toronto (Ontario), Canada, 2019
 
 TimeGuessr #1005
-1. Bangkok, Thailand, 2020
-2. Copenhagen, Denmark, 1960
+1. Bangkok (Central Thailand), Thailand, 2020
+2. Copenhagen (Capital Region), Denmark, 1960
 3. Yogyakarta, Indonesia, 1974
 4. London (England), United Kingdom, 1964
-5. Stockholm, Sweden, 1941
+5. Stockholm (Svealand), Sweden, 1941
 
 TimeGuessr #1006
 1. Amersfoort (Utrecht), Netherlands, 1963
 2. West Allis (Wisconsin), United States, 2013
-3. Helsinki, Finland, 1948
+3. Helsinki (Helsinki-Uusimaa), Finland, 1948
 4. San Francisco (California), United States, 1992
-5. Dunedin, New Zealand, 1920
+5. Dunedin (Otago), New Zealand, 1920
 
 TimeGuessr #1007
 1. Phoenix (Arizona), United States, 1940
@@ -575,16 +575,16 @@ TimeGuessr #1007
 TimeGuessr #1008
 1. Nampa (Idaho), United States, 1941
 2. Bratislava, Slovakia, 1960
-3. Oslo, Norway, 1951
-4. Hanoi, Vietnam, 1978
-5. Santiago, Chile, 2015
+3. Oslo (Eastern Norway), Norway, 1951
+4. Hanoi (Red River Delta), Vietnam, 1978
+5. Santiago (Santiago Metropolitan), Chile, 2015
 
 TimeGuessr #1009
 1. Minsk, Belarus, 2020
 2. Amsterdam (North Holland), Netherlands, 1950
 3. New York (New York), United States, 1985
 4. Bogota, Colombia, 2017
-5. Kozani, Greece, 1964
+5. Kozani (Western Macedonia), Greece, 1964
 
 TimeGuessr #1012
 1. Tirana, Albania, 2025
@@ -598,21 +598,21 @@ TimeGuessr #1013
 2. Jakarta, Indonesia, 1971
 3. Washington DC (Washington DC), United States, 1930
 4. Antwerp (Flanders), Belgium, 1997
-5. Lisbon, Portugal, 1983
+5. Lisbon (Lisbon), Portugal, 1983
 
 TimeGuessr #1014
 1. New York (New York), United States, 1939
-2. Istanbul, Türkiye, 1965
+2. Istanbul (Marmara), Turkiye, 1965
 3. Phnom Penh, Cambodia, 2014
 4. Ljubljana, Slovenia, 1932
-5. Copenhagen, Denmark, 1917
+5. Copenhagen (Capital Region), Denmark, 1917
 
 TimeGuessr #1015
 1. Wrzesnia (Greater Poland), Poland, 1984
-2. Stockholm, Sweden, 1965
+2. Stockholm (Svealand), Sweden, 1965
 3. Chicago (Illinois), United States, 1905
 4. N'Djamena, Chad, 2017
-5. Santiago, Chile, 2025
+5. Santiago (Santiago Metropolitan), Chile, 2025
 
 TimeGuessr #1016
 1. Dallas (Texas), United States, 1943
@@ -623,42 +623,42 @@ TimeGuessr #1016
 
 TimeGuessr #1019
 1. Gibraltar (Gibraltar), United Kingdom, 2018
-2. Brussels (Brussels), Belgium, 1960
+2. Brussels (Brussels Capital Region), Belgium, 1960
 3. Berlin (Berlin), Germany, 1975
 4. Washington DC (Washington DC), United States, 1981
 5. London (England), United Kingdom, 1919
 
 TimeGuessr #1020
 1. Dublin (Leinster), Ireland, 2016
-2. St. Anton am Arlberg, Austria, 1955
+2. St. Anton am Arlberg (Tyrol), Austria, 1955
 3. Manila, Philippines, 1945
 4. Riga, Latvia, 1991
 5. Plymouth (New Hampshire), United States, 1988
 
 TimeGuessr #1021
-1. Johannesburg, South Africa, 2010
+1. Johannesburg (Gauteng), South Africa, 2010
 2. Paris (Ile-de-France), France, 1967
 3. Damascus, Syria, 1995
-4. Valencia (Valencian Community), Spain, 1961
+4. Valencia (Valencia), Spain, 1961
 5. Shelbyville (Kentucky), United States, 1940
 
 TimeGuessr #1022
-1. Geneva (Geneva), Switzerland, 1983
+1. Geneva (Lake Geneva Region), Switzerland, 1983
 2. Venice (Veneto), Italy, 1960
 3. Portland (Oregon), United States, 2012
-4. Seoul, South Korea, 1990
+4. Seoul (Seoul Capital Area), South Korea, 1990
 5. Amsterdam (North Holland), Netherlands, 1946
 
 TimeGuessr #1023
 1. Doha, Qatar, 2025
 2. Belfast (Northern Ireland), United Kingdom, 1999
-3. Stockholm, Sweden, 1972
-4. Nowa Sól (Lubusz), Poland, 1993
+3. Stockholm (Svealand), Sweden, 1972
+4. Nowa Sol (Lubusz), Poland, 1993
 5. Arlington (Virginia), United States, 1924
 
 TimeGuessr #1026
 1. Astana, Kazakhstan, 2024
-2. Athens, Greece, 1960
+2. Athens (Attica), Greece, 1960
 3. Sofia, Bulgaria, 1989
 4. Makawao (Hawaii), United States, 1959
 5. Ottawa (Ontario), Canada, 1939
@@ -666,7 +666,7 @@ TimeGuessr #1026
 TimeGuessr #1027
 1. Montevideo, Uruguay, 1917
 2. London (England), United Kingdom, 1962
-3. Warsaw (Masovian), Poland, 1991
+3. Warsaw (Masovia), Poland, 1991
 4. Milan (Lombardy), Italy, 1995
 5. Washington DC (Washington DC), United States, 1939
 
@@ -682,18 +682,18 @@ TimeGuessr #1029
 2. Paris (Ile-de-France), France, 1982
 3. Edmonton (Alberta), Canada, 2014
 4. Sydney (New South Wales), Australia, 1932
-5. Copenhagen, Denmark, 1907
+5. Copenhagen (Capital Region), Denmark, 1907
 
 TimeGuessr #1030
-1. Lisbon, Portugal, 1917
+1. Lisbon (Lisbon), Portugal, 1917
 2. Hong Kong (Hong Kong), China, 1998
-3. Istanbul, Türkiye, 1988
+3. Istanbul (Marmara), Turkiye, 1988
 4. Tenerife (Canary Islands), Spain, 2010
 5. Rutland (Vermont), United States, 1941
 
 TimeGuessr #1033
 1. Guatemala City, Guatemala, 2018
-2. Lisbon, Portugal, 1918
+2. Lisbon (Lisbon), Portugal, 1918
 3. Montreal (Quebec), Canada, 1973
 4. New Orleans (Louisiana), United States, 1995
 5. Zurich (Zurich), Switzerland, 1959 
@@ -702,28 +702,28 @@ TimeGuessr #1034
 1. Rome (Lazio), Italy, 1947
 2. Dublin (Leinster), Ireland, 1932
 3. New York (New York), United States, 2010
-4. Moscow (Moscow), Russia, 1967
+4. Moscow (Central), Russia, 1967
 5. Kigali, Rwanda, 2025
 
 TimeGuessr #1035
 1. London (England), United Kingdom, 2018
 2. Paris (Ile-de-France), France, 1965
 3. Washington DC (Washington DC), United States, 1993
-4. Gdansk (Pomeranian), Poland, 2010
+4. Gdansk (Pomerania), Poland, 2010
 5. Zurich (Zurich), Switzerland, 1952
 
 TimeGuessr #1036
 1. London (England), United Kingdom, 1947
 2. Munich (Bavaria), Germany, 1970
-3. Vienna, Austria, 1966
+3. Vienna (Vienna), Austria, 1966
 4. Houston (Texas), United States, 1943
 5. Buenos Aires, Argentina, 2020
 
 TimeGuessr #1037
 1. Amsterdam (North Holland), Netherlands, 1969
 2. New Delhi (Delhi), India, 1978
-3. Budapest, Hungary, 1930
-4. Stockholm, Sweden, 1940
+3. Budapest (Central Hungary), Hungary, 1930
+4. Stockholm (Svealand), Sweden, 1940
 5. Cape Canaveral (Florida), United States, 2026
 
 TimeGuessr #1040
@@ -736,43 +736,43 @@ TimeGuessr #1040
 TimeGuessr #1041
 1. Burkburnett (Texas), United States, 1919
 2. The Hague (South Holland), Netherlands, 1943
-3. Yokosuka, Japan, 1967
+3. Yokosuka (Kanto), Japan, 1967
 4. Blaenau Ffestiniog (Wales), United Kingdom, 1980
-5. Cape Town, South Africa, 2020
+5. Cape Town (Western Cape), South Africa, 2020
 
 TimeGuessr #1042
-1. Seoul, South Korea, 2026
-2. Stockholm, Sweden, 1941
+1. Seoul (Seoul Capital Area), South Korea, 2026
+2. Stockholm (Svealand), Sweden, 1941
 3. Paris (Ile-de-France), France, 1960
-4. Vienna, Austria, 1989
+4. Vienna (Vienna), Austria, 1989
 5. Philadelphia (Pennsylvania), United States, 1914
 
 TimeGuessr #1043
 1. Albuquerque (New Mexico), United States, 1943
 2. London (England), United Kingdom, 1986
-3. Brno, Czechia, 1921
+3. Brno (Moravia), Czechia, 1921
 4. Berlin (Berlin), Germany, 2001
 5. Pyongyang, North Korea, 2017
 
 TimeGuessr #1047
-1. Lisbon, Portugal, 1997
+1. Lisbon (Lisbon), Portugal, 1997
 2. Milan (Lombardy), Italy, 1953
 3. Harare, Zimbabwe, 2009
 4. Washington DC (Washington DC), United States, 1927
-5. Budapest, Hungary, 2026
+5. Budapest (Central Hungary), Hungary, 2026
 
 TimeGuessr #1048
 1. New York (New York), United States, 1913
-2. Warsaw (Masovian), Poland, 1995 
+2. Warsaw (Masovia), Poland, 1995 
 3. London (England), United Kingdom, 1937
 4. Vilnius, Lithuania, 2019
-5. Tel Aviv, Israel, 1968
+5. Tel Aviv (Tel Aviv), Israel, 1968
 
 TimeGuessr #1049
 1. Paris (Ile-de-France), France, 1925
-2. Moscow (Moscow), Russia, 1969
-3. Oslo, Norway, 1973
-4. Lima, Peru, 2017
+2. Moscow (Central), Russia, 1969
+3. Oslo (Eastern Norway), Norway, 1973
+4. Lima (Lima), Peru, 2017
 5. Siren (Wisconsin), United States, 1941
 
 TimeGuessr #1050
@@ -792,15 +792,15 @@ TimeGuessr #1051
 TimeGuessr #1054
 1. Paris (Ile-de-France), France, 1969
 2. Yerevan, Armenia, 2008
-3. Assisi (Lazio), Italy, 1947
-4. Yokohama, Japan, 1989
+3. Assisi (Umbria), Italy, 1947
+4. Yokohama (Kanto), Japan, 1989
 5. San Francisco (California), United States, 1918
 
 TimeGuessr #1057
 1. Boston (Massachusetts), United States, 1962
 2. The Hague (South Holland), Netherlands, 1945
-3. Bangkok, Thailand, 2011
-4. Prague, Czechia, 1956
+3. Bangkok (Central Thailand), Thailand, 2011
+4. Prague (Bohemia), Czechia, 1956
 5. London (England), United Kingdom, 1974
 
 TimeGuessr #1058
@@ -811,14 +811,14 @@ TimeGuessr #1058
 5. Washington DC (Washington DC), United States, 2026
 
 TimeGuessr #1061
-1. Budapest, Hungary, 1935
-2. Gothenburg, Sweden, 1923
+1. Budapest (Central Hungary), Hungary, 1935
+2. Gothenburg (Gotaland), Sweden, 1923
 3. Guayaquil, Ecuador, 2006
 4. Sydney (New South Wales), Australia, 1952
-5. Prague, Czechia, 1961
+5. Prague (Bohemia), Czechia, 1961
 
 TimeGuessr #1062
-1. Tokyo, Japan, 2012
+1. Tokyo (Kanto), Japan, 2012
 2. New York (New York), United States, 1908
 3. Bucharest, Romania, 1967
 4. Zurich (Zurich), Switzerland, 1959
@@ -826,28 +826,28 @@ TimeGuessr #1062
 
 TimeGuessr #1063
 1. Chicago (Illinois), United States, 1941
-2. Warsaw (Masovian), Poland, 1921
+2. Warsaw (Masovia), Poland, 1921
 3. Islamabad, Pakistan, 2009
 4. Lagos, Nigeria, 1990
 5. Paris (Ile-de-France), France, 1982
 
 TimeGuessr #1064
 1. Washington DC (Washington DC), United States, 2026
-2. Copenhagen, Denmark, 1919
+2. Copenhagen (Capital Region), Denmark, 1919
 3. Berlin (Berlin), Germany, 1975
-4. Invercargill, New Zealand, 1966
-5. Rio de Janeiro, Brazil, 2010
+4. Invercargill (Southland), New Zealand, 1966
+5. Rio de Janeiro (Southeast), Brazil, 2010
 
 TimeGuessr #1065
-1. Moscow (Moscow), Russia, 1931
+1. Moscow (Central), Russia, 1931
 2. London (England), United Kingdom, 1948
 3. Amsterdam (North Holland), Netherlands, 1939
-4. Copenhagen, Denmark, 1967
+4. Copenhagen (Capital Region), Denmark, 1967
 5. Louisiana State Penitentiary (Louisiana), United States, 2008
 
 TimeGuessr #1068
 1. New York (New York), United States, 2007
-2. Nagasaki, Japan, 1985
+2. Nagasaki (Kyushu), Japan, 1985
 3. Waterford (Munster), Ireland, 1902
 4. Los Angeles (California), United States, 1929
 5. Port-au-Prince, Haiti, 2010
@@ -860,70 +860,70 @@ TimeGuessr #1069
 5. Paris (Ile-de-France), France, 2010
 
 TimeGuessr #1070
-1. Seoul, South Korea, 2003
+1. Seoul (Seoul Capital Area), South Korea, 2003
 2. Taos (New Mexico), United States, 1941
-3. Turku, Finland, 1972
-4. Puno, Peru, 1967
-5. Benidorm (Valencian Community), Spain, 1992
+3. Turku (Southern Finland), Finland, 1972
+4. Puno (Puno), Peru, 1967
+5. Benidorm (Valencia), Spain, 1992
 
 TimeGuessr #1071
-1. Ho Chi Minh, Vietnam, 2017
+1. Ho Chi Minh (Southeast), Vietnam, 2017
 2. Zurich (Zurich), Switzerland, 1971
 3. Paris (Ile-de-France), France, 1995
 4. Waterford (Munster), Ireland, 1914
 5. Minneapolis (Minnesota), United States, 1937
 
 TimeGuessr #1072
-1. Helsinki, Finland, 1945
+1. Helsinki (Helsinki-Uusimaa), Finland, 1945
 2. London (England), United Kingdom, 1969
 3. Toronto (Ontario), Canada, 2019
 4. New York (New York), United States, 1920
-5. Warsaw (Masovian), Poland, 1983
+5. Warsaw (Masovia), Poland, 1983
 
 TimeGuessr #1082
 1. Baku, Azerbaijan, 2022
 2. Cobh (Munster), Ireland, 1913
-3. Tokyo, Japan, 1921
+3. Tokyo (Kanto), Japan, 1921
 4. Montevideo, Uruguay, 2005
 5. Kampala, Uganda, 1971
 
 TimeGuessr #1083
 1. Quincy (Washington), United States, 1980
 2. Montreal (Quebec), Canada, 1900
-3. Di An, Vietnam, 1969
-4. Helsinki, Finland, 1951
+3. Di An (Southeast), Vietnam, 1969
+4. Helsinki (Helsinki-Uusimaa), Finland, 1951
 5. Tegucigalpa, Honduras, 2017
 
 TimeGuessr #1084
 1. London (England), United Kingdom, 1910
-2. Bangkok, Thailand, 2005
+2. Bangkok (Central Thailand), Thailand, 2005
 3. Amsterdam (North Holland), Netherlands, 1949
 4. Tunis, Tunisia, 1943
 5. Agra (Uttar Pradesh), India, 2019
 
 TimeGuessr #1085
-1. Sao Paulo, Brazil, 1972
-2. Stockholm, Sweden, 1940
+1. Sao Paulo (Southeast), Brazil, 1972
+2. Stockholm (Svealand), Sweden, 1940
 3. Lusaka, Zambia, 2018
 4. Marseille (Provence-Alpes-Cote d'Azur), France, 1913
 5. Pasadena (California), United States, 1987
 
 TimeGuessr #1096
-1. Rio de Janeiro, Brazil, 1940
+1. Rio de Janeiro (Southeast), Brazil, 1940
 2. Singapore, Singapore, 2018
 3. San Francisco (California), United States, 1905
-4. Geneva (Geneva), Switzerland, 1978
+4. Geneva (Lake Geneva Region), Switzerland, 1978
 5. Tallinn, Estonia, 1990
 
 TimeGuessr #1097
-1. Budapest, Hungary, 1956
-2. Poros, Greece, 1998
+1. Budapest (Central Hungary), Hungary, 1956
+2. Poros (Attica), Greece, 1998
 3. Dakar, Senegal, 2007
 4. Detroit (Michigan), United States, 1942
 5. Hong Kong (Hong Kong), China, 2020
 
 TimeGuessr #1098
-1. Stockholm, Sweden, 1967
+1. Stockholm (Svealand), Sweden, 1967
 2. Panama City, Panama, 2022
 3. Presque Isle (Maine), United States, 1940
 4. Bamako, Mali, 1984
@@ -933,7 +933,7 @@ TimeGuessr #1099
 1. Col de Vergio (Corsica), France, 2007
 2. Sydney (New South Wales), Australia, 1978
 3. Dover (England), United Kingdom, 1940
-4. Warsaw (Masovian), Poland, 1960
+4. Warsaw (Masovia), Poland, 1960
 5. Los Angeles (California), United States, 1984
 
 TimeGuessr #1100
@@ -945,50 +945,50 @@ TimeGuessr #1100
 
 TimeGuessr #1103
 1. Cairo, Egypt, 2011
-2. Ankara, Türkiye, 1935
-3. Brussels (Brussels), Belgium, 1985
-4. Sapporo, Japan, 2025
+2. Ankara (Central Anatolia), Turkiye, 1935
+3. Brussels (Brussels Capital Region), Belgium, 1985
+4. Sapporo (Hokkaido), Japan, 2025
 5. Dakar, Senegal, 1961
 
 TimeGuessr #1104
 1. Skopje, North Macedonia, 1963
 2. Beijing (Beijing), China, 1989
-3. Stockholm, Sweden, 1944
-4. Lisbon, Portugal, 1911
-5. Santiago, Chile, 2016
+3. Stockholm (Svealand), Sweden, 1944
+4. Lisbon (Lisbon), Portugal, 1911
+5. Santiago (Santiago Metropolitan), Chile, 2016
 
 TimeGuessr #1105
 1. Milan (Lombardy), Italy, 1973
 2. Buffalo (New York), United States, 1900
-3. Bangkok, Thailand, 1985
+3. Bangkok (Central Thailand), Thailand, 1985
 4. Lyon (Auvergne-Rhone-Alpes), France, 1946
 5. Guatemala City, Guatemala, 2023
 
 TimeGuessr #1106
-1. Seoul, South Korea, 1967
+1. Seoul (Seoul Capital Area), South Korea, 1967
 2. Los Angeles (California), United States, 1980
-3. Grindelwald (Bern), Switzerland, 1958
+3. Grindelwald (Espace Mittelland), Switzerland, 1958
 4. Yaounde, Cameroon, 2010
 5. Niagara Falls (New York), United States, 1906
 
 TimeGuessr #1107
 1. Belle Glade (Florida), United States, 1940
 2. London (England), United Kingdom, 1981
-3. Gyor, Hungary, 1938
-4. Helsinki, Finland, 1969
-5. Johannesburg, South Africa, 2010
+3. Gyor (Western Transdanubia), Hungary, 1938
+4. Helsinki (Helsinki-Uusimaa), Finland, 1969
+5. Johannesburg (Gauteng), South Africa, 2010
 
 TimeGuessr #1110
-1. Hiroshima, Japan, 1985
+1. Hiroshima (Chugoku), Japan, 1985
 2. Miami (Florida), United States, 1922
-3. Gordon's Bay, South Africa, 2025
+3. Gordon's Bay (Western Cape), South Africa, 2025
 4. Panama City, Panama, 1945
 5. London (England), United Kingdom, 1967
 
 TimeGuessr #1113
 1. Los Angeles (California), United States, 1923
 2. Mexico City (Mexico City), Mexico, 1993
-3. Wellington, New Zealand, 1995
+3. Wellington (Wellington), New Zealand, 1995
 4. Rotterdam (South Holland), Netherlands, 1960
 5. Nairobi, Kenya, 2009
 
@@ -997,60 +997,60 @@ TimeGuessr #1117
 2. Hong Kong (Hong Kong), China, 1996
 3. Paris (Ile-de-France), France, 1969
 4. Sydney (New South Wales), Australia, 1932 
-5. Lisbon, Portugal, 1900
+5. Lisbon (Lisbon), Portugal, 1900
 
 TimeGuessr #1118
 1. Bucharest, Romania, 1967
 2. Manila, Philippines, 1958
 3. Starke (Florida), United States, 1940
 4. Guayaquil, Ecuador, 2008
-5. Gyöngyös, Hungary, 1935
+5. Gyongyos (Northern Hungary), Hungary, 1935
 
 TimeGuessr #1119
-1. Tokyo, Japan, 2009
+1. Tokyo (Kanto), Japan, 2009
 2. Milwaukee (Wisconsin), United States, 1950
 3. The Hague (South Holland), Netherlands, 1945
-4. Madrid (Community of Madrid), Spain, 1968
+4. Madrid (Madrid), Spain, 1968
 5. Berlin (Berlin), Germany, 1973
 
 TimeGuessr #1120
-1. Oslo, Norway, 1940
+1. Oslo (Eastern Norway), Norway, 1940
 2. Kyustendil, Bulgaria, 1984
 3. New York (New York), United States, 2017
 4. Inverness (Scotland), United Kingdom, 1992
-5. Madrid (Community of Madrid), Spain, 1968
+5. Madrid (Madrid), Spain, 1968
 
 TimeGuessr #1121
 1. Paris (Ile-de-France), France, 1998
 2. Betws-y-Coed (Wales), United Kingdom, 2002
 3. Algiers, Algeria, 2019
 4. Sikasso, Mali, 1972
-5. Saint Petersburg (Saint Petersburg), Russia, 1917
+5. Saint Petersburg (Northwestern), Russia, 1917
 
 TimeGuessr #1124
-1. Prague, Czechia, 1968
+1. Prague (Bohemia), Czechia, 1968
 2. Gadsden (Alabama), United States, 1940
 3. Amsterdam (North Holland), Netherlands, 1951
-4. Moscow (Moscow), Russia, 1980
+4. Moscow (Central), Russia, 1980
 5. Hawaii Kai (Hawaii), United States, 2005
 
 TimeGuessr #1125
 1. Washington DC (Washington DC), United States, 1969
-2. Trondheim, Norway, 1945
+2. Trondheim (Trondelag), Norway, 1945
 3. New Delhi (Delhi), India, 1992
 4. Hamburg (Hamburg), Germany, 1989
-5. Rio de Janeiro, Brazil, 2026
+5. Rio de Janeiro (Southeast), Brazil, 2026
 
 TimeGuessr #1126
 1. Amman, Jordan, 2026
 2. Atlantic City (New Jersey), United States, 1906
 3. Cairo, Egypt, 1961
-4. Copenhagen, Denmark, 1967
+4. Copenhagen (Capital Region), Denmark, 1967
 5. Ottawa (Ontario), Canada, 2003
 
 TimeGuessr #1127
-1. Valencia (Valencian Community), Spain, 1946
+1. Valencia (Valencia), Spain, 1946
 2. Chicago (Illinois), United States, 2018
-3. Brussels (Brussels), Belgium, 1974
+3. Brussels (Brussels Capital Region), Belgium, 1974
 4. Old Delhi (Delhi), India, 1986
-5. Brasilia, Brazil, 1960
+5. Brasilia (Center-West), Brazil, 1960
