@@ -5,6 +5,7 @@ import country_converter as coco
 import numpy as np
 import json
 import os
+import shapely
 import geopandas as gpd
 from shapely.geometry import shape as shp_shape
 import math
@@ -340,7 +341,17 @@ def load_map():
     if not os.path.exists(target_file): return None, set()
     try:
         gdf = gpd.read_file(target_file)
-        gdf['geometry'] = gdf['geometry'].buffer(0) # Fix Topology Errors
+        # make_valid(structure) preserves coordinates of already-valid geometries unlike
+        # buffer(0) which rebuilds and perturbs shared edge coordinates even for valid polygons.
+        # The structure method also always returns Polygon/MultiPolygon (no GeometryCollections).
+        try:
+            gdf['geometry'] = gpd.GeoSeries(
+                shapely.make_valid(gdf['geometry'].values, method='structure'), crs=gdf.crs)
+        except TypeError:
+            # GEOS < 3.10: fall back to selective buffer(0) on invalid geometries only
+            invalid_mask = ~gdf['geometry'].is_valid
+            if invalid_mask.any():
+                gdf.loc[invalid_mask, 'geometry'] = gdf.loc[invalid_mask, 'geometry'].buffer(0)
         
         # --- TAIWAN MAP FIX ---
         mask_tw = gdf['NAME'] == 'Taiwan'
@@ -415,15 +426,39 @@ def load_map():
     except Exception as e:
         st.error(f"Map error: {e}"); return None, set()
 
+def _coverage_union_safe(geoms):
+    """Union adjacent polygons using Shapely 2.0 coverage_union_all (crack-free, fast).
+    Falls back through make_valid → unary_union → buffer(0) to guarantee no crash."""
+    arr = geoms.values if hasattr(geoms, 'values') else np.asarray(list(geoms))
+    if len(arr) == 0:
+        return None
+    if len(arr) == 1:
+        return arr[0]
+    try:
+        return shapely.coverage_union_all(arr)
+    except Exception:
+        pass
+    # Fallback: ensure geometries are valid before unary_union
+    try:
+        try:
+            valid_arr = shapely.make_valid(arr, method='structure')
+        except TypeError:
+            valid_arr = shapely.make_valid(arr)
+        result = unary_union(valid_arr.tolist())
+        return result if result.is_valid else result.buffer(0)
+    except Exception:
+        return unary_union([g.buffer(0) for g in arr])
+
 @st.cache_resource
 def precompute_iso_merged(_gdf):
-    """Pre-merge each country's subdivision polygons into one clean shape (runs once at startup).
-    Buffer+debuffer snaps near-touching edges so the result is a proper Polygon rather
-    than a seam-riddled MultiPolygon when rendered by Plotly."""
+    """Pre-merge each country's subdivision polygons into one shape per ISO3 (runs once at startup).
+    Uses coverage_union_all for crack-free merging of topologically-consistent mapshaper output."""
     if _gdf is None: return None
     cols = [c for c in ['ISO3', 'Continent', 'UN_Region', 'Language', 'geometry'] if c in _gdf.columns]
-    iso_gdf = _gdf[cols].dissolve(by='ISO3', as_index=False)
-    iso_gdf['geometry'] = iso_gdf['geometry'].buffer(0.001).buffer(-0.001)
+    sub = _gdf[cols].copy()
+    attrs = sub.drop(columns='geometry').groupby('ISO3', as_index=False).first()
+    geoms = sub.groupby('ISO3')['geometry'].agg(_coverage_union_safe).reset_index()
+    iso_gdf = gpd.GeoDataFrame(attrs.merge(geoms, on='ISO3'), geometry='geometry', crs=_gdf.crs)
     iso_gdf['NAME'] = iso_gdf['ISO3']
     return iso_gdf
 
@@ -552,10 +587,8 @@ def generate_dynamic_map_layer(_gdf, _iso_gdf, active_iso_tuple, active_splits, 
                                       work_gdf.loc[split_mask, attr_col].fillna('').astype(str))
 
     work_gdf['Dissolve_Key'] = key_series
-    dissolved = work_gdf[['Dissolve_Key', 'geometry']].dissolve(by='Dissolve_Key', as_index=False)
-    # Snap near-touching edges after dissolve so MultiPolygon seams close cleanly.
-    # Fast because geometries are already 1.5%-simplified by mapshaper (very few vertices).
-    dissolved['geometry'] = dissolved['geometry'].buffer(0.001).buffer(-0.001)
+    geom_groups = work_gdf.groupby('Dissolve_Key')['geometry'].agg(_coverage_union_safe).reset_index()
+    dissolved = gpd.GeoDataFrame(geom_groups, geometry='geometry', crs=work_gdf.crs)
     dissolved['geometry'] = dissolved['geometry'].simplify(tolerance=0.005, preserve_topology=True)
     return json.loads(dissolved.to_json())
 
