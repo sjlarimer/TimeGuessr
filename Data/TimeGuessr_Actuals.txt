@@ -1061,3 +1061,10 @@ TimeGuessr #1131
 3. Newark (New Jersey), United States, 1957
 4. Ho Chi Minh (Southeast), Vietnam, 1995
 5. Venice (Veneto), Italy, 1962
+
+TimeGuessr #1132
+1. Moscow (Central), Russia, 1991
+2. Rotterdam (South Holland), Netherlands, 1957
+3. Elgin (Illinois), United States, 1967
+4. Dublin (Leinster), Ireland, 1946
+5. Dakar, Senegal, 1971
