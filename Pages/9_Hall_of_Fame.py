@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 from PIL import Image
@@ -199,7 +200,7 @@ st.markdown(
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data():
+def load_data(mtime=0):
     try:
         df = pd.read_csv("./Data/Timeguessr_Stats.csv")
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -707,7 +708,8 @@ st.markdown("### Trophy Cabinet")
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- Data Loading & Processing ---
-df = load_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+df = load_data(stats_mtime)
 yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s = calculate_trophies(df)
 
 # --- Tabs for Category Organization ---

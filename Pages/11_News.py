@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -147,7 +148,7 @@ st.markdown(NEWS_STYLES, unsafe_allow_html=True)
 
 # --- Data Loading ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -> pd.DataFrame:
     try:
         data = pd.read_csv(filepath)
         data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
@@ -1901,7 +1902,8 @@ def render_daily_news(dt, evs):
         rh += '</div>'
     return f"""<div class="daily-card" id="{day_id}"><div class="daily-header"><span class="daily-date">{ds}</span><span class="daily-badge">{ec} Updates</span></div><div class="events-list">{rh}</div></div>"""
 
-raw_data = load_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+raw_data = load_data(mtime=stats_mtime)
 if not raw_data.empty:
     df_t, df_tm, df_g = prepare_total_margins_data(raw_data), prepare_time_margins_data(raw_data), prepare_geography_margins_data(raw_data)
     all_evs = []

@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -127,7 +128,7 @@ st.markdown(
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data():
+def load_data(mtime=0):
     try:
         df = pd.read_csv("./Data/Timeguessr_Stats.csv")
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -221,7 +222,8 @@ metric_option = st.radio(
     horizontal=True
 )
 
-df_raw = load_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+df_raw = load_data(stats_mtime)
 
 if df_raw is not None and not df_raw.empty:
     

@@ -246,7 +246,7 @@ st.markdown("""
 
 # --- Data Loading (Cached & Optimized) ---
 @st.cache_data
-def load_data():
+def load_data(mtime):
     try:
         df = pd.read_csv("./Data/Timeguessr_Stats.csv")
         df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
@@ -426,27 +426,19 @@ def load_map():
     except Exception as e:
         st.error(f"Map error: {e}"); return None, set()
 
-def _coverage_union_safe(geoms):
-    """Union adjacent polygons using Shapely 2.0 coverage_union_all (crack-free, fast).
-    Falls back through make_valid → unary_union → buffer(0) to guarantee no crash."""
+def _safe_union(geoms):
+    """Merge geometries using unary_union with guaranteed crash protection.
+    make_valid(structure) in load_map() ensures inputs are valid; this handles any edge cases."""
     arr = geoms.values if hasattr(geoms, 'values') else np.asarray(list(geoms))
     if len(arr) == 0:
         return None
     if len(arr) == 1:
         return arr[0]
     try:
-        return shapely.coverage_union_all(arr)
-    except Exception:
-        pass
-    # Fallback: ensure geometries are valid before unary_union
-    try:
-        try:
-            valid_arr = shapely.make_valid(arr, method='structure')
-        except TypeError:
-            valid_arr = shapely.make_valid(arr)
-        result = unary_union(valid_arr.tolist())
+        result = unary_union(arr.tolist())
         return result if result.is_valid else result.buffer(0)
     except Exception:
+        # Last resort: fix each geometry individually then retry
         return unary_union([g.buffer(0) for g in arr])
 
 @st.cache_resource
@@ -457,12 +449,13 @@ def precompute_iso_merged(_gdf):
     cols = [c for c in ['ISO3', 'Continent', 'UN_Region', 'Language', 'geometry'] if c in _gdf.columns]
     sub = _gdf[cols].copy()
     attrs = sub.drop(columns='geometry').groupby('ISO3', as_index=False).first()
-    geoms = sub.groupby('ISO3')['geometry'].agg(_coverage_union_safe).reset_index()
+    geoms = sub.groupby('ISO3')['geometry'].agg(_safe_union).reset_index()
     iso_gdf = gpd.GeoDataFrame(attrs.merge(geoms, on='ISO3'), geometry='geometry', crs=_gdf.crs)
     iso_gdf['NAME'] = iso_gdf['ISO3']
     return iso_gdf
 
-data = load_data()
+_stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+data = load_data(_stats_mtime)
 base_gdf, valid_map_names = load_map()
 iso_gdf = precompute_iso_merged(base_gdf)
 
@@ -587,7 +580,7 @@ def generate_dynamic_map_layer(_gdf, _iso_gdf, active_iso_tuple, active_splits, 
                                       work_gdf.loc[split_mask, attr_col].fillna('').astype(str))
 
     work_gdf['Dissolve_Key'] = key_series
-    geom_groups = work_gdf.groupby('Dissolve_Key')['geometry'].agg(_coverage_union_safe).reset_index()
+    geom_groups = work_gdf.groupby('Dissolve_Key')['geometry'].agg(_safe_union).reset_index()
     dissolved = gpd.GeoDataFrame(geom_groups, geometry='geometry', crs=work_gdf.crs)
     dissolved['geometry'] = dissolved['geometry'].simplify(tolerance=0.005, preserve_topology=True)
     return json.loads(dissolved.to_json())

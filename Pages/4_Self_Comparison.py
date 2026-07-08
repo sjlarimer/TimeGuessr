@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -72,7 +73,7 @@ st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -> pd.DataFrame:
     """Load and preprocess data with caching."""
     try:
         data = pd.read_csv(filepath)
@@ -1150,7 +1151,8 @@ def create_scores_momentum_html(data: pd.DataFrame, player: str, window_length: 
 
 # --- Main App ---
 
-data = load_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+data = load_data(mtime=stats_mtime)
 
 with st.sidebar:
     st.header("Dashboard Settings")
