@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -86,7 +87,7 @@ TIME_RANGES = {
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data(filepath):
+def load_data(filepath, mtime=0):
     try:
         df = pd.read_csv(filepath)
         df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.date
@@ -179,7 +180,8 @@ def get_base_location_name(row):
 # --- Main Page Logic ---
 st.title("All Rounds")
 
-df = load_data("./Data/Timeguessr_Stats.csv")
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+df = load_data("./Data/Timeguessr_Stats.csv", stats_mtime)
 
 if df is not None and not df.empty:
     # Pre-calculate score columns for filtering

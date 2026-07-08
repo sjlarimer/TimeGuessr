@@ -1,4 +1,5 @@
 import io
+import os
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -178,7 +179,7 @@ st.markdown("""
 # Data Loading
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data
-def load_data():
+def load_data(mtime=0):
     try:
         df = pd.read_csv("./Data/Timeguessr_Stats.csv")
         df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
@@ -425,15 +426,16 @@ with st.sidebar:
         ["Total Score", "Geography Score", "Time Score"],
         index=0,
     )
-    if "Date" in load_data().columns:
-        raw = load_data()
+    stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+    if "Date" in load_data(stats_mtime).columns:
+        raw = load_data(stats_mtime)
         min_d = raw[raw['Country'].notna()]["Date"].min().date()
         max_d = raw["Date"].max().date()
         sel_dates = st.slider("Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
     else:
         sel_dates = None
 
-data = load_data()
+data = load_data(stats_mtime)
 if sel_dates:
     filtered_data = data[
         (data["Date"].dt.date >= sel_dates[0]) &

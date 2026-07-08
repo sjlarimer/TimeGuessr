@@ -65,11 +65,12 @@ COLOR_S = "#8a005c"
 COLOR_ACTUAL = "#7f8c8d"
 
 @st.cache_data
-def load_timeline_data():
+def load_timeline_data(mtime=0):
     data = pd.read_csv("./Data/Timeguessr_Stats.csv")
     return data
 
-data = load_timeline_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+data = load_timeline_data(stats_mtime)
 
 col_year = "Year"
 col_michael = "Michael Time Guessed"

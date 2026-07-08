@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from background import set_random_sarah_background
 
@@ -72,7 +73,7 @@ set_random_sarah_background(lightness_level=0.7)
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv") -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -> pd.DataFrame:
     """Load and preprocess data with caching."""
     try:
         data = pd.read_csv(filepath)
@@ -1207,7 +1208,8 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
 # --- Main App ---
 
 # Load data
-data = load_data()
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+data = load_data(mtime=stats_mtime)
 
 # Render Sidebar Controls (Top)
 with st.sidebar:
