@@ -171,7 +171,7 @@ st.markdown(
             width: 100%;
             border-collapse: collapse;
             font-family: 'Poppins', sans-serif;
-            font-size: 14px;
+            font-size: 13px;
         }
         .activity-table thead {
             position: sticky;
@@ -207,7 +207,7 @@ st.markdown(
             font-size: 12px;
             color: #888;
             display: block;
-            margin-top: 2px;
+            margin-top: 1px;
         }
         .score-val {
             font-weight: 600;
@@ -267,10 +267,10 @@ st.markdown(
 )
 
 # --- Header Section (Centered) ---
-head_c1, head_c2, head_c3 = st.columns([1, 2, 1])
+head_c1, head_c2, head_c3 = st.columns([1, 1.5, 1])
 
 with head_c2:
-    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 10px;'>Michael & Sarah</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 2.6rem; margin-bottom: 6px;'>Michael & Sarah</h1>", unsafe_allow_html=True)
 
     # --- Top Image ---
     try:
@@ -282,10 +282,9 @@ with head_c2:
     except FileNotFoundError:
         st.warning("Cover image not found.")
 
-    st.markdown("<h1 style='text-align: center; margin-top: 0;'>Tracking</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 2.2rem; margin-top: 0;'>Tracking</h1>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("<br>", unsafe_allow_html=True)
 
 # --- Pre-compute stats for Overview card ---
 try:
@@ -561,17 +560,20 @@ try:
         bg_style = 'background-color: #f6f6f6;' if is_shaded else 'background-color: #ffffff;'
 
         # Format Date
-        date_str = current_date.strftime('%b %d, %Y') if pd.notna(current_date) else ""
+        date_str = current_date.strftime('%b %d') if pd.notna(current_date) else ""
 
-        # Format Location (Combine City and Country)
+        # Format Location (Combine City, Subdivision, and Country)
         city = str(row['City']).strip() if pd.notna(row['City']) else ""
+        subdivision = str(row['Subdivision']).strip() if pd.notna(row['Subdivision']) else ""
         country = str(row['Country']).strip() if pd.notna(row['Country']) else ""
 
-        if city and country:
+        country_line = ", ".join(filter(None, [subdivision if subdivision != city else "", country]))
+
+        if city and country_line:
             if city == country:
                 loc_html = f'<span class="loc-city">{country}</span>'
             else:
-                loc_html = f'<span class="loc-city">{city}</span><span class="loc-country">{country}</span>'
+                loc_html = f'<span class="loc-city">{city}</span><span class="loc-country">{country_line}</span>'
         elif country:
             loc_html = f'<span class="loc-city">{country}</span>'
         else:
@@ -584,16 +586,14 @@ try:
         def fmt_score(val):
             return f"{int(val):,}" if pd.notna(val) else "-"
 
-        m_total = fmt_score(row['Michael Total Score'])
-        s_total = fmt_score(row['Sarah Total Score'])
         m_round = fmt_score(row['Michael Round Score'])
         s_round = fmt_score(row['Sarah Round Score'])
 
-        table_rows += f"""<tr style="{bg_style}"><td style="color: #666; font-size: 13px;">{date_str}</td><td>{loc_html}</td><td style="text-align: center; font-weight: 500;">{year_str}</td><td style="text-align: right;"><span class="score-val score-m">{m_round}</span></td><td style="text-align: right;"><span class="score-val score-s">{s_round}</span></td><td style="text-align: right;"><span class="score-val score-m" style="opacity: 0.6; font-size: 13px;">{m_total}</span></td><td style="text-align: right;"><span class="score-val score-s" style="opacity: 0.6; font-size: 13px;">{s_total}</span></td></tr>"""
+        table_rows += f"""<tr style="{bg_style}"><td style="color: #666; font-size: 11px;">{date_str}</td><td>{loc_html}</td><td style="text-align: center; font-weight: 500;">{year_str}</td><td style="text-align: right;"><span class="score-val score-m">{m_round}</span></td><td style="text-align: right;"><span class="score-val score-s">{s_round}</span></td></tr>"""
 
     # Assemble HTML Table (Compact)
     # Adjusted widths: Narrowed Date (15->12%) and Year (10->8%), Widened Score cols (10->11%) and Location (35->36%)
-    full_table_html = f"""<div class="activity-table-container"><table class="activity-table"><thead><tr><th style="width: 12%;">Date</th><th style="width: 36%;">Location</th><th style="width: 8%; text-align: center;">Year</th><th style="width: 11%; text-align: right;">Michael Round</th><th style="width: 11%; text-align: right;">Sarah Round</th><th style="width: 11%; text-align: right;">Michael Daily</th><th style="width: 11%; text-align: right;">Sarah Daily</th></tr></thead><tbody>{table_rows}</tbody></table></div>"""
+    full_table_html = f"""<div class="activity-table-container"><table class="activity-table"><thead><tr><th style="width: 10%;">Date</th><th style="width: 42%;">Location</th><th style="width: 8%; text-align: center;">Year</th><th style="width: 20%; text-align: right;">Michael</th><th style="width: 20%; text-align: right;">Sarah</th></tr></thead><tbody>{table_rows}</tbody></table></div>"""
 
     st.markdown(full_table_html, unsafe_allow_html=True)
 
