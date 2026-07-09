@@ -1075,3 +1075,10 @@ TimeGuessr #1133
 3. Louisville (Kentucky), United States, 1937
 4. Ciudad Juarez (Chihuahua), Mexico, 1967
 5. Mumbai (Maharashtra), India, 1986
+
+TimeGuessr #1134
+1. Rome (Lazio), Italy, 1957
+2. Beijing (Beijing), China, 2009
+3. Lisbon (Lisbon), Portugal, 1995
+4. Paris (Ile-de-France), France, 1919
+5. Berlin (Berlin), Germany, 1927
