@@ -1082,3 +1082,10 @@ TimeGuessr #1134
 3. Lisbon (Lisbon), Portugal, 1995
 4. Paris (Ile-de-France), France, 1919
 5. Berlin (Berlin), Germany, 1927
+
+TimeGuessr #1135
+1. Hassleholm (Gotaland), Sweden, 1969
+2. Vienna (Vienna), Austria, 1959
+3. Sydney (New South Wales), Australia, 1938
+4. Kabul, Afghanistan, 1980
+5. Memphis (Tennessee), United States, 1943
