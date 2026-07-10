@@ -99,3 +99,13 @@ section[data-testid="stMain"]::before {
 .stApp {
     background-color: #eae8dc;
 }
+
+/* Home nav icon */
+[data-testid="stSidebarNavLink"]:has(svg.tg-home-sym) span {
+    display: none !important;
+}
+svg.tg-home-sym {
+    display: block;
+    flex-shrink: 0;
+    pointer-events: none;
+}
