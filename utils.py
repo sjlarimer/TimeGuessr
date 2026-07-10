@@ -61,6 +61,36 @@ def load_css():
             }}
 
             {logo_js}
+
+            function ensureHomeSym() {{
+                var links = doc.querySelectorAll('[data-testid="stSidebarNavLink"]');
+                for (var i = 0; i < links.length; i++) {{
+                    var link = links[i];
+                    if (link.querySelector('.tg-home-sym')) continue;
+                    if (link.textContent.trim() !== 'Home') continue;
+                    link.title = 'Home';
+                    var spans = link.querySelectorAll('span');
+                    for (var j = 0; j < spans.length; j++) {{
+                        spans[j].style.setProperty('display', 'none', 'important');
+                    }}
+                    var ns = 'http://www.w3.org/2000/svg';
+                    var svg = doc.createElementNS(ns, 'svg');
+                    svg.setAttribute('class', 'tg-home-sym');
+                    svg.setAttribute('viewBox', '0 0 24 24');
+                    svg.setAttribute('width', '20');
+                    svg.setAttribute('height', '20');
+                    svg.setAttribute('fill', '#eae8dc');
+                    var path = doc.createElementNS(ns, 'path');
+                    path.setAttribute('d', 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z');
+                    svg.appendChild(path);
+                    link.appendChild(svg);
+                }}
+            }}
+            ensureHomeSym();
+            if (!win._tgHomeSymObs) {{
+                win._tgHomeSymObs = new MutationObserver(ensureHomeSym);
+                win._tgHomeSymObs.observe(doc.body, {{ childList: true, subtree: true }});
+            }}
         }})();
         </script>""",
         height=0,

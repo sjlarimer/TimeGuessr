@@ -160,6 +160,77 @@ fig_hist.update_layout(
 )
 st.plotly_chart(fig_hist, use_container_width=True, theme=None)
 
+# ==========================================
+# YEAR-BY-YEAR OUTCOME SPLIT
+# ==========================================
+st.markdown('<div class="section-heading">Who Guessed Closer by Year</div>', unsafe_allow_html=True)
+
+_df = data[[col_year, col_michael, col_sarah]].copy()
+_df[col_year]   = pd.to_numeric(_df[col_year],   errors="coerce")
+_df[col_michael] = pd.to_numeric(_df[col_michael], errors="coerce")
+_df[col_sarah]   = pd.to_numeric(_df[col_sarah],   errors="coerce")
+_df = _df.dropna()
+_df["_yr"]  = _df[col_year].astype(int)
+_df["_me"]  = (_df[col_michael] - _df[col_year]).abs()
+_df["_se"]  = (_df[col_sarah]   - _df[col_year]).abs()
+_df["_out"] = np.where(_df["_me"] < _df["_se"], "michael",
+              np.where(_df["_se"] < _df["_me"], "sarah", "tie"))
+
+_bucket = st.slider("Year Bucket Size", min_value=1, max_value=10, value=1, step=1, key="outcome_bucket")
+
+_df["_bin"] = (_df["_yr"] // _bucket) * _bucket
+
+_by = _df.groupby("_bin")["_out"].value_counts().unstack(fill_value=0)
+for _c in ["michael", "sarah", "tie"]:
+    if _c not in _by.columns:
+        _by[_c] = 0
+_by["_n"] = _by[["michael", "sarah", "tie"]].sum(axis=1)
+_by = _by[_by["_n"] >= 3]
+_bins = _by.index.tolist()
+
+_x_label = "Year" if _bucket == 1 else f"{_bucket}-Year Bucket Starting Year"
+_hover_prefix = "Year" if _bucket == 1 else f"Years"
+_hover_x = "%{x}" if _bucket == 1 else f"%{{x}}–%{{customdata}}"
+_end_years = [b + _bucket - 1 for b in _bins]
+
+fig_area = go.Figure()
+fig_area.add_trace(go.Scatter(
+    x=_bins, y=(_by["michael"] / _by["_n"] * 100).round(1),
+    customdata=_end_years,
+    mode="lines", name="Michael",
+    stackgroup="one",
+    line=dict(width=0.5, color=COLOR_M),
+    fillcolor="rgba(34,30,143,0.75)",
+    hovertemplate=f"{_hover_x}<br>Michael: %{{y:.1f}}%<extra></extra>"
+))
+fig_area.add_trace(go.Scatter(
+    x=_bins, y=(_by["tie"] / _by["_n"] * 100).round(1),
+    customdata=_end_years,
+    mode="lines", name="Tie",
+    stackgroup="one",
+    line=dict(width=0.5, color="#8f8d85"),
+    fillcolor="rgba(143,141,133,0.45)",
+    hovertemplate=f"{_hover_x}<br>Tie: %{{y:.1f}}%<extra></extra>"
+))
+fig_area.add_trace(go.Scatter(
+    x=_bins, y=(_by["sarah"] / _by["_n"] * 100).round(1),
+    customdata=_end_years,
+    mode="lines", name="Sarah",
+    stackgroup="one",
+    line=dict(width=0.5, color=COLOR_S),
+    fillcolor="rgba(138,0,92,0.75)",
+    hovertemplate=f"{_hover_x}<br>Sarah: %{{y:.1f}}%<extra></extra>"
+))
+fig_area.add_hline(y=50, line=dict(color="#555", width=1, dash="dot"))
+fig_area.update_layout(**PLOT_THEME)
+fig_area.update_layout(
+    title="Share of Rounds Won by Actual Year (Time Guessing)",
+    xaxis_title=_x_label,
+    yaxis=dict(range=[0, 100], ticksuffix="%", title="% of Rounds"),
+    height=420,
+)
+st.plotly_chart(fig_area, use_container_width=True, theme=None)
+
 st.markdown('<div class="section-heading">Guess Accuracy Matrix</div>', unsafe_allow_html=True)
 
 df_scatter = data[[col_year, col_michael, col_sarah]].copy()

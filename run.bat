@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
 call .venv\Scripts\activate
-streamlit run Welcome.py
+streamlit run Home.py
