@@ -1205,6 +1205,349 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
     
     return fig
 
+def add_zero_crossing_interpolation(mask_filtered: pd.DataFrame, window_length: int) -> pd.DataFrame:
+    """Add interpolated zero-crossing points for smooth rolling-avg line transitions."""
+    mask_filtered = mask_filtered.reset_index(drop=True)
+    y = mask_filtered["Rolling Diff"]
+    dates = mask_filtered["Date"]
+    new_points = []
+
+    crossings_mask = np.sign(y.shift(1) * y).fillna(1) < 0
+    crossing_indices = mask_filtered[crossings_mask].index.tolist()
+
+    for i in crossing_indices:
+        if i == 0:
+            continue
+        y1, x1 = y.iloc[i-1], dates.iloc[i-1]
+        y2, x2 = y.iloc[i], dates.iloc[i]
+        cum1, cum2 = mask_filtered["Cumulative Diff"].iloc[i-1], mask_filtered["Cumulative Diff"].iloc[i]
+        score1, score2 = mask_filtered["Score Diff"].iloc[i-1], mask_filtered["Score Diff"].iloc[i]
+        if y2 - y1 != 0:
+            fraction = (0 - y1) / (y2 - y1)
+            x_zero = x1 + pd.Timedelta((x2 - x1).total_seconds() * fraction, unit='s')
+            new_points.append({
+                "Date": x_zero,
+                "Rolling Diff": 0.0,
+                "Score Diff": score1 + fraction * (score2 - score1),
+                "Cumulative Diff": cum1 + fraction * (cum2 - cum1)
+            })
+
+    if new_points:
+        mask_filtered = pd.concat([mask_filtered, pd.DataFrame(new_points)], ignore_index=True)
+        mask_filtered = mask_filtered.sort_values(by="Date").reset_index(drop=True)
+
+    mask_filtered['Rolling Diff Pos'] = np.where(mask_filtered['Rolling Diff'] >= 0, mask_filtered['Rolling Diff'], np.nan)
+    mask_filtered['Rolling Diff Neg'] = np.where(mask_filtered['Rolling Diff'] <= 0, mask_filtered['Rolling Diff'], np.nan)
+    return mask_filtered
+
+
+def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -> go.Figure:
+    """Create the win margins Plotly figure (Michael − Sarah)."""
+    fig = go.Figure()
+    mask_filtered = mask_filtered.copy()
+
+    is_midnight = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
+    mask_filtered.loc[is_midnight, "x_index"] = np.arange(is_midnight.sum(), dtype=float)
+    mask_filtered["x_index"] = mask_filtered["x_index"].interpolate(method="linear")
+    is_midnight = mask_filtered["Date"].dt.time == pd.Timestamp("00:00:00").time()
+
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=mask_filtered["Score Diff"], mode="markers",
+        marker=dict(color="gray", opacity=np.where(is_midnight, 0.4, 0), size=7),
+        name="Game Result (Michael − Sarah)", customdata=mask_filtered["Date"],
+        hovertemplate="Date: %{customdata|%Y-%m-%d}<br>Score Diff: %{y}<extra></extra>"
+    ))
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=np.where(mask_filtered["Score Diff"] > 0, mask_filtered["Score Diff"], 0),
+        fill='tozeroy', mode='none', fillcolor='rgba(188, 176, 255, 0.6)', name='Michael Wins'
+    ))
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=np.where(mask_filtered["Score Diff"] < 0, mask_filtered["Score Diff"], 0),
+        fill='tozeroy', mode='none', fillcolor='rgba(255, 148, 189, 0.6)', name='Sarah Wins'
+    ))
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=mask_filtered["Cumulative Diff"], mode="lines",
+        name="Cumulative Avg", line=dict(color="black", width=1.5, dash="dot"), opacity=0.7,
+        customdata=mask_filtered["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
+    ))
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Pos"], mode="lines",
+        name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['michael'], width=2.5),
+        opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+    ))
+    fig.add_trace(go.Scatter(
+        x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Neg"], mode="lines",
+        name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['sarah'], width=2.5),
+        opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
+        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+    ))
+
+    y_max = np.ceil(max(
+        abs(mask_filtered["Score Diff"].max()), abs(mask_filtered["Score Diff"].min()),
+        abs(mask_filtered["Rolling Diff"].max()), abs(mask_filtered["Rolling Diff"].min()),
+        abs(mask_filtered["Cumulative Diff"].max()), abs(mask_filtered["Cumulative Diff"].min())
+    ) / 5000) * 5000
+    tick_vals = np.arange(-y_max, y_max + 1, 5000)
+    tick_text = [str(abs(int(t))) for t in tick_vals]
+
+    fig.add_hline(y=0, line=dict(color="#8f8d85", dash="dash", width=1))
+    actual_diffs = mask_filtered.loc[is_midnight, "Score Diff"]
+    if not actual_diffs.empty:
+        fig.add_hline(y=actual_diffs.max(), line=dict(color=COLORS['michael'], width=1, dash='dash'), opacity=0.45)
+        fig.add_hline(y=actual_diffs.min(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
+
+    midnight_df = mask_filtered[is_midnight].copy()
+    midnight_df['month_year'] = midnight_df['Date'].dt.to_period('M')
+    first_of_month_indices = midnight_df.groupby('month_year').head(1).index.tolist()
+    tick_indices = [mask_filtered.loc[idx, 'x_index'] for idx in first_of_month_indices]
+    tick_labels = [mask_filtered.loc[idx, 'Date'].strftime('%b %Y') for idx in first_of_month_indices]
+
+    for vline_date, vline_label in [
+        (pd.Timestamp('2025-10-20'), "Tracking Start"),
+        (pd.Timestamp('2026-05-18'), "TimeGuessr Survey"),
+    ]:
+        if not midnight_df.empty and midnight_df['Date'].min() <= vline_date <= midnight_df['Date'].max():
+            ge = midnight_df[midnight_df['Date'] >= vline_date]
+            if not ge.empty:
+                pos = mask_filtered.loc[ge.index[0], 'x_index']
+                fig.add_vline(x=pos, line=dict(color="#696761", width=1.5, dash="dash"))
+                if pos in tick_indices:
+                    tick_labels[tick_indices.index(pos)] += f"<br>{vline_label}"
+                else:
+                    tick_indices.append(pos)
+                    tick_labels.append(vline_label)
+                combined = sorted(zip(tick_indices, tick_labels))
+                tick_indices, tick_labels = [list(x) for x in zip(*combined)]
+
+    fig.update_layout(
+        xaxis_title="Date", yaxis_title="Score Difference (Michael − Sarah)",
+        width=1400, height=600, hovermode="closest",
+        font=FONT_CONFIG, paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=20, t=60, b=60),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                    bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", font=dict(color=COLORS['text'])),
+    )
+    fig.update_xaxes(
+        showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
+        tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']),
+        tickmode='array', tickvals=tick_indices, ticktext=tick_labels, tickangle=-45,
+        range=[-0.5, mask_filtered["x_index"].max() + 0.5]
+    )
+    fig.update_yaxes(
+        showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
+        tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']),
+        tickvals=tick_vals, ticktext=tick_text, range=[-y_max, y_max]
+    )
+    return fig
+
+
+def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
+    """Bar strip for the last (window_length * 4) games showing Michael vs Sarah margins."""
+    n_games = window_length * 4
+    recent_data = data.tail(n_games).reset_index(drop=True)
+    if len(recent_data) == 0:
+        return ""
+
+    diffs = recent_data['Score Diff'].fillna(0)
+    max_abs = diffs.abs().max() or 1
+    MIN_HEIGHT_PCT = 10
+    slot_pct = 100 / len(recent_data)
+    segments = []
+
+    for _, row in recent_data.iterrows():
+        diff = row['Score Diff']
+        date_str = row['Date'].strftime('%b %d')
+        height_pct = MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * min(1.0, abs(diff) / max_abs)
+        if diff > 0:
+            color, label = COLORS['michael'], f"Michael (+{diff:,.0f})"
+        elif diff < 0:
+            color, label = COLORS['sarah'], f"Sarah (+{abs(diff):,.0f})"
+        else:
+            color, label = COLORS['line'], "Tie"
+        segments.append(
+            f'<div style="width:{slot_pct}%;display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;padding:0 1px;">'
+            f'<div style="width:100%;height:{height_pct:.1f}%;background-color:{color};border-radius:3px;" title="{date_str}: {label}"></div>'
+            f'</div>'
+        )
+
+    m_wins = (diffs > 0).sum()
+    s_wins = (diffs < 0).sum()
+    return f"""
+<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+<h4 style="margin:0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_games} Games)</span>
+</h4>
+<div style="font-size:12px;font-weight:600;">
+<span style="color:{COLORS['michael']};">Michael: {m_wins}</span>
+<span style="color:#b0afaa;margin:0 6px;">|</span>
+<span style="color:{COLORS['sarah']};">Sarah: {s_wins}</span>
+</div>
+</div>
+<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
+{"".join(segments)}
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
+<span>{recent_data.iloc[0]['Date'].strftime('%b %d')}</span><span>{recent_data.iloc[-1]['Date'].strftime('%b %d')}</span>
+</div>
+</div>"""
+
+
+def get_win_stats_margin(df: pd.DataFrame, lower: float, upper: float, is_michael: bool = True) -> Tuple[int, str]:
+    """Calculate win counts and most recent date for a margin category."""
+    if is_michael:
+        cond = (df["Score Diff"] > lower) & (df["Score Diff"] <= upper)
+    else:
+        cond = (df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper)
+    subset = df[cond]
+    count = len(subset)
+    recent = subset["Date"].max().strftime("%Y-%m-%d") if not subset.empty else "-"
+    return count, recent
+
+
+def calculate_win_streaks(df: pd.DataFrame) -> List[Dict]:
+    """Calculate win streaks for Michael and Sarah."""
+    streaks = []
+    current_streak = 0
+    current_winner = None
+    streak_start = None
+
+    for idx, row in df.iterrows():
+        if row["Score Diff"] > 0:
+            winner = "Michael"
+        elif row["Score Diff"] < 0:
+            winner = "Sarah"
+        else:
+            continue
+        if winner == current_winner:
+            current_streak += 1
+        else:
+            if current_winner is not None and current_streak > 0:
+                streaks.append({'winner': current_winner, 'length': current_streak,
+                                'start_date': streak_start, 'end_date': df.iloc[idx-1]["Date"]})
+            current_winner = winner
+            current_streak = 1
+            streak_start = row["Date"]
+
+    if current_winner is not None and current_streak > 0:
+        streaks.append({'winner': current_winner, 'length': current_streak,
+                        'start_date': streak_start, 'end_date': df.iloc[-1]["Date"]})
+    return streaks
+
+
+def create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) -> str:
+    """Create win summary HTML table (Michael vs Sarah)."""
+    michael_wins = mask_filtered[mask_filtered["Score Diff"] > 0]
+    sarah_wins = mask_filtered[mask_filtered["Score Diff"] < 0]
+
+    m_win_count = len(michael_wins)
+    s_win_count = len(sarah_wins)
+    m_recent = michael_wins["Date"].max().strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+    s_recent = sarah_wins["Date"].max().strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+
+    rows = (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
+            f'<td style="padding: 8px; color: #696761;">Wins</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_win_count}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_recent}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_win_count}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_recent}</td></tr>')
+
+    for label, (lower, upper) in win_categories.items():
+        m_count, m_date = get_win_stats_margin(michael_wins, lower, upper, True)
+        s_count, s_date = get_win_stats_margin(sarah_wins, lower, upper, False)
+        rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
+                 f'<td style="padding: 8px; color: #696761;">{label}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_count}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_date}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_count}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_date}</td></tr>')
+
+    m_large = int(michael_wins["Score Diff"].max()) if not michael_wins.empty else "-"
+    m_large_date = michael_wins.loc[michael_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+    s_large = int(abs(sarah_wins["Score Diff"].min())) if not sarah_wins.empty else "-"
+    s_large_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+    m_small = int(michael_wins["Score Diff"].min()) if not michael_wins.empty else "-"
+    m_small_date = michael_wins.loc[michael_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+    s_small = int(abs(sarah_wins["Score Diff"].max())) if not sarah_wins.empty else "-"
+    s_small_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+
+    for row_label, m_val, m_date, s_val, s_date in [
+        ("Largest Win", m_large, m_large_date, s_large, s_large_date),
+        ("Smallest Win", m_small, m_small_date, s_small, s_small_date),
+    ]:
+        rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
+                 f'<td style="padding: 8px; color: #696761;">{row_label}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_val}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_date}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_val}</td>'
+                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_date}</td></tr>')
+
+    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
+            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
+            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Category</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Michael</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Date</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Sarah</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Date</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table>')
+
+
+def create_win_streaks_table(mask_filtered: pd.DataFrame) -> str:
+    """Create win streaks HTML table (Michael vs Sarah)."""
+    streaks = calculate_win_streaks(mask_filtered)
+    michael_streaks = [s for s in streaks if s['winner'] == 'Michael']
+    sarah_streaks = [s for s in streaks if s['winner'] == 'Sarah']
+
+    m_longest = max(michael_streaks, key=lambda x: x['length']) if michael_streaks else None
+    s_longest = max(sarah_streaks, key=lambda x: x['length']) if sarah_streaks else None
+
+    m_longest_len = m_longest['length'] if m_longest else "-"
+    m_longest_date = f"{m_longest['start_date'].strftime('%Y-%m-%d')} to {m_longest['end_date'].strftime('%Y-%m-%d')}" if m_longest else "-"
+    s_longest_len = s_longest['length'] if s_longest else "-"
+    s_longest_date = f"{s_longest['start_date'].strftime('%Y-%m-%d')} to {s_longest['end_date'].strftime('%Y-%m-%d')}" if s_longest else "-"
+
+    current = streaks[-1] if streaks else None
+    m_current = current['length'] if current and current['winner'] == 'Michael' else 0
+    m_current_date = current['start_date'].strftime('%Y-%m-%d') if current and current['winner'] == 'Michael' else "-"
+    s_current = current['length'] if current and current['winner'] == 'Sarah' else 0
+    s_current_date = current['start_date'].strftime('%Y-%m-%d') if current and current['winner'] == 'Sarah' else "-"
+
+    streak_rows = ""
+    max_streak = max([s['length'] for s in streaks]) if streaks else 0
+    for streak_len in range(max_streak, 0, -1):
+        m_subs = [s for s in michael_streaks if s['length'] >= streak_len]
+        s_subs = [s for s in sarah_streaks if s['length'] >= streak_len]
+        m_recent = max([s['end_date'] for s in m_subs]).strftime('%Y-%m-%d') if m_subs else "-"
+        s_recent = max([s['end_date'] for s in s_subs]).strftime('%Y-%m-%d') if s_subs else "-"
+        streak_rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
+                        f'<td style="padding: 8px; color: #696761;">Streaks ≥ {streak_len}</td>'
+                        f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{len(m_subs)}</td>'
+                        f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_recent}</td>'
+                        f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{len(s_subs)}</td>'
+                        f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_recent}</td></tr>')
+
+    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
+            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
+            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Michael</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Date(s)</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Sarah</th>'
+            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Date(s)</th>'
+            f'</tr></thead><tbody>'
+            f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Current Streak</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_current}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_current_date}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_current}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_current_date}</td></tr>'
+            f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Longest Streak</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_longest_len}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_longest_date}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_longest_len}</td>'
+            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_longest_date}</td></tr>'
+            f'{streak_rows}</tbody></table>')
+
+
 # --- Main App ---
 
 # Load data
@@ -1214,7 +1557,15 @@ data = load_data(mtime=stats_mtime)
 # Render Sidebar Controls (Top)
 with st.sidebar:
     st.header("Settings")
-    
+
+    view_mode = st.radio(
+        "View Mode:",
+        options=["Scores", "Win Margins"],
+        horizontal=True,
+        index=0,
+        key="view_mode_toggle"
+    )
+
     page_type = st.radio(
         "Score Type:",
         options=["Total Scores", "Time Scores", "Geography Scores"],
@@ -1222,7 +1573,11 @@ with st.sidebar:
         key="page_selector"
     )
 
-    include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
+    if view_mode == "Scores":
+        include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
+    else:
+        include_single_player_days = False
+
     remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
     remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
 
@@ -1234,20 +1589,41 @@ if page_type == "Total Scores":
     default_bin_size = 5000
     bin_options = [1000, 2500, 5000, 10000]
     change_threshold = 5000
+    win_categories = {
+        "Massive Wins (>10k)": (10000, np.inf),
+        "Big Wins (5–10k)": (5000, 10000),
+        "Small Wins (2.5–5k)": (2500, 5000),
+        "Close Wins (1–2.5k)": (1000, 2500),
+        "Very Close Wins (<1k)": (0, 1000)
+    }
 elif page_type == "Time Scores":
     df_daily, mask = prepare_time_scores_data(data, False, include_single_player_days)
-    ceiling = 25000
+    ceiling = CEILING_TIME
     score_type = "time"
     default_bin_size = 2500
     bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
+    win_categories = {
+        "Massive Wins (>5k)": (5000, np.inf),
+        "Big Wins (2.5–5k)": (2500, 5000),
+        "Small Wins (1.25–2.5k)": (1250, 2500),
+        "Close Wins (0.5–1.25k)": (500, 1250),
+        "Very Close Wins (<0.5k)": (0, 500)
+    }
 else:  # Geography Scores
     df_daily, mask = prepare_geography_scores_data(data, False, include_single_player_days)
-    ceiling = 25000
+    ceiling = CEILING_GEOGRAPHY
     score_type = "geography"
     default_bin_size = 2500
     bin_options = [500, 1250, 2500, 5000]
     change_threshold = 2500
+    win_categories = {
+        "Massive Wins (>5k)": (5000, np.inf),
+        "Big Wins (2.5–5k)": (2500, 5000),
+        "Small Wins (1.25–2.5k)": (1250, 2500),
+        "Close Wins (0.5–1.25k)": (500, 1250),
+        "Very Close Wins (<0.5k)": (0, 500)
+    }
 
 # Apply pre-tracking / pre-survey filters
 if remove_pre_tracking:
@@ -1261,7 +1637,6 @@ if remove_pre_survey:
 if not mask.empty:
     min_date, max_date = mask["Date"].min(), mask["Date"].max()
 else:
-    # Fallbacks if all data is somehow filtered out
     min_date, max_date = data["Date"].min(), data["Date"].max()
 
 # Render remaining Sidebar Controls (Bottom)
@@ -1279,78 +1654,114 @@ with st.sidebar:
         format="YYYY-MM-DD"
     )
 
-    bin_size = st.select_slider(
-        "Select Score Bucket Size",
-        options=bin_options,
-        value=default_bin_size,
-        help="Adjust the size of score ranges in the statistics table"
-    )
+    if view_mode == "Scores":
+        bin_size = st.select_slider(
+            "Select Score Bucket Size",
+            options=bin_options,
+            value=default_bin_size,
+            help="Adjust the size of score ranges in the statistics table"
+        )
 
 # Render main area Header
-st.markdown(f"## {page_type}")
+view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")
+st.markdown(f"## {view_label}")
 
 # Filter data by date range
 mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
 df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
 
-# Calculate averages
-mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
+if view_mode == "Scores":
+    # --- Scores View ---
+    mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
 
-# Display main chart
-fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type, 
-                           show_single_player_days=include_single_player_days)
-st.plotly_chart(fig, use_container_width=True, key="main_chart")
+    fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type,
+                               show_single_player_days=include_single_player_days)
+    st.plotly_chart(fig, use_container_width=True, key="main_chart")
 
-momentum_html = create_momentum_html(mask_filtered, window_length, score_type, ceiling)
-st.markdown(momentum_html, unsafe_allow_html=True)
+    momentum_html = create_momentum_html(mask_filtered, window_length, score_type, ceiling)
+    st.markdown(momentum_html, unsafe_allow_html=True)
 
-# Statistics section
-st.markdown("---")
-st.subheader("Statistics Summary")
+    st.markdown("---")
+    st.subheader("Statistics Summary")
 
-# Extract player data based on score type - ONLY from days where BOTH have data (mask_filtered)
-if score_type == "total":
-    michael_scores = mask_filtered["Michael Total Score"].dropna()
-    sarah_scores = mask_filtered["Sarah Total Score"].dropna()
-    avg_scores = ((mask_filtered["Michael Total Score"] + mask_filtered["Sarah Total Score"]) / 2).dropna()
-    michael_dates = mask_filtered[mask_filtered["Michael Total Score"].notna()]["Date"]
-    sarah_dates = mask_filtered[mask_filtered["Sarah Total Score"].notna()]["Date"]
-elif score_type == "time":
-    michael_scores = mask_filtered["Michael Time Midpoint"].dropna()
-    sarah_scores = mask_filtered["Sarah Time Midpoint"].dropna()
-    avg_scores = ((mask_filtered["Michael Time Midpoint"] + mask_filtered["Sarah Time Midpoint"]) / 2).dropna()
-    michael_dates = mask_filtered[mask_filtered["Michael Time Midpoint"].notna()]["Date"]
-    sarah_dates = mask_filtered[mask_filtered["Sarah Time Midpoint"].notna()]["Date"]
-else:  # geography
-    michael_scores = mask_filtered["Michael Geography Midpoint"].dropna()
-    sarah_scores = mask_filtered["Sarah Geography Midpoint"].dropna()
-    avg_scores = ((mask_filtered["Michael Geography Midpoint"] + mask_filtered["Sarah Geography Midpoint"]) / 2).dropna()
-    michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
-    sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
+    if score_type == "total":
+        michael_scores = mask_filtered["Michael Total Score"].dropna()
+        sarah_scores = mask_filtered["Sarah Total Score"].dropna()
+        avg_scores = ((mask_filtered["Michael Total Score"] + mask_filtered["Sarah Total Score"]) / 2).dropna()
+        michael_dates = mask_filtered[mask_filtered["Michael Total Score"].notna()]["Date"]
+        sarah_dates = mask_filtered[mask_filtered["Sarah Total Score"].notna()]["Date"]
+    elif score_type == "time":
+        michael_scores = mask_filtered["Michael Time Midpoint"].dropna()
+        sarah_scores = mask_filtered["Sarah Time Midpoint"].dropna()
+        avg_scores = ((mask_filtered["Michael Time Midpoint"] + mask_filtered["Sarah Time Midpoint"]) / 2).dropna()
+        michael_dates = mask_filtered[mask_filtered["Michael Time Midpoint"].notna()]["Date"]
+        sarah_dates = mask_filtered[mask_filtered["Sarah Time Midpoint"].notna()]["Date"]
+    else:
+        michael_scores = mask_filtered["Michael Geography Midpoint"].dropna()
+        sarah_scores = mask_filtered["Sarah Geography Midpoint"].dropna()
+        avg_scores = ((mask_filtered["Michael Geography Midpoint"] + mask_filtered["Sarah Geography Midpoint"]) / 2).dropna()
+        michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
+        sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
 
-# Determine date format
-use_md_format = can_use_month_day_format(michael_dates) and can_use_month_day_format(sarah_dates)
-date_format = "%b %d" if use_md_format else "%Y-%m-%d"
+    use_md_format = can_use_month_day_format(michael_dates) and can_use_month_day_format(sarah_dates)
+    date_format = "%b %d" if use_md_format else "%Y-%m-%d"
 
-# Create two columns
-col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-with col1:
-    # Display statistics table
-    stats_html = create_stats_table_html(michael_scores, sarah_scores, 
-                                        michael_dates, sarah_dates, 
-                                        bin_size, date_format, ceiling)
-    st.markdown(stats_html, unsafe_allow_html=True)
-    
-    # Display density plot
-    st.markdown("<br>", unsafe_allow_html=True)
-    density_fig = create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling)
-    st.plotly_chart(density_fig, use_container_width=True, key="density_chart")
-
-with col2:
-    # Display streaks table
-    streaks_html = create_streaks_table_html(michael_scores, sarah_scores,
+    with col1:
+        stats_html = create_stats_table_html(michael_scores, sarah_scores,
                                              michael_dates, sarah_dates,
-                                             bin_size, date_format, ceiling,
-                                             change_threshold)
-    st.markdown(streaks_html, unsafe_allow_html=True)
+                                             bin_size, date_format, ceiling)
+        st.markdown(stats_html, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        density_fig = create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling)
+        st.plotly_chart(density_fig, use_container_width=True, key="density_chart")
+
+    with col2:
+        streaks_html = create_streaks_table_html(michael_scores, sarah_scores,
+                                                 michael_dates, sarah_dates,
+                                                 bin_size, date_format, ceiling,
+                                                 change_threshold)
+        st.markdown(streaks_html, unsafe_allow_html=True)
+
+else:
+    # --- Win Margins View ---
+    if score_type == "total":
+        margin_mask = mask_filtered[
+            mask_filtered["Michael Total Score"].notna() & mask_filtered["Sarah Total Score"].notna()
+        ].copy()
+        margin_mask["Score Diff"] = margin_mask["Michael Total Score"] - margin_mask["Sarah Total Score"]
+    elif score_type == "time":
+        margin_mask = mask_filtered[
+            mask_filtered["Michael Time Midpoint"].notna() & mask_filtered["Sarah Time Midpoint"].notna()
+        ].copy()
+        margin_mask["Score Diff"] = margin_mask["Michael Time Midpoint"] - margin_mask["Sarah Time Midpoint"]
+    else:
+        margin_mask = mask_filtered[
+            mask_filtered["Michael Geography Midpoint"].notna() & mask_filtered["Sarah Geography Midpoint"].notna()
+        ].copy()
+        margin_mask["Score Diff"] = margin_mask["Michael Geography Midpoint"] - margin_mask["Sarah Geography Midpoint"]
+
+    margin_mask["Rolling Diff"] = margin_mask["Score Diff"].rolling(window=window_length, min_periods=1).mean()
+    margin_mask["Cumulative Diff"] = margin_mask["Score Diff"].expanding().mean()
+    margin_mask = add_zero_crossing_interpolation(margin_mask, window_length)
+
+    fig = create_win_margins_figure(margin_mask, window_length)
+    st.plotly_chart(fig, use_container_width=True, key="win_margins_chart")
+
+    margin_original = margin_mask[margin_mask["Date"].dt.time == pd.Timestamp("00:00:00").time()].copy()
+    margin_original = margin_original.reset_index(drop=True)
+    st.markdown(create_momentum_timeline(margin_original, window_length), unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Win Summary")
+        st.markdown(create_win_summary_table(margin_original, win_categories), unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("### Streaks")
+        st.markdown(create_win_streaks_table(margin_original), unsafe_allow_html=True)
