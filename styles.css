@@ -42,16 +42,57 @@ html, body, p, h1, h2, h3, h4, h5, h6, label, input, textarea, select, button, d
     background-color: rgba(255,255,255,0.2) !important;
 }
 
-/* Top bar styling */
-header {
-    background-color: #b0afaa !important;
+/* Hide Streamlit's top toolbar/deploy bar */
+header[data-testid="stHeader"] {
+    display: none !important;
 }
-header * {
-    color: #ffffff !important;
+
+/* Hide sidebar collapse/expand arrow */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"] {
+    display: none !important;
 }
-header button:hover {
-    background-color: rgba(0, 0, 0, 0.1) !important;
-    border-radius: 5px;
+
+/* Force sidebar always open — override every way Streamlit may collapse it */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"][aria-expanded="false"],
+[data-testid="stSidebar"][aria-expanded="true"] {
+    display: flex !important;
+    transform: translateX(0) !important;
+    left: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    min-width: 280px !important;
+    width: 280px !important;
+    pointer-events: auto !important;
+}
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarNav"],
+[data-testid="stSidebarUserContent"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Universal top bar — L-shape with sidebar */
+section[data-testid="stMain"]::before {
+    content: '';
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 280px;
+    right: 0;
+    width: calc(100vw - 280px);
+    height: 2.875rem;
+    background: linear-gradient(to right, #db5049, #b52d26);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+    z-index: 9998;
+    box-sizing: border-box;
+}
+
+/* Push content below the top bar */
+[data-testid="stMainBlockContainer"] {
+    padding-top: 3.5rem !important;
 }
 
 /* App background */
