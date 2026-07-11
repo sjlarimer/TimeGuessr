@@ -39,7 +39,8 @@ load_css()
 CUSTOM_STYLES = """
     <style>
         /* Slider labels and tooltips */
-        div[data-testid="stSlider"] > label {
+        div[data-testid="stSlider"] > label,
+        div[data-testid="stSelectSlider"] > label {
             color: #696761 !important;
             font-weight: 600;
         }
@@ -64,6 +65,13 @@ CUSTOM_STYLES = """
         }
         .stats-table tbody tr.selected, .streaks-table tbody tr.selected {
             background-color: #c0c0b0;
+        }
+        /* Toggle label styling */
+        div[data-testid="stSidebar"] div[data-testid="stToggle"] label p,
+        div[data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
+            color: #696761 !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
         }
         /* View mode pill toggle buttons */
         div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
@@ -1588,13 +1596,55 @@ with st.sidebar:
             st.rerun()
     page_type = _pt_labels[_pt]
 
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
+    _ptr = st.session_state.get('cc_pre_tracking', False)
+    _psr = st.session_state.get('cc_pre_survey', False)
+    _tg1, _tg2 = st.columns(2)
+    with _tg1:
+        if st.button("Post-Track", key="cc_btn_pretracking", use_container_width=True,
+                     type="primary" if _ptr else "secondary"):
+            st.session_state['cc_pre_tracking'] = not _ptr
+            st.rerun()
+    with _tg2:
+        if st.button("Post-Survey", key="cc_btn_presurvey", use_container_width=True,
+                     type="primary" if _psr else "secondary"):
+            st.session_state['cc_pre_survey'] = not _psr
+            st.rerun()
+    remove_pre_tracking = _ptr
+    remove_pre_survey = _psr
+
+    _d_min = data["Date"].min().to_pydatetime()
+    if remove_pre_tracking:
+        _d_min = max(_d_min, pd.Timestamp('2025-10-20').to_pydatetime())
+    if remove_pre_survey:
+        _d_min = max(_d_min, pd.Timestamp('2026-05-18').to_pydatetime())
+    _d_max = data["Date"].max().to_pydatetime()
+    start_date, end_date = st.slider(
+        "Date Range",
+        min_value=_d_min, max_value=_d_max,
+        value=(_d_min, _d_max),
+        format="MMM DD, YYYY",
+        key=f"cc_date_range_{_ptr}_{_psr}",
+        label_visibility="collapsed"
+    )
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:8px 24px 8px 24px;">', unsafe_allow_html=True)
+
+    window_length = st.slider("Rolling Window", min_value=1, max_value=30, value=5, step=1)
+
+    bin_size = 5000
+    if view_mode == "Scores":
+        _bin_opts = {"Total": [1000, 2500, 5000, 10000], "Time": [500, 1250, 2500, 5000], "Geo": [500, 1250, 2500, 5000]}[_pt]
+        _bin_def = 5000 if _pt == "Total" else 2500
+        bin_size = st.select_slider("Bucket Size", options=_bin_opts, value=_bin_def)
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
     if view_mode == "Scores":
         include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
     else:
         include_single_player_days = False
-
-    remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
-    remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
 
 # Prepare data based on page type
 if page_type == "Total Scores":
@@ -1647,35 +1697,6 @@ if remove_pre_tracking:
 if remove_pre_survey:
     mask = mask[mask['Date'] >= pd.Timestamp('2026-05-18')].copy()
     df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-05-18')].copy()
-
-# Date range logic
-if not mask.empty:
-    min_date, max_date = mask["Date"].min(), mask["Date"].max()
-else:
-    min_date, max_date = data["Date"].min(), data["Date"].max()
-
-# Render remaining Sidebar Controls (Bottom)
-with st.sidebar:
-    window_length = st.slider(
-        "Rolling Average Window (Games):",
-        min_value=1, max_value=30, value=5, step=1
-    )
-
-    start_date, end_date = st.slider(
-        "Select Date Range:",
-        min_value=min_date.to_pydatetime(),
-        max_value=max_date.to_pydatetime(),
-        value=(min_date.to_pydatetime(), max_date.to_pydatetime()),
-        format="YYYY-MM-DD"
-    )
-
-    if view_mode == "Scores":
-        bin_size = st.select_slider(
-            "Select Score Bucket Size",
-            options=bin_options,
-            value=default_bin_size,
-            help="Adjust the size of score ranges in the statistics table"
-        )
 
 # Render main area Header
 view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")

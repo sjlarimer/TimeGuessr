@@ -39,7 +39,8 @@ load_css()
 CUSTOM_STYLES = """
     <style>
         /* Slider labels and tooltips */
-        div[data-testid="stSlider"] > label {
+        div[data-testid="stSlider"] > label,
+        div[data-testid="stSelectSlider"] > label {
             color: #696761 !important;
             font-weight: 600;
         }
@@ -66,6 +67,13 @@ CUSTOM_STYLES = """
         }
         div[role="radiogroup"] label {
             padding-right: 0.5rem !important;
+        }
+        /* Toggle label styling */
+        div[data-testid="stSidebar"] div[data-testid="stToggle"] label p,
+        div[data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
+            color: #696761 !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
         }
         /* View mode pill toggle buttons */
         div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
@@ -1230,20 +1238,51 @@ with st.sidebar:
             st.session_state['sc_player'] = 'Sarah'
             st.rerun()
     player = _pl_labels[_pl]
-    remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
-    remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
-    window_length = st.slider("Rolling Average Window", min_value=1, max_value=30, value=5, step=1)
 
-    # Bucket Size Slider (Only for Scores view)
-    bucket_size = 5000 # Default fallback
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
+    _ptr = st.session_state.get('sc_pre_tracking', False)
+    _psr = st.session_state.get('sc_pre_survey', False)
+    _tg1, _tg2 = st.columns(2)
+    with _tg1:
+        if st.button("Post-Track", key="sc_btn_pretracking", use_container_width=True,
+                     type="primary" if _ptr else "secondary"):
+            st.session_state['sc_pre_tracking'] = not _ptr
+            st.rerun()
+    with _tg2:
+        if st.button("Post-Survey", key="sc_btn_presurvey", use_container_width=True,
+                     type="primary" if _psr else "secondary"):
+            st.session_state['sc_pre_survey'] = not _psr
+            st.rerun()
+    remove_pre_tracking = _ptr
+    remove_pre_survey = _psr
+
+    _d_min = data["Date"].min().to_pydatetime()
+    if remove_pre_tracking:
+        _d_min = max(_d_min, pd.Timestamp('2025-10-20').to_pydatetime())
+    if remove_pre_survey:
+        _d_min = max(_d_min, pd.Timestamp('2026-05-18').to_pydatetime())
+    _d_max = data["Date"].max().to_pydatetime()
+    start_date, end_date = st.slider(
+        "Date Range",
+        min_value=_d_min, max_value=_d_max,
+        value=(_d_min, _d_max),
+        format="MMM DD, YYYY",
+        key=f"sc_date_range_{_ptr}_{_psr}",
+        label_visibility="collapsed"
+    )
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:8px 24px 8px 24px;">', unsafe_allow_html=True)
+
+    window_length = st.slider("Rolling Window", min_value=1, max_value=30, value=5, step=1)
+
+    bucket_size = 5000
     if view_mode == "Scores":
         if player == "Combined":
             bucket_options = [1000, 2500, 5000, 10000]
-            default_idx = 2 # 5000
+            default_idx = 2
         else:
             bucket_options = [500, 1250, 2500, 5000]
-            default_idx = 2 # 2500
-        
+            default_idx = 2
         bucket_size = st.select_slider("Bucket Size", options=bucket_options, value=bucket_options[default_idx])
 
     player_data = prepare_player_data(data, player, False)
@@ -1252,10 +1291,7 @@ with st.sidebar:
     if remove_pre_survey:
         player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-05-18')].copy()
 
-    if not player_data.empty:
-        min_date, max_date = player_data["Date"].min(), player_data["Date"].max()
-        start_date, end_date = st.slider("Select Date Range:", min_value=min_date.to_pydatetime(), max_value=max_date.to_pydatetime(), value=(min_date.to_pydatetime(), max_date.to_pydatetime()), format="YYYY-MM-DD")
-    else:
+    if player_data.empty:
         st.warning("No data available for selected options.")
         st.stop()
 
