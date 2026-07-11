@@ -100,6 +100,12 @@ CUSTOM_STYLES = """
             color: #3a3935 !important;
             border-color: #8f8d85 !important;
         }
+        /* Plotly chart rounded container */
+        div[data-testid="stPlotlyChart"] {
+            border-radius: 12px !important;
+            border: 1px solid #e8e6da !important;
+            overflow: hidden !important;
+        }
     </style>
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
@@ -308,6 +314,24 @@ def can_use_month_day_format(dates: pd.Series) -> bool:
         month_to_years.setdefault(period.month, set()).add(period.year)
     return all(len(years) == 1 for years in month_to_years.values())
 
+def compact_date_range_str(start_str: str, end_str: str) -> str:
+    """Format a date range compactly, dropping redundant year/month."""
+    if start_str == end_str:
+        return end_str
+    try:
+        s = pd.to_datetime(start_str, format='%b %d, %Y')
+        e = pd.to_datetime(end_str, format='%b %d, %Y')
+        if s.year == e.year:
+            if s.month == e.month:
+                return f"{s.strftime('%b %d')} to {e.day}, {e.year}"
+            else:
+                return f"{s.strftime('%b %d')} to {end_str}"
+        else:
+            return f"{start_str} to {end_str}"
+    except:
+        return f"{start_str} to {end_str}"
+
+
 def get_date_bold_style(date1: str, date2: str, date_format: str) -> Tuple[str, str]:
     """Return bold style for more recent date."""
     if date1 == '-' and date2 == '-':
@@ -316,25 +340,36 @@ def get_date_bold_style(date1: str, date2: str, date_format: str) -> Tuple[str, 
         return "", "font-weight: bold;"
     if date2 == '-':
         return "font-weight: bold;", ""
-    
+
+    def parse_end(date_str):
+        parts = date_str.split(' to ')
+        end = parts[-1].strip()
+        try:
+            return pd.to_datetime(end, format=date_format)
+        except:
+            if len(parts) > 1:
+                month_str = parts[0].strip().split(' ')[0]
+                try:
+                    return pd.to_datetime(f"{month_str} {end}", format=date_format)
+                except:
+                    pass
+        return None
+
     try:
-        # Extract the end date from ranges (e.g., "Sep 15 to Sep 16" -> "Sep 16")
-        date1_end = date1.split(' to ')[-1].strip()
-        date2_end = date2.split(' to ')[-1].strip()
-        
-        d1 = pd.to_datetime(date1_end, format=date_format)
-        d2 = pd.to_datetime(date2_end, format=date_format)
-        if d1 > d2:
-            return "font-weight: bold;", ""
-        elif d2 > d1:
-            return "", "font-weight: bold;"
+        d1 = parse_end(date1)
+        d2 = parse_end(date2)
+        if d1 is not None and d2 is not None:
+            if d1 > d2:
+                return "font-weight: bold;", ""
+            elif d2 > d1:
+                return "", "font-weight: bold;"
     except:
         pass
     return "", ""
 
 def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series, 
                                 threshold: float, above: bool = True, 
-                                date_format: str = "%b %d") -> Tuple[int, str, str]:
+                                date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
     """Calculate longest streak above/below threshold with date range."""
     max_streak = 0
     current_streak = 0
@@ -366,7 +401,7 @@ def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series,
 
 def calculate_cumulative_avg_streak(scores: pd.Series, dates: pd.Series, 
                                    above: bool = True, 
-                                   date_format: str = "%b %d") -> Tuple[int, str, str]:
+                                   date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
     """Calculate longest streak relative to cumulative average."""
     if len(scores) == 0:
         return 0, "", ""
@@ -403,7 +438,7 @@ def calculate_cumulative_avg_streak(scores: pd.Series, dates: pd.Series,
 
 def calculate_score_change_streak(scores: np.ndarray, dates: pd.Series, 
                                   threshold: float, mode: str = "change", 
-                                  date_format: str = "%b %d") -> Tuple[int, str, str]:
+                                  date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
     """Calculate streak based on daily score changes."""
     if len(scores) < 2:
         return 0, "", ""
@@ -595,7 +630,7 @@ def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> st
     """Format streak dates for display."""
     if streak_count == 0:
         return '-'
-    return start_date if start_date == end_date else f"{start_date}<br/>to {end_date}"
+    return start_date if start_date == end_date else compact_date_range_str(start_date, end_date)
 
 def generate_streak_thresholds(michael_scores: pd.Series, sarah_scores: pd.Series, bin_size: int, ceiling: int) -> List[int]:
     """Generate streak thresholds based on bin size."""
@@ -784,7 +819,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     score_tracking_date = pd.Timestamp('2025-10-20')
     
     # Only show if tracking date is within the visible range (and dataset is not empty)
-    if not mask_filtered.empty and mask_filtered['Date'].min() <= score_tracking_date <= mask_filtered['Date'].max():
+    if not mask_filtered.empty and mask_filtered['Date'].min() < score_tracking_date <= mask_filtered['Date'].max():
         # Find the first date >= tracking date
         dates_ge = mask_filtered[mask_filtered['Date'] >= score_tracking_date]
         if not dates_ge.empty:
@@ -816,7 +851,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
 
     # TimeGuessr Survey vertical line (May 18, 2026)
     survey_date = pd.Timestamp('2026-05-18')
-    if not mask_filtered.empty and mask_filtered['Date'].min() <= survey_date <= mask_filtered['Date'].max():
+    if not mask_filtered.empty and mask_filtered['Date'].min() < survey_date <= mask_filtered['Date'].max():
         dates_ge = mask_filtered[mask_filtered['Date'] >= survey_date]
         if not dates_ge.empty:
             target_idx = dates_ge.index[0]
@@ -875,7 +910,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         mode='markers', name=f'Michael {score_type.title()} Score',
         marker=dict(color=COLORS['michael_light'], size=8),
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Score: %{y}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Score: %{y}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -883,7 +918,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         mode='markers', name=f'Sarah {score_type.title()} Score',
         marker=dict(color=COLORS['sarah_light'], size=8),
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Score: %{y}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Score: %{y}<extra></extra>'
     ))
 
     # Rolling average lines
@@ -892,7 +927,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         mode='lines', name=f'Michael {window_length}-game Avg',
         line=dict(color=COLORS['michael'], width=2.5),
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.0f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -900,7 +935,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         mode='lines', name=f'Sarah {window_length}-game Avg',
         line=dict(color=COLORS['sarah'], width=2.5),
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.0f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
 
     # Cumulative average lines
@@ -910,7 +945,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         line=dict(color=COLORS['michael'], width=1.5, dash='dot'),
         opacity=0.7,
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
     fig.add_trace(go.Scatter(
         x=x_values, y=mask_filtered["Sarah Cumulative Avg"],
@@ -918,7 +953,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         line=dict(color=COLORS['sarah'], width=1.5, dash='dot'),
         opacity=0.7,
         customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
     # Best / worst reference lines
     m_vals = mask_filtered[michael_col].dropna()
@@ -1017,7 +1052,7 @@ def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str
     for _, row in recent_data.iterrows():
         m_score = np.nan_to_num(row[m_col])
         s_score = np.nan_to_num(row[s_col])
-        date_str = row['Date'].strftime('%b %d')
+        date_str = row['Date'].strftime('%b %d, %Y')
 
         m_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (m_score - combined_min) / score_range) if m_score > 0 else 0
         s_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (s_score - combined_min) / score_range) if s_score > 0 else 0
@@ -1261,7 +1296,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         x=mask_filtered["x_index"], y=mask_filtered["Score Diff"], mode="markers",
         marker=dict(color="gray", opacity=np.where(is_midnight, 0.4, 0), size=7),
         name="Game Result (Michael − Sarah)", customdata=mask_filtered["Date"],
-        hovertemplate="Date: %{customdata|%Y-%m-%d}<br>Score Diff: %{y}<extra></extra>"
+        hovertemplate="Date: %{customdata|%b %d, %Y}<br>Score Diff: %{y}<extra></extra>"
     ))
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"], y=np.where(mask_filtered["Score Diff"] > 0, mask_filtered["Score Diff"], 0),
@@ -1274,19 +1309,19 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"], y=mask_filtered["Cumulative Diff"], mode="lines",
         name="Cumulative Avg", line=dict(color="black", width=1.5, dash="dot"), opacity=0.7,
-        customdata=mask_filtered["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
+        customdata=mask_filtered["Date"], hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.1f}<extra></extra>'
     ))
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Pos"], mode="lines",
         name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['michael'], width=2.5),
         opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.1f}<extra></extra>'
     ))
     fig.add_trace(go.Scatter(
         x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Neg"], mode="lines",
         name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['sarah'], width=2.5),
         opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
-        hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'
+        hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.1f}<extra></extra>'
     ))
 
     y_max = np.ceil(max(
@@ -1313,7 +1348,7 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
         (pd.Timestamp('2025-10-20'), "Tracking Start"),
         (pd.Timestamp('2026-05-18'), "TimeGuessr Survey"),
     ]:
-        if not midnight_df.empty and midnight_df['Date'].min() <= vline_date <= midnight_df['Date'].max():
+        if not midnight_df.empty and midnight_df['Date'].min() < vline_date <= midnight_df['Date'].max():
             ge = midnight_df[midnight_df['Date'] >= vline_date]
             if not ge.empty:
                 pos = mask_filtered.loc[ge.index[0], 'x_index']
@@ -1363,7 +1398,7 @@ def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
 
     for _, row in recent_data.iterrows():
         diff = row['Score Diff']
-        date_str = row['Date'].strftime('%b %d')
+        date_str = row['Date'].strftime('%b %d, %Y')
         height_pct = MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * min(1.0, abs(diff) / max_abs)
         if diff > 0:
             color, label = COLORS['michael'], f"Michael (+{diff:,.0f})"
@@ -1408,7 +1443,7 @@ def get_win_stats_margin(df: pd.DataFrame, lower: float, upper: float, is_michae
         cond = (df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper)
     subset = df[cond]
     count = len(subset)
-    recent = subset["Date"].max().strftime("%Y-%m-%d") if not subset.empty else "-"
+    recent = subset["Date"].max().strftime('%b %d, %Y') if not subset.empty else "-"
     return count, recent
 
 
@@ -1449,8 +1484,8 @@ def create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) 
 
     m_win_count = len(michael_wins)
     s_win_count = len(sarah_wins)
-    m_recent = michael_wins["Date"].max().strftime("%Y-%m-%d") if not michael_wins.empty else "-"
-    s_recent = sarah_wins["Date"].max().strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+    m_recent = michael_wins["Date"].max().strftime('%b %d, %Y') if not michael_wins.empty else "-"
+    s_recent = sarah_wins["Date"].max().strftime('%b %d, %Y') if not sarah_wins.empty else "-"
 
     rows = (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
             f'<td style="padding: 8px; color: #696761;">Wins</td>'
@@ -1470,13 +1505,13 @@ def create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) 
                  f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_date}</td></tr>')
 
     m_large = int(michael_wins["Score Diff"].max()) if not michael_wins.empty else "-"
-    m_large_date = michael_wins.loc[michael_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+    m_large_date = michael_wins.loc[michael_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not michael_wins.empty else "-"
     s_large = int(abs(sarah_wins["Score Diff"].min())) if not sarah_wins.empty else "-"
-    s_large_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+    s_large_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not sarah_wins.empty else "-"
     m_small = int(michael_wins["Score Diff"].min()) if not michael_wins.empty else "-"
-    m_small_date = michael_wins.loc[michael_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not michael_wins.empty else "-"
+    m_small_date = michael_wins.loc[michael_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not michael_wins.empty else "-"
     s_small = int(abs(sarah_wins["Score Diff"].max())) if not sarah_wins.empty else "-"
-    s_small_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not sarah_wins.empty else "-"
+    s_small_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not sarah_wins.empty else "-"
 
     for row_label, m_val, m_date, s_val, s_date in [
         ("Largest Win", m_large, m_large_date, s_large, s_large_date),
@@ -1509,23 +1544,23 @@ def create_win_streaks_table(mask_filtered: pd.DataFrame) -> str:
     s_longest = max(sarah_streaks, key=lambda x: x['length']) if sarah_streaks else None
 
     m_longest_len = m_longest['length'] if m_longest else "-"
-    m_longest_date = f"{m_longest['start_date'].strftime('%Y-%m-%d')} to {m_longest['end_date'].strftime('%Y-%m-%d')}" if m_longest else "-"
+    m_longest_date = compact_date_range_str(m_longest['start_date'].strftime('%b %d, %Y'), m_longest['end_date'].strftime('%b %d, %Y')) if m_longest else "-"
     s_longest_len = s_longest['length'] if s_longest else "-"
-    s_longest_date = f"{s_longest['start_date'].strftime('%Y-%m-%d')} to {s_longest['end_date'].strftime('%Y-%m-%d')}" if s_longest else "-"
+    s_longest_date = compact_date_range_str(s_longest['start_date'].strftime('%b %d, %Y'), s_longest['end_date'].strftime('%b %d, %Y')) if s_longest else "-"
 
     current = streaks[-1] if streaks else None
     m_current = current['length'] if current and current['winner'] == 'Michael' else 0
-    m_current_date = current['start_date'].strftime('%Y-%m-%d') if current and current['winner'] == 'Michael' else "-"
+    m_current_date = current['start_date'].strftime('%b %d, %Y') if current and current['winner'] == 'Michael' else "-"
     s_current = current['length'] if current and current['winner'] == 'Sarah' else 0
-    s_current_date = current['start_date'].strftime('%Y-%m-%d') if current and current['winner'] == 'Sarah' else "-"
+    s_current_date = current['start_date'].strftime('%b %d, %Y') if current and current['winner'] == 'Sarah' else "-"
 
     streak_rows = ""
     max_streak = max([s['length'] for s in streaks]) if streaks else 0
     for streak_len in range(max_streak, 0, -1):
         m_subs = [s for s in michael_streaks if s['length'] >= streak_len]
         s_subs = [s for s in sarah_streaks if s['length'] >= streak_len]
-        m_recent = max([s['end_date'] for s in m_subs]).strftime('%Y-%m-%d') if m_subs else "-"
-        s_recent = max([s['end_date'] for s in s_subs]).strftime('%Y-%m-%d') if s_subs else "-"
+        m_recent = max([s['end_date'] for s in m_subs]).strftime('%b %d, %Y') if m_subs else "-"
+        s_recent = max([s['end_date'] for s in s_subs]).strftime('%b %d, %Y') if s_subs else "-"
         streak_rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
                         f'<td style="padding: 8px; color: #696761;">Streaks ≥ {streak_len}</td>'
                         f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{len(m_subs)}</td>'
@@ -1556,7 +1591,7 @@ def create_win_streaks_table(mask_filtered: pd.DataFrame) -> str:
 
 # --- Self Comparison Helper Functions ---
 
-def self_prepare_player_data(data: pd.DataFrame, player: str, remove_estimated: bool = False) -> pd.DataFrame:
+def self_prepare_player_data(data: pd.DataFrame, player: str, remove_estimated: bool = False, include_single: bool = False) -> pd.DataFrame:
     data = data.copy()
     if player == "Combined":
         for metric in ["Time", "Geography"]:
@@ -1576,7 +1611,15 @@ def self_prepare_player_data(data: pd.DataFrame, player: str, remove_estimated: 
     data[f"{player} Geography Midpoint"] = (data[f"{player} Geography Score (Min)"] + data[f"{player} Geography Score (Max)"]) / 2
     daily_cols = [f"{player} Time Midpoint", f"{player} Geography Midpoint"]
     df_daily = data.groupby("Date")[daily_cols].sum(min_count=1).reset_index().sort_values("Date").reset_index(drop=True)
-    return df_daily[df_daily[f"{player} Time Midpoint"].notna() & df_daily[f"{player} Geography Midpoint"].notna()].copy()
+    t_col, g_col = f"{player} Time Midpoint", f"{player} Geography Midpoint"
+    if include_single:
+        return df_daily[df_daily[t_col].notna() | df_daily[g_col].notna()].copy()
+    # Exclude days where only one of Michael/Sarah played
+    if player != "Combined":
+        daily_totals = data.groupby("Date")[["Michael Total Score", "Sarah Total Score"]].first().reset_index()
+        both_played = daily_totals[daily_totals["Michael Total Score"].notna() & daily_totals["Sarah Total Score"].notna()]["Date"]
+        df_daily = df_daily[df_daily["Date"].isin(both_played)]
+    return df_daily[df_daily[t_col].notna() & df_daily[g_col].notna()].copy()
 
 
 def self_calculate_rolling_averages(df: pd.DataFrame, window_length: int, player: str) -> pd.DataFrame:
@@ -1620,7 +1663,7 @@ def self_create_table_row(label: str, time_val: str, geo_val: str,
 def self_get_win_stats(df: pd.DataFrame, lower: float, upper: float, is_time: bool = True) -> Tuple[int, str]:
     cond = ((df["Score Diff"] > lower) & (df["Score Diff"] <= upper)) if is_time else ((df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper))
     subset = df[cond]
-    return len(subset), subset["Date"].max().strftime("%Y-%m-%d") if not subset.empty else "-"
+    return len(subset), subset["Date"].max().strftime('%b %d, %Y') if not subset.empty else "-"
 
 
 def self_create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) -> str:
@@ -1629,26 +1672,26 @@ def self_create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: D
     ties = mask_filtered[mask_filtered["Score Diff"] == 0]
     rows = []
     rows.append(self_create_table_row("Total Wins", str(len(time_wins)), str(len(geo_wins)),
-                                      time_wins["Date"].max().strftime("%Y-%m-%d") if not time_wins.empty else "-",
-                                      geo_wins["Date"].max().strftime("%Y-%m-%d") if not geo_wins.empty else "-", "%Y-%m-%d"))
+                                      time_wins["Date"].max().strftime('%b %d, %Y') if not time_wins.empty else "-",
+                                      geo_wins["Date"].max().strftime('%b %d, %Y') if not geo_wins.empty else "-", "%b %d, %Y"))
     tie_count = len(ties)
-    tie_recent = ties["Date"].max().strftime("%Y-%m-%d") if not ties.empty else "-"
+    tie_recent = ties["Date"].max().strftime('%b %d, %Y') if not ties.empty else "-"
     rows.append(f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Ties</td>'
                 f'<td colspan="4" style="padding: 8px; text-align: center; color: #696761;">{tie_count} (Last: {tie_recent})</td></tr>')
     for label, (lower, upper) in win_categories.items():
         t_c, t_d = self_get_win_stats(time_wins, lower, upper, True)
         g_c, g_d = self_get_win_stats(geo_wins, lower, upper, False)
-        rows.append(self_create_table_row(label, str(t_c), str(g_c), t_d, g_d, "%Y-%m-%d"))
+        rows.append(self_create_table_row(label, str(t_c), str(g_c), t_d, g_d, "%b %d, %Y"))
     t_large = int(time_wins["Score Diff"].max()) if not time_wins.empty else "-"
-    t_large_d = time_wins.loc[time_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not time_wins.empty else "-"
+    t_large_d = time_wins.loc[time_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not time_wins.empty else "-"
     g_large = int(abs(geo_wins["Score Diff"].min())) if not geo_wins.empty else "-"
-    g_large_d = geo_wins.loc[geo_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not geo_wins.empty else "-"
-    rows.append(self_create_table_row("Largest Win", str(t_large), str(g_large), t_large_d, g_large_d, "%Y-%m-%d"))
+    g_large_d = geo_wins.loc[geo_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not geo_wins.empty else "-"
+    rows.append(self_create_table_row("Largest Win", str(t_large), str(g_large), t_large_d, g_large_d, "%b %d, %Y"))
     t_small = int(time_wins["Score Diff"].min()) if not time_wins.empty else "-"
-    t_small_d = time_wins.loc[time_wins["Score Diff"].idxmin(), "Date"].strftime("%Y-%m-%d") if not time_wins.empty else "-"
+    t_small_d = time_wins.loc[time_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not time_wins.empty else "-"
     g_small = int(abs(geo_wins["Score Diff"].max())) if not geo_wins.empty else "-"
-    g_small_d = geo_wins.loc[geo_wins["Score Diff"].idxmax(), "Date"].strftime("%Y-%m-%d") if not geo_wins.empty else "-"
-    rows.append(self_create_table_row("Smallest Win", str(t_small), str(g_small), t_small_d, g_small_d, "%Y-%m-%d", highlight_max=False))
+    g_small_d = geo_wins.loc[geo_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not geo_wins.empty else "-"
+    rows.append(self_create_table_row("Smallest Win", str(t_small), str(g_small), t_small_d, g_small_d, "%b %d, %Y", highlight_max=False))
     return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
             f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
             f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Category</th>'
@@ -1660,7 +1703,8 @@ def self_create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: D
 
 
 def self_generate_buckets(time_scores: pd.Series, geo_scores: pd.Series,
-                          dates: pd.Series, bin_size: int, date_format: str, ceiling: int) -> List[Dict]:
+                          time_dates: pd.Series, geo_dates: pd.Series,
+                          bin_size: int, date_format: str, ceiling: int) -> List[Dict]:
     buckets = []
     current_upper = ceiling
     while current_upper > 0:
@@ -1676,9 +1720,9 @@ def self_generate_buckets(time_scores: pd.Series, geo_scores: pd.Series,
             buckets.append({
                 'label': format_bucket_label(current_lower, current_upper, bin_size, current_upper == ceiling),
                 'time_count': t_count,
-                'time_date': dates[t_mask].max().strftime(date_format) if t_count > 0 else '-',
+                'time_date': time_dates[t_mask].max().strftime(date_format) if t_count > 0 else '-',
                 'geo_count': g_count,
-                'geo_date': dates[g_mask].max().strftime(date_format) if g_count > 0 else '-',
+                'geo_date': geo_dates[g_mask].max().strftime(date_format) if g_count > 0 else '-',
             })
         current_upper = current_lower
         if current_lower == 0:
@@ -1691,24 +1735,42 @@ def self_generate_streak_thresholds(bin_size: int, ceiling: int) -> List[int]:
 
 
 def self_create_scores_stats_table(time_scores: pd.Series, geo_scores: pd.Series,
-                                    dates: pd.Series, bin_size: int, ceiling: int,
-                                    date_format: str = "%Y-%m-%d") -> str:
-    if len(time_scores) == 0:
+                                    time_dates: pd.Series, geo_dates: pd.Series,
+                                    bin_size: int, ceiling: int,
+                                    date_format: str = "%b %d, %Y") -> str:
+    if len(time_scores) == 0 and len(geo_scores) == 0:
         return "<p>No data available.</p>"
     rows = []
-    rows.append(self_create_table_row("Mean", f"{time_scores.mean():.0f}", f"{geo_scores.mean():.0f}", "-", "-", date_format))
-    rows.append(self_create_table_row("Std Dev", f"{time_scores.std():.0f}", f"{geo_scores.std():.0f}", "-", "-", date_format))
-    t_med, g_med = time_scores.median(), geo_scores.median()
-    rows.append(self_create_table_row("Median", f"{t_med:.0f}", f"{g_med:.0f}",
-                                      dates.iloc[(time_scores - t_med).abs().argmin()].strftime(date_format),
-                                      dates.iloc[(geo_scores - g_med).abs().argmin()].strftime(date_format), date_format))
-    rows.append(self_create_table_row("Max", f"{time_scores.max():.0f}", f"{geo_scores.max():.0f}",
-                                      dates.iloc[time_scores.argmax()].strftime(date_format),
-                                      dates.iloc[geo_scores.argmax()].strftime(date_format), date_format))
-    rows.append(self_create_table_row("Min", f"{time_scores.min():.0f}", f"{geo_scores.min():.0f}",
-                                      dates.iloc[time_scores.argmin()].strftime(date_format),
-                                      dates.iloc[geo_scores.argmin()].strftime(date_format), date_format))
-    buckets = self_generate_buckets(time_scores, geo_scores, dates, bin_size, date_format, ceiling)
+    t_mean = f"{time_scores.mean():.0f}" if len(time_scores) > 0 else "-"
+    g_mean = f"{geo_scores.mean():.0f}" if len(geo_scores) > 0 else "-"
+    rows.append(self_create_table_row("Mean", t_mean, g_mean, "-", "-", date_format))
+    t_std = f"{time_scores.std():.0f}" if len(time_scores) > 1 else "-"
+    g_std = f"{geo_scores.std():.0f}" if len(geo_scores) > 1 else "-"
+    rows.append(self_create_table_row("Std Dev", t_std, g_std, "-", "-", date_format))
+    if len(time_scores) > 0:
+        t_med = time_scores.median()
+        t_med_date = time_dates.iloc[(time_scores - t_med).abs().argmin()].strftime(date_format)
+        t_med_str = f"{t_med:.0f}"
+    else:
+        t_med_str, t_med_date = "-", "-"
+    if len(geo_scores) > 0:
+        g_med = geo_scores.median()
+        g_med_date = geo_dates.iloc[(geo_scores - g_med).abs().argmin()].strftime(date_format)
+        g_med_str = f"{g_med:.0f}"
+    else:
+        g_med_str, g_med_date = "-", "-"
+    rows.append(self_create_table_row("Median", t_med_str, g_med_str, t_med_date, g_med_date, date_format))
+    t_max_str = f"{time_scores.max():.0f}" if len(time_scores) > 0 else "-"
+    t_max_date = time_dates.iloc[time_scores.argmax()].strftime(date_format) if len(time_scores) > 0 else "-"
+    g_max_str = f"{geo_scores.max():.0f}" if len(geo_scores) > 0 else "-"
+    g_max_date = geo_dates.iloc[geo_scores.argmax()].strftime(date_format) if len(geo_scores) > 0 else "-"
+    rows.append(self_create_table_row("Max", t_max_str, g_max_str, t_max_date, g_max_date, date_format))
+    t_min_str = f"{time_scores.min():.0f}" if len(time_scores) > 0 else "-"
+    t_min_date = time_dates.iloc[time_scores.argmin()].strftime(date_format) if len(time_scores) > 0 else "-"
+    g_min_str = f"{geo_scores.min():.0f}" if len(geo_scores) > 0 else "-"
+    g_min_date = geo_dates.iloc[geo_scores.argmin()].strftime(date_format) if len(geo_scores) > 0 else "-"
+    rows.append(self_create_table_row("Min", t_min_str, g_min_str, t_min_date, g_min_date, date_format))
+    buckets = self_generate_buckets(time_scores, geo_scores, time_dates, geo_dates, bin_size, date_format, ceiling)
     for i, b in enumerate(buckets):
         rows.append(self_create_table_row(b['label'], str(b['time_count']), str(b['geo_count']),
                                           b['time_date'], b['geo_date'], date_format, border=i < len(buckets) - 1))
@@ -1723,15 +1785,23 @@ def self_create_scores_stats_table(time_scores: pd.Series, geo_scores: pd.Series
 
 
 def self_create_scores_streaks_table(time_scores: pd.Series, geo_scores: pd.Series,
-                                      dates: pd.Series, bin_size: int, ceiling: int,
-                                      date_format: str = "%Y-%m-%d", change_threshold: int = 5000) -> str:
+                                      time_dates: pd.Series, geo_dates: pd.Series,
+                                      bin_size: int, ceiling: int,
+                                      date_format: str = "%b %d, %Y", change_threshold: int = 5000) -> str:
     thresholds = self_generate_streak_thresholds(bin_size, ceiling)
     rows = []
     for threshold in thresholds:
-        if (time_scores >= threshold).all() and (geo_scores >= threshold).all():
+        if len(time_scores) > 0 and (time_scores >= threshold).all() and len(geo_scores) > 0 and (geo_scores >= threshold).all():
             continue
-        t_s, t_st, t_en = calculate_streak_with_dates(time_scores.values, dates, threshold, above=True, date_format=date_format)
-        g_s, g_st, g_en = calculate_streak_with_dates(geo_scores.values, dates, threshold, above=True, date_format=date_format)
+        t_s = t_st = t_en = g_s = g_st = g_en = 0, "", ""
+        if len(time_scores) > 0:
+            t_s, t_st, t_en = calculate_streak_with_dates(time_scores.values, time_dates, threshold, above=True, date_format=date_format)
+        else:
+            t_s, t_st, t_en = 0, "", ""
+        if len(geo_scores) > 0:
+            g_s, g_st, g_en = calculate_streak_with_dates(geo_scores.values, geo_dates, threshold, above=True, date_format=date_format)
+        else:
+            g_s, g_st, g_en = 0, "", ""
         if t_s == 0 and g_s == 0:
             continue
         label = f"Above {threshold//1000}k" if threshold % 1000 == 0 else f"Above {threshold/1000:.1f}k"
@@ -1739,34 +1809,44 @@ def self_create_scores_streaks_table(time_scores: pd.Series, geo_scores: pd.Seri
                                           format_streak_dates(t_s, t_st, t_en).replace('<br/>', ' '),
                                           format_streak_dates(g_s, g_st, g_en).replace('<br/>', ' '), date_format))
     for threshold in reversed(thresholds):
-        if (time_scores < threshold).all() and (geo_scores < threshold).all():
+        if len(time_scores) > 0 and (time_scores < threshold).all() and len(geo_scores) > 0 and (geo_scores < threshold).all():
             continue
-        t_s, t_st, t_en = calculate_streak_with_dates(time_scores.values, dates, threshold, above=False, date_format=date_format)
-        g_s, g_st, g_en = calculate_streak_with_dates(geo_scores.values, dates, threshold, above=False, date_format=date_format)
+        t_s, t_st, t_en = (calculate_streak_with_dates(time_scores.values, time_dates, threshold, above=False, date_format=date_format)
+                            if len(time_scores) > 0 else (0, "", ""))
+        g_s, g_st, g_en = (calculate_streak_with_dates(geo_scores.values, geo_dates, threshold, above=False, date_format=date_format)
+                            if len(geo_scores) > 0 else (0, "", ""))
         if t_s == 0 and g_s == 0:
             continue
         label = f"Below {threshold//1000}k" if threshold % 1000 == 0 else f"Below {threshold/1000:.1f}k"
         rows.append(self_create_table_row(label, str(t_s), str(g_s),
                                           format_streak_dates(t_s, t_st, t_en).replace('<br/>', ' '),
                                           format_streak_dates(g_s, g_st, g_en).replace('<br/>', ' '), date_format))
-    t_a, t_as, t_ae = calculate_cumulative_avg_streak(time_scores, dates, above=True, date_format=date_format)
-    g_a, g_as, g_ae = calculate_cumulative_avg_streak(geo_scores, dates, above=True, date_format=date_format)
+    t_a, t_as, t_ae = (calculate_cumulative_avg_streak(time_scores, time_dates, above=True, date_format=date_format)
+                        if len(time_scores) > 0 else (0, "", ""))
+    g_a, g_as, g_ae = (calculate_cumulative_avg_streak(geo_scores, geo_dates, above=True, date_format=date_format)
+                        if len(geo_scores) > 0 else (0, "", ""))
     rows.append(self_create_table_row("Above Cumulative Avg", str(t_a), str(g_a),
                                       format_streak_dates(t_a, t_as, t_ae).replace('<br/>', ' '),
                                       format_streak_dates(g_a, g_as, g_ae).replace('<br/>', ' '), date_format))
-    t_b, t_bs, t_be = calculate_cumulative_avg_streak(time_scores, dates, above=False, date_format=date_format)
-    g_b, g_bs, g_be = calculate_cumulative_avg_streak(geo_scores, dates, above=False, date_format=date_format)
+    t_b, t_bs, t_be = (calculate_cumulative_avg_streak(time_scores, time_dates, above=False, date_format=date_format)
+                        if len(time_scores) > 0 else (0, "", ""))
+    g_b, g_bs, g_be = (calculate_cumulative_avg_streak(geo_scores, geo_dates, above=False, date_format=date_format)
+                        if len(geo_scores) > 0 else (0, "", ""))
     rows.append(self_create_table_row("Below Cumulative Avg", str(t_b), str(g_b),
                                       format_streak_dates(t_b, t_bs, t_be).replace('<br/>', ' '),
                                       format_streak_dates(g_b, g_bs, g_be).replace('<br/>', ' '), date_format))
     val_str = f"{change_threshold//1000}k" if change_threshold % 1000 == 0 else f"{change_threshold/1000:.1f}k"
-    t_v, t_vs, t_ve = calculate_score_change_streak(time_scores.values, dates, change_threshold, mode="change", date_format=date_format)
-    g_v, g_vs, g_ve = calculate_score_change_streak(geo_scores.values, dates, change_threshold, mode="change", date_format=date_format)
+    t_v, t_vs, t_ve = (calculate_score_change_streak(time_scores.values, time_dates, change_threshold, mode="change", date_format=date_format)
+                        if len(time_scores) > 1 else (0, "", ""))
+    g_v, g_vs, g_ve = (calculate_score_change_streak(geo_scores.values, geo_dates, change_threshold, mode="change", date_format=date_format)
+                        if len(geo_scores) > 1 else (0, "", ""))
     rows.append(self_create_table_row(f"Volatile (>{val_str} change)", str(t_v), str(g_v),
                                       format_streak_dates(t_v, t_vs, t_ve).replace('<br/>', ' '),
                                       format_streak_dates(g_v, g_vs, g_ve).replace('<br/>', ' '), date_format))
-    t_st2, t_ss, t_se = calculate_score_change_streak(time_scores.values, dates, change_threshold, mode="stable", date_format=date_format)
-    g_st2, g_ss, g_se = calculate_score_change_streak(geo_scores.values, dates, change_threshold, mode="stable", date_format=date_format)
+    t_st2, t_ss, t_se = (calculate_score_change_streak(time_scores.values, time_dates, change_threshold, mode="stable", date_format=date_format)
+                          if len(time_scores) > 1 else (0, "", ""))
+    g_st2, g_ss, g_se = (calculate_score_change_streak(geo_scores.values, geo_dates, change_threshold, mode="stable", date_format=date_format)
+                          if len(geo_scores) > 1 else (0, "", ""))
     rows.append(self_create_table_row(f"Stable (<{val_str} change)", str(t_st2), str(g_st2),
                                       format_streak_dates(t_st2, t_ss, t_se).replace('<br/>', ' '),
                                       format_streak_dates(g_st2, g_ss, g_se).replace('<br/>', ' '), date_format))
@@ -1841,7 +1921,8 @@ def self_create_density_plot(time_scores: pd.Series, geo_scores: pd.Series, ceil
     return fig
 
 
-def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str) -> go.Figure:
+def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str,
+                              solo_dates: set = None) -> go.Figure:
     fig = go.Figure()
     time_col, geo_col = f"{player} Time Midpoint", f"{player} Geography Midpoint"
     x_values = list(range(len(df)))
@@ -1852,7 +1933,7 @@ def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str)
     ticktext = [df.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
 
     for vline_date, vline_label in [(pd.Timestamp('2025-10-20'), "Tracking Start"), (pd.Timestamp('2026-05-18'), "TimeGuessr Survey")]:
-        if not df.empty and df['Date'].min() <= vline_date <= df['Date'].max():
+        if not df.empty and df['Date'].min() < vline_date <= df['Date'].max():
             dates_ge = df[df['Date'] >= vline_date]
             if not dates_ge.empty:
                 pos = df.index.get_loc(dates_ge.index[0])
@@ -1864,24 +1945,31 @@ def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str)
                 combined = sorted(zip(tickvals, ticktext))
                 tickvals, ticktext = [list(x) for x in zip(*combined)]
 
+    if solo_dates:
+        solo_tint = "#c5c9d4" if player == "Michael" else "#d4c5cf"
+        for i in range(len(df)):
+            if df.iloc[i]['Date'] in solo_dates:
+                fig.add_shape(type="rect", x0=i - 0.5, x1=i + 0.5, y0=0, y1=1, yref="paper",
+                              fillcolor=solo_tint, opacity=0.4, layer="below", line_width=0)
+
     fig.add_trace(go.Scatter(x=x_values, y=df[time_col], mode='markers', name='Time Score',
                              marker=dict(color=COLORS['time_light'], size=8), customdata=df["Date"],
-                             hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Time Score: %{y}<extra></extra>'))
+                             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Time Score: %{y}<extra></extra>'))
     fig.add_trace(go.Scatter(x=x_values, y=df[geo_col], mode='markers', name='Geography Score',
                              marker=dict(color=COLORS['geography_light'], size=8), customdata=df["Date"],
-                             hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Geography Score: %{y}<extra></extra>'))
+                             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Geography Score: %{y}<extra></extra>'))
     fig.add_trace(go.Scatter(x=x_values, y=df[f"{player} Time Rolling Avg"], mode='lines',
                              name=f'Time {window_length}-game Avg', line=dict(color=COLORS['time'], width=2.5),
-                             customdata=df["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Time Rolling Avg: %{y:.0f}<extra></extra>'))
+                             customdata=df["Date"], hovertemplate='Date: %{customdata|%b %d, %Y}<br>Time Rolling Avg: %{y:.0f}<extra></extra>'))
     fig.add_trace(go.Scatter(x=x_values, y=df[f"{player} Geography Rolling Avg"], mode='lines',
                              name=f'Geography {window_length}-game Avg', line=dict(color=COLORS['geography'], width=2.5),
-                             customdata=df["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Geography Rolling Avg: %{y:.0f}<extra></extra>'))
+                             customdata=df["Date"], hovertemplate='Date: %{customdata|%b %d, %Y}<br>Geography Rolling Avg: %{y:.0f}<extra></extra>'))
     fig.add_trace(go.Scatter(x=x_values, y=df[f"{player} Time Cumulative Avg"], mode='lines',
                              name='Time Cumulative Avg', line=dict(color=COLORS['time'], width=1.5, dash='dot'), opacity=0.7,
-                             customdata=df["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Time Cumulative Avg: %{y:.0f}<extra></extra>'))
+                             customdata=df["Date"], hovertemplate='Date: %{customdata|%b %d, %Y}<br>Time Cumulative Avg: %{y:.0f}<extra></extra>'))
     fig.add_trace(go.Scatter(x=x_values, y=df[f"{player} Geography Cumulative Avg"], mode='lines',
                              name='Geography Cumulative Avg', line=dict(color=COLORS['geography'], width=1.5, dash='dot'), opacity=0.7,
-                             customdata=df["Date"], hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Geography Cumulative Avg: %{y:.0f}<extra></extra>'))
+                             customdata=df["Date"], hovertemplate='Date: %{customdata|%b %d, %Y}<br>Geography Cumulative Avg: %{y:.0f}<extra></extra>'))
     for vals, color in [(df[time_col].dropna(), COLORS['time']), (df[geo_col].dropna(), COLORS['geography'])]:
         if not vals.empty:
             fig.add_hline(y=vals.max(), line=dict(color=color, width=1, dash='dash'), opacity=0.45)
@@ -1899,14 +1987,15 @@ def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str)
     return fig
 
 
-def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int, player: str) -> go.Figure:
+def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int, player: str,
+                                   solo_dates: set = None) -> go.Figure:
     fig = go.Figure()
     mask_filtered = mask_filtered.copy()
     mask_filtered["x_index"] = np.arange(len(mask_filtered))
     fig.add_trace(go.Scatter(x=mask_filtered["x_index"], y=mask_filtered["Score Diff"], mode="markers",
                              marker=dict(color="gray", opacity=0.4, size=7), name="Game Result (Time − Geography)",
                              customdata=mask_filtered["Date"],
-                             hovertemplate="Date: %{customdata|%Y-%m-%d}<br>Score Diff: %{y}<extra></extra>"))
+                             hovertemplate="Date: %{customdata|%b %d, %Y}<br>Score Diff: %{y}<extra></extra>"))
     fig.add_trace(go.Scatter(x=mask_filtered["x_index"],
                              y=np.where(mask_filtered["Score Diff"] > 0, mask_filtered["Score Diff"], 0),
                              fill='tozeroy', mode='none', fillcolor='rgba(152, 223, 138, 0.6)', name='Time Wins'))
@@ -1916,15 +2005,15 @@ def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: i
     fig.add_trace(go.Scatter(x=mask_filtered["x_index"], y=mask_filtered["Cumulative Diff"], mode="lines",
                              name="Cumulative Avg", line=dict(color="black", width=1.5, dash="dot"), opacity=0.7,
                              customdata=mask_filtered["Date"],
-                             hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Cumulative Avg: %{y:.1f}<extra></extra>'))
+                             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.1f}<extra></extra>'))
     fig.add_trace(go.Scatter(x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Pos"], mode="lines",
                              name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['time'], width=2.5),
                              opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
-                             hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'))
+                             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.1f}<extra></extra>'))
     fig.add_trace(go.Scatter(x=mask_filtered["x_index"], y=mask_filtered["Rolling Diff Neg"], mode="lines",
                              name=f"{window_length}-Game Rolling Avg", line=dict(color=COLORS['geography'], width=2.5),
                              opacity=0.8, showlegend=False, customdata=mask_filtered["Date"],
-                             hovertemplate='Date: %{customdata|%Y-%m-%d}<br>Rolling Avg: %{y:.1f}<extra></extra>'))
+                             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.1f}<extra></extra>'))
     y_max = np.ceil(max(abs(mask_filtered["Score Diff"].max()), abs(mask_filtered["Score Diff"].min()),
                         abs(mask_filtered["Rolling Diff"].max()), abs(mask_filtered["Rolling Diff"].min()),
                         abs(mask_filtered["Cumulative Diff"].max()), abs(mask_filtered["Cumulative Diff"].min())) / 5000) * 5000
@@ -1939,8 +2028,15 @@ def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: i
     first_of_month_indices = df_copy.groupby('month_year').head(1).index.tolist()
     tickvals = [mask_filtered.loc[idx, "x_index"] for idx in first_of_month_indices]
     ticktext = [mask_filtered.loc[idx, 'Date'].strftime('%b %Y') for idx in first_of_month_indices]
+    if solo_dates:
+        solo_tint = "#c5c9d4" if player == "Michael" else "#d4c5cf"
+        for _, row in mask_filtered.iterrows():
+            if row['Date'] in solo_dates:
+                x = row['x_index']
+                fig.add_shape(type="rect", x0=x - 0.5, x1=x + 0.5, y0=0, y1=1, yref="paper",
+                              fillcolor=solo_tint, opacity=0.4, layer="below", line_width=0)
     for vline_date, vline_label in [(pd.Timestamp('2025-10-20'), "Tracking Start"), (pd.Timestamp('2026-05-18'), "TimeGuessr Survey")]:
-        if not mask_filtered.empty and mask_filtered['Date'].min() <= vline_date <= mask_filtered['Date'].max():
+        if not mask_filtered.empty and mask_filtered['Date'].min() < vline_date <= mask_filtered['Date'].max():
             dates_ge = mask_filtered[mask_filtered['Date'] >= vline_date]
             if not dates_ge.empty:
                 pos = mask_filtered.loc[dates_ge.index[0], 'x_index']
@@ -1977,7 +2073,7 @@ def self_create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str
     segments = []
     for _, row in recent_data.iterrows():
         diff = row['Score Diff']
-        date_str = row['Date'].strftime('%b %d')
+        date_str = row['Date'].strftime('%b %d, %Y')
         height_pct = MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * min(1.0, abs(diff) / max_abs)
         if diff > 0:
             color, label = COLORS['time'], f"Time (+{diff:,.0f})"
@@ -2024,7 +2120,7 @@ def self_create_scores_momentum_html(data: pd.DataFrame, player: str, window_len
     segments = []
     for _, row in recent_data.iterrows():
         t_s = np.nan_to_num(row[time_col]); g_s = np.nan_to_num(row[geo_col])
-        date_str = row['Date'].strftime('%b %d')
+        date_str = row['Date'].strftime('%b %d, %Y')
         t_h = (MIN_H + (100 - MIN_H) * (t_s - c_min) / s_range) if t_s > 0 else 0
         g_h = (MIN_H + (100 - MIN_H) * (g_s - c_min) / s_range) if g_s > 0 else 0
         t_f = 1.0 if t_max == t_min else (t_s - t_min) / (t_max - t_min)
@@ -2055,7 +2151,7 @@ data = load_data(mtime=stats_mtime)
 
 # Render Sidebar Controls
 with st.sidebar:
-    st.header("Settings")
+    st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
 
     _ct = st.session_state.get('cc_comp_type', 'Cross')
     _ctc1, _ctc2 = st.columns(2)
@@ -2180,12 +2276,26 @@ with st.sidebar:
     st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
 
     if comp_type == 'Cross' and view_mode == "Scores":
-        include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")
+        _ispd = st.session_state.get('cc_include_single', False)
+        if st.button("Single-Player Days", key="cc_btn_single", use_container_width=True,
+                     type="primary" if _ispd else "secondary"):
+            st.session_state['cc_include_single'] = not _ispd
+            st.rerun()
+        include_single_player_days = _ispd
     else:
         include_single_player_days = False
 
+    include_self_single = False
+    if comp_type == 'Self' and player != 'Combined' and view_mode in ('Scores', 'Win Margins'):
+        _iss = st.session_state.get('cc_self_single', False)
+        if st.button("Single-Player Days", key="cc_btn_self_single", use_container_width=True,
+                     type="primary" if _iss else "secondary"):
+            st.session_state['cc_self_single'] = not _iss
+            st.rerun()
+        include_self_single = _iss
+
     if comp_type == 'Self':
-        player_data = self_prepare_player_data(data, player, False)
+        player_data = self_prepare_player_data(data, player, False, include_self_single)
         if remove_pre_tracking:
             player_data = player_data[player_data['Date'] >= pd.Timestamp('2025-10-20')].copy()
         if remove_pre_survey:
@@ -2276,8 +2386,7 @@ if comp_type == 'Cross':
             michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
             sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
 
-        use_md_format = can_use_month_day_format(michael_dates) and can_use_month_day_format(sarah_dates)
-        date_format = "%b %d" if use_md_format else "%Y-%m-%d"
+        date_format = "%b %d, %Y"
 
         col1, col2 = st.columns(2)
         with col1:
@@ -2349,34 +2458,52 @@ else:
             "Very Close Win (<0.5k)": (0, 500)
         }
 
+    solo_dates = set()
+    if include_self_single and player != "Combined":
+        daily_totals = data.groupby("Date")[["Michael Total Score", "Sarah Total Score"]].first()
+        other = "Sarah Total Score" if player == "Michael" else "Michael Total Score"
+        self_col = "Michael Total Score" if player == "Michael" else "Sarah Total Score"
+        solo_days = daily_totals[daily_totals[self_col].notna() & daily_totals[other].isna()].index
+        solo_dates = set(solo_days)
+
     if view_mode == "Scores":
         st.subheader("Time vs Geography Scores")
-        st.plotly_chart(self_create_plotly_figure(player_data_filtered, window_length, player),
+        st.plotly_chart(self_create_plotly_figure(player_data_filtered, window_length, player,
+                                                  solo_dates=solo_dates),
                         use_container_width=True, key="self_main_chart")
         st.markdown(self_create_scores_momentum_html(player_data_filtered, player, window_length, streak_ceiling),
                     unsafe_allow_html=True)
         st.divider()
+
+        # Extract per-metric aligned scores and dates (handles NaN from single-score days)
+        t_mask = player_data_filtered[time_col].notna()
+        g_mask = player_data_filtered[geo_col].notna()
+        time_scores_clean = player_data_filtered.loc[t_mask, time_col].reset_index(drop=True)
+        time_dates_clean = player_data_filtered.loc[t_mask, "Date"].reset_index(drop=True)
+        geo_scores_clean = player_data_filtered.loc[g_mask, geo_col].reset_index(drop=True)
+        geo_dates_clean = player_data_filtered.loc[g_mask, "Date"].reset_index(drop=True)
+
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Summary Statistics")
             st.markdown(self_create_scores_stats_table(
-                player_data_filtered[time_col], player_data_filtered[geo_col],
-                player_data_filtered["Date"], bin_size=bin_size, ceiling=streak_ceiling
+                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
+                bin_size=bin_size, ceiling=streak_ceiling
             ), unsafe_allow_html=True)
             st.subheader("Score Distribution")
             st.plotly_chart(self_create_density_plot(
-                player_data_filtered[time_col], player_data_filtered[geo_col], ceiling=streak_ceiling
+                time_scores_clean, geo_scores_clean, ceiling=streak_ceiling
             ), use_container_width=True, key="self_density_chart")
         with col2:
             st.subheader("Score Streaks")
             st.markdown(self_create_scores_streaks_table(
-                player_data_filtered[time_col], player_data_filtered[geo_col],
-                player_data_filtered["Date"], bin_size=bin_size, ceiling=streak_ceiling,
-                change_threshold=change_threshold
+                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
+                bin_size=bin_size, ceiling=streak_ceiling, change_threshold=change_threshold
             ), unsafe_allow_html=True)
 
     else:
-        margin_data = player_data_filtered.copy()
+        # Win Margins requires both scores — filter to days where both are present
+        margin_data = player_data_filtered[player_data_filtered[time_col].notna() & player_data_filtered[geo_col].notna()].copy()
         margin_data["Score Diff"] = margin_data[time_col] - margin_data[geo_col]
         margin_data["Rolling Diff"] = margin_data["Score Diff"].rolling(window=window_length, min_periods=1).mean()
         margin_data["Cumulative Diff"] = margin_data["Score Diff"].expanding().mean()
@@ -2384,7 +2511,7 @@ else:
         margin_data = add_zero_crossing_interpolation(margin_data, window_length)
 
         st.subheader("Score Differential (Time - Geography)")
-        st.plotly_chart(self_create_win_margins_figure(margin_data, window_length, player),
+        st.plotly_chart(self_create_win_margins_figure(margin_data, window_length, player, solo_dates=solo_dates),
                         use_container_width=True, key="self_margin_chart")
         st.markdown(self_create_momentum_timeline(margin_data_original, window_length), unsafe_allow_html=True)
         st.divider()
