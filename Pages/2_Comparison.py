@@ -1560,6 +1560,21 @@ data = load_data(mtime=stats_mtime)
 with st.sidebar:
     st.header("Settings")
 
+    _ct = st.session_state.get('cc_comp_type', 'Cross')
+    _ctc1, _ctc2 = st.columns(2)
+    with _ctc1:
+        if st.button("Cross", key="cc_btn_cross", use_container_width=True,
+                     type="primary" if _ct == "Cross" else "secondary"):
+            st.session_state['cc_comp_type'] = 'Cross'
+            st.rerun()
+    with _ctc2:
+        if st.button("Self", key="cc_btn_self", use_container_width=True,
+                     type="primary" if _ct == "Self" else "secondary"):
+            st.session_state['cc_comp_type'] = 'Self'
+            st.rerun()
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
     _vm = st.session_state.get('cc_view_mode', 'Scores')
     _c1, _c2 = st.columns(2)
     with _c1:
