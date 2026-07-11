@@ -937,35 +937,22 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     return fig
 
 def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str, ceiling: int) -> str:
-    """Generate HTML for stacked momentum bars with a performance-based color gradient."""
-    
-    # --- 1. Helper: Color Interpolation ---
-    def hex_to_rgb(hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    """Paired vertical bar chart per game showing Michael vs Sarah scores."""
 
-    def rgb_to_hex(rgb):
-        return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]), int(rgb[1]), int(rgb[2]))
+    def hex_to_rgb(h):
+        h = h.lstrip('#')
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-    def interpolate_color(color_start, color_end, factor):
-        """
-        Blends two hex colors. 
-        Factor 0.0 = color_start (Light/Worst)
-        Factor 1.0 = color_end (Dark/Best)
-        """
-        c1 = hex_to_rgb(color_start)
-        c2 = hex_to_rgb(color_end)
-        
-        r = c1[0] + (c2[0] - c1[0]) * factor
-        g = c1[1] + (c2[1] - c1[1]) * factor
-        b = c1[2] + (c2[2] - c1[2]) * factor
-        
-        return rgb_to_hex((r, g, b))
+    def interpolate_color(c_start, c_end, factor):
+        c1, c2 = hex_to_rgb(c_start), hex_to_rgb(c_end)
+        return '#{:02x}{:02x}{:02x}'.format(
+            int(c1[0] + (c2[0] - c1[0]) * factor),
+            int(c1[1] + (c2[1] - c1[1]) * factor),
+            int(c1[2] + (c2[2] - c1[2]) * factor),
+        )
 
-    # --- 2. Prepare Data ---
     n_days = window_length * 4
     recent_data = data.tail(n_days).reset_index(drop=True)
-    
     if len(recent_data) == 0:
         return ""
 
@@ -976,86 +963,70 @@ def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str
     else:
         m_col, s_col = "Michael Geography Midpoint", "Sarah Geography Midpoint"
 
-    max_score = n_days * ceiling
+    m_valid = recent_data[m_col].dropna()
+    m_valid = m_valid[m_valid > 0]
+    s_valid = recent_data[s_col].dropna()
+    s_valid = s_valid[s_valid > 0]
+    m_min, m_max = (m_valid.min(), m_valid.max()) if len(m_valid) > 0 else (0, 1)
+    s_min, s_max = (s_valid.min(), s_valid.max()) if len(s_valid) > 0 else (0, 1)
+
+    all_scores = pd.concat([recent_data[m_col], recent_data[s_col]]).dropna()
+    all_scores = all_scores[all_scores > 0]
+    combined_min = all_scores.min() if len(all_scores) > 0 else 0
+    combined_max = all_scores.max() if len(all_scores) > 0 else 1
+    score_range = combined_max - combined_min if combined_max != combined_min else 1
+    MIN_HEIGHT_PCT = 10
+    slot_pct = 100 / len(recent_data)
+    segments = []
+
+    for _, row in recent_data.iterrows():
+        m_score = np.nan_to_num(row[m_col])
+        s_score = np.nan_to_num(row[s_col])
+        date_str = row['Date'].strftime('%b %d')
+
+        m_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (m_score - combined_min) / score_range) if m_score > 0 else 0
+        s_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (s_score - combined_min) / score_range) if s_score > 0 else 0
+
+        m_factor = 1.0 if m_max == m_min else (m_score - m_min) / (m_max - m_min)
+        s_factor = 1.0 if s_max == s_min else (s_score - s_min) / (s_max - s_min)
+        m_color = interpolate_color(COLORS['michael_light'], COLORS['michael'], m_factor) if m_score > 0 else 'transparent'
+        s_color = interpolate_color(COLORS['sarah_light'], COLORS['sarah'], s_factor) if s_score > 0 else 'transparent'
+
+        segments.append(
+            f'<div style="width:{slot_pct}%;display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:0 1px;">'
+            f'<div style="flex:1;display:flex;align-items:flex-end;">'
+            f'<div style="width:100%;height:{m_h:.1f}%;background-color:{m_color};border-radius:3px 3px 0 0;" title="{date_str}: Michael {m_score:,.0f}"></div>'
+            f'</div>'
+            f'<div style="flex:1;display:flex;align-items:flex-start;">'
+            f'<div style="width:100%;height:{s_h:.1f}%;background-color:{s_color};border-radius:0 0 3px 3px;" title="{date_str}: Sarah {s_score:,.0f}"></div>'
+            f'</div>'
+            f'</div>'
+        )
+
     m_total = recent_data[m_col].sum()
     s_total = recent_data[s_col].sum()
-
-    # Define Dark (Best) and Light (Worst) colors
-    colors = {
-        'michael_dark': '#221e8f',  'michael_light': '#bcb0ff',
-        'sarah_dark': '#8a005c',    'sarah_light': '#ff94bd',
-        'bg': '#b0afaa',            'text_sub': '#696761',
-        'michael_header': '#221e8f', 'sarah_header': '#8a005c'
-    }
-
-    def generate_stacked_bar(player_prefix, col_name):
-        # Filter for actual scores > 0 to find the min/max range for the gradient
-        valid_scores = recent_data[col_name].dropna()
-        valid_scores = valid_scores[valid_scores > 0]
-        
-        if len(valid_scores) > 0:
-            min_val = valid_scores.min()
-            max_val = valid_scores.max()
-        else:
-            min_val, max_val = 0, 1
-
-        segments = []
-        accumulated_pct = 0
-        
-        for i, row in recent_data.iterrows():
-            score = np.nan_to_num(row[col_name])
-            if score > 0:
-                pct = (score / max_score) * 100
-                date_str = row['Date'].strftime('%b %d')
-                
-                # --- Calculate Gradient ---
-                # Normalize score to 0.0 - 1.0 range
-                if max_val == min_val:
-                    factor = 1.0 # If all scores are equal, use best color
-                else:
-                    factor = (score - min_val) / (max_val - min_val)
-                
-                # Interpolate: 0.0 = Light, 1.0 = Dark
-                c_light = colors[f"{player_prefix}_light"]
-                c_dark = colors[f"{player_prefix}_dark"]
-                segment_color = interpolate_color(c_light, c_dark, factor)
-                
-                # Create HTML segment
-                segment_html = f'<div style="width: {pct}%; background-color: {segment_color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.4); box-sizing: border-box;" title="{date_str}: {score:,.0f}"></div>'
-                segments.append(segment_html)
-                accumulated_pct += pct
-
-        remaining_width = max(0, 100 - accumulated_pct)
-        
-        return f'<div style="background-color: {colors["bg"]}; width: 100%; height: 16px; border-radius: 8px; overflow: hidden; display: flex;">{"".join(segments)}<div style="width: {remaining_width}%; background-color: transparent;"></div></div>'
-
-    m_bar = generate_stacked_bar('michael', m_col)
-    s_bar = generate_stacked_bar('sarah', s_col)
-
     m_weight = "800" if m_total >= s_total else "400"
     s_weight = "800" if s_total > m_total else "400"
 
     return f"""
-    <div style="font-family: 'Poppins', sans-serif; margin-top: 20px; padding: 15px; background-color: #eae8dc; border-radius: 12px; border: 1px solid #d9d7cc;">
-        <h4 style="margin: 0 0 15px 0; color: {colors['text_sub']}; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
-            Momentum <span style="font-size: 12px; text-transform: none; opacity: 0.8;">(Last {n_days} Games)</span>
-        </h4>
-        <div style="margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: {colors['michael_header']};">
-                <span style="font-weight: 600;">Michael</span>
-                <span style="font-weight: {m_weight};">{m_total:,.0f} <span style="font-weight: 400; font-size: 0.9em; opacity: 0.7;">/ {max_score:,.0f}</span></span>
-            </div>
-            {m_bar}
-        </div>
-        <div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: {colors['sarah_header']};">
-                <span style="font-weight: 600;">Sarah</span>
-                <span style="font-weight: {s_weight};">{s_total:,.0f} <span style="font-weight: 400; font-size: 0.9em; opacity: 0.7;">/ {max_score:,.0f}</span></span>
-            </div>
-            {s_bar}
-        </div>
-    </div>
-    """
+<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+<h4 style="margin:0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span>
+</h4>
+<div style="font-size:12px;font-weight:600;">
+<span style="color:{COLORS['michael']};font-weight:{m_weight};">Michael: {m_total:,.0f}</span>
+<span style="color:#b0afaa;margin:0 6px;">|</span>
+<span style="color:{COLORS['sarah']};font-weight:{s_weight};">Sarah: {s_total:,.0f}</span>
+</div>
+</div>
+<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
+{"".join(segments)}
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
+<span>{recent_data.iloc[0]['Date'].strftime('%b %d')}</span><span>{recent_data.iloc[-1]['Date'].strftime('%b %d')}</span>
+</div>
+</div>"""
 
 def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_scores: pd.Series, ceiling: int) -> go.Figure:
     """Create density plot figure without discrete buckets."""

@@ -1077,18 +1077,7 @@ Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_
 
 
 def create_scores_momentum_html(data: pd.DataFrame, player: str, window_length: int, ceiling: int) -> str:
-    """Stacked momentum bars for Time and Geography scores, mirroring the Scores page style."""
-    n_days = window_length * 4
-    recent_data = data.tail(n_days).reset_index(drop=True)
-
-    if len(recent_data) == 0:
-        return ""
-
-    time_col = f"{player} Time Midpoint"
-    geo_col  = f"{player} Geography Midpoint"
-    max_score = n_days * ceiling
-    t_total = recent_data[time_col].sum()
-    g_total = recent_data[geo_col].sum()
+    """Paired vertical bar chart per game showing Time vs Geography scores."""
 
     def hex_to_rgb(h):
         h = h.lstrip('#')
@@ -1102,51 +1091,78 @@ def create_scores_momentum_html(data: pd.DataFrame, player: str, window_length: 
             int(c1[2] + (c2[2] - c1[2]) * factor),
         )
 
-    def generate_bar(col, color_dark, color_light):
-        valid = recent_data[col].dropna()
-        valid = valid[valid > 0]
-        min_val = valid.min() if len(valid) > 0 else 0
-        max_val = valid.max() if len(valid) > 0 else 1
-        segments = []
-        accumulated = 0
-        for _, row in recent_data.iterrows():
-            score = np.nan_to_num(row[col])
-            if score > 0:
-                pct = (score / max_score) * 100
-                factor = 1.0 if max_val == min_val else (score - min_val) / (max_val - min_val)
-                seg_color = interpolate_color(color_light, color_dark, factor)
-                date_str = row['Date'].strftime('%b %d')
-                segments.append(f'<div style="width:{pct}%;background-color:{seg_color};height:100%;border-right:1px solid rgba(255,255,255,0.4);box-sizing:border-box;" title="{date_str}: {score:,.0f}"></div>')
-                accumulated += pct
-        remaining = max(0, 100 - accumulated)
-        return f'<div style="background-color:{COLORS["line"]};width:100%;height:16px;border-radius:8px;overflow:hidden;display:flex;">{"".join(segments)}<div style="width:{remaining}%;background-color:transparent;"></div></div>'
+    n_days = window_length * 4
+    recent_data = data.tail(n_days).reset_index(drop=True)
+    if len(recent_data) == 0:
+        return ""
 
-    t_bar = generate_bar(time_col, COLORS['time'], COLORS['time_light'])
-    g_bar = generate_bar(geo_col,  COLORS['geography'], COLORS['geography_light'])
+    time_col = f"{player} Time Midpoint"
+    geo_col  = f"{player} Geography Midpoint"
+
+    t_valid = recent_data[time_col].dropna()
+    t_valid = t_valid[t_valid > 0]
+    g_valid = recent_data[geo_col].dropna()
+    g_valid = g_valid[g_valid > 0]
+    t_min, t_max = (t_valid.min(), t_valid.max()) if len(t_valid) > 0 else (0, 1)
+    g_min, g_max = (g_valid.min(), g_valid.max()) if len(g_valid) > 0 else (0, 1)
+
+    all_scores = pd.concat([recent_data[time_col], recent_data[geo_col]]).dropna()
+    all_scores = all_scores[all_scores > 0]
+    combined_min = all_scores.min() if len(all_scores) > 0 else 0
+    combined_max = all_scores.max() if len(all_scores) > 0 else 1
+    score_range = combined_max - combined_min if combined_max != combined_min else 1
+    MIN_HEIGHT_PCT = 10
+    slot_pct = 100 / len(recent_data)
+    segments = []
+
+    for _, row in recent_data.iterrows():
+        t_score = np.nan_to_num(row[time_col])
+        g_score = np.nan_to_num(row[geo_col])
+        date_str = row['Date'].strftime('%b %d')
+
+        t_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (t_score - combined_min) / score_range) if t_score > 0 else 0
+        g_h = (MIN_HEIGHT_PCT + (100 - MIN_HEIGHT_PCT) * (g_score - combined_min) / score_range) if g_score > 0 else 0
+
+        t_factor = 1.0 if t_max == t_min else (t_score - t_min) / (t_max - t_min)
+        g_factor = 1.0 if g_max == g_min else (g_score - g_min) / (g_max - g_min)
+        t_color = interpolate_color(COLORS['time_light'], COLORS['time'], t_factor) if t_score > 0 else 'transparent'
+        g_color = interpolate_color(COLORS['geography_light'], COLORS['geography'], g_factor) if g_score > 0 else 'transparent'
+
+        segments.append(
+            f'<div style="width:{slot_pct}%;display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:0 1px;">'
+            f'<div style="flex:1;display:flex;align-items:flex-end;">'
+            f'<div style="width:100%;height:{t_h:.1f}%;background-color:{t_color};border-radius:3px 3px 0 0;" title="{date_str}: Time {t_score:,.0f}"></div>'
+            f'</div>'
+            f'<div style="flex:1;display:flex;align-items:flex-start;">'
+            f'<div style="width:100%;height:{g_h:.1f}%;background-color:{g_color};border-radius:0 0 3px 3px;" title="{date_str}: Geography {g_score:,.0f}"></div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    t_total = recent_data[time_col].sum()
+    g_total = recent_data[geo_col].sum()
     t_weight = "800" if t_total >= g_total else "400"
     g_weight = "800" if g_total > t_total else "400"
 
     return f"""
-    <div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
-        <h4 style="margin:0 0 15px 0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
-            Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span>
-        </h4>
-        <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:{COLORS['time']};">
-                <span style="font-weight:600;">Time</span>
-                <span style="font-weight:{t_weight};">{t_total:,.0f} <span style="font-weight:400;font-size:0.9em;opacity:0.7;">/ {max_score:,.0f}</span></span>
-            </div>
-            {t_bar}
-        </div>
-        <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:{COLORS['geography']};">
-                <span style="font-weight:600;">Geography</span>
-                <span style="font-weight:{g_weight};">{g_total:,.0f} <span style="font-weight:400;font-size:0.9em;opacity:0.7;">/ {max_score:,.0f}</span></span>
-            </div>
-            {g_bar}
-        </div>
-    </div>
-    """
+<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+<h4 style="margin:0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
+Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span>
+</h4>
+<div style="font-size:12px;font-weight:600;">
+<span style="color:{COLORS['time']};font-weight:{t_weight};">Time: {t_total:,.0f}</span>
+<span style="color:#b0afaa;margin:0 6px;">|</span>
+<span style="color:{COLORS['geography']};font-weight:{g_weight};">Geography: {g_total:,.0f}</span>
+</div>
+</div>
+<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
+{"".join(segments)}
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
+<span>{recent_data.iloc[0]['Date'].strftime('%b %d')}</span><span>{recent_data.iloc[-1]['Date'].strftime('%b %d')}</span>
+</div>
+</div>"""
 
 
 # --- Main App ---
