@@ -65,6 +65,29 @@ CUSTOM_STYLES = """
         .stats-table tbody tr.selected, .streaks-table tbody tr.selected {
             background-color: #c0c0b0;
         }
+        /* View mode pill toggle buttons */
+        div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
+        div[data-testid="stSidebar"] button[kind="primary"] {
+            background-color: #3a3935 !important;
+            color: #eae8dc !important;
+            border-color: #3a3935 !important;
+            border-radius: 20px !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+        div[data-testid="stSidebar"] button[kind="secondary"] {
+            background-color: #d9d7cc !important;
+            color: #696761 !important;
+            border-color: #d9d7cc !important;
+            border-radius: 20px !important;
+            font-weight: 500 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+            background-color: #c8c6bb !important;
+            color: #3a3935 !important;
+            border-color: #8f8d85 !important;
+        }
     </style>
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
@@ -1529,20 +1552,41 @@ data = load_data(mtime=stats_mtime)
 with st.sidebar:
     st.header("Settings")
 
-    view_mode = st.radio(
-        "View Mode:",
-        options=["Scores", "Win Margins"],
-        horizontal=True,
-        index=0,
-        key="view_mode_toggle"
-    )
+    _vm = st.session_state.get('cc_view_mode', 'Scores')
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        if st.button("Scores", key="cc_btn_scores", use_container_width=True,
+                     type="primary" if _vm == "Scores" else "secondary"):
+            st.session_state['cc_view_mode'] = 'Scores'
+            st.rerun()
+    with _c2:
+        if st.button("Win Margins", key="cc_btn_margins", use_container_width=True,
+                     type="primary" if _vm == "Win Margins" else "secondary"):
+            st.session_state['cc_view_mode'] = 'Win Margins'
+            st.rerun()
+    view_mode = st.session_state.get('cc_view_mode', 'Scores')
 
-    page_type = st.radio(
-        "Score Type:",
-        options=["Total Scores", "Time Scores", "Geography Scores"],
-        index=0,
-        key="page_selector"
-    )
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
+    _pt_labels = {"Total": "Total Scores", "Geo": "Geography Scores", "Time": "Time Scores"}
+    _pt = st.session_state.get('cc_page_type', 'Total')
+    _ptc1, _ptc2, _ptc3 = st.columns(3)
+    with _ptc1:
+        if st.button("Total", key="cc_btn_total", use_container_width=True,
+                     type="primary" if _pt == "Total" else "secondary"):
+            st.session_state['cc_page_type'] = 'Total'
+            st.rerun()
+    with _ptc2:
+        if st.button("Geo", key="cc_btn_geo", use_container_width=True,
+                     type="primary" if _pt == "Geo" else "secondary"):
+            st.session_state['cc_page_type'] = 'Geo'
+            st.rerun()
+    with _ptc3:
+        if st.button("Time", key="cc_btn_time", use_container_width=True,
+                     type="primary" if _pt == "Time" else "secondary"):
+            st.session_state['cc_page_type'] = 'Time'
+            st.rerun()
+    page_type = _pt_labels[_pt]
 
     if view_mode == "Scores":
         include_single_player_days = st.toggle("Include single-player days", value=False, key="include_single_player_toggle")

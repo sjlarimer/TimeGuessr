@@ -62,10 +62,33 @@ CUSTOM_STYLES = """
         }
         /* Compact Radio Buttons */
         div[role="radiogroup"] {
-            gap: 0.5rem !important; /* Reduce gap between options */
+            gap: 0.5rem !important;
         }
         div[role="radiogroup"] label {
-            padding-right: 0.5rem !important; /* Reduce internal padding */
+            padding-right: 0.5rem !important;
+        }
+        /* View mode pill toggle buttons */
+        div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
+        div[data-testid="stSidebar"] button[kind="primary"] {
+            background-color: #3a3935 !important;
+            color: #eae8dc !important;
+            border-color: #3a3935 !important;
+            border-radius: 20px !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+        div[data-testid="stSidebar"] button[kind="secondary"] {
+            background-color: #d9d7cc !important;
+            color: #696761 !important;
+            border-color: #d9d7cc !important;
+            border-radius: 20px !important;
+            font-weight: 500 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+            background-color: #c8c6bb !important;
+            color: #3a3935 !important;
+            border-color: #8f8d85 !important;
         }
     </style>
 """
@@ -1171,9 +1194,42 @@ stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists(
 data = load_data(mtime=stats_mtime)
 
 with st.sidebar:
-    st.header("Dashboard Settings")
-    view_mode = st.radio("View Mode:", options=["Scores", "Win Margins"], horizontal=True, index=0, key="view_mode_toggle")
-    player = st.radio("Select Player:", options=["Combined", "Michael", "Sarah"], horizontal=True, index=0, key="player_selector")
+    st.header("Settings")
+    _vm = st.session_state.get('sc_view_mode', 'Scores')
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        if st.button("Scores", key="sc_btn_scores", use_container_width=True,
+                     type="primary" if _vm == "Scores" else "secondary"):
+            st.session_state['sc_view_mode'] = 'Scores'
+            st.rerun()
+    with _c2:
+        if st.button("Win Margins", key="sc_btn_margins", use_container_width=True,
+                     type="primary" if _vm == "Win Margins" else "secondary"):
+            st.session_state['sc_view_mode'] = 'Win Margins'
+            st.rerun()
+    view_mode = st.session_state.get('sc_view_mode', 'Scores')
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+
+    _pl_labels = {"Both": "Combined", "Mike": "Michael", "Sarah": "Sarah"}
+    _pl = st.session_state.get('sc_player', 'Both')
+    _plc1, _plc2, _plc3 = st.columns(3)
+    with _plc1:
+        if st.button("Both", key="sc_btn_both", use_container_width=True,
+                     type="primary" if _pl == "Both" else "secondary"):
+            st.session_state['sc_player'] = 'Both'
+            st.rerun()
+    with _plc2:
+        if st.button("Mike", key="sc_btn_michael", use_container_width=True,
+                     type="primary" if _pl == "Mike" else "secondary"):
+            st.session_state['sc_player'] = 'Mike'
+            st.rerun()
+    with _plc3:
+        if st.button("Sarah", key="sc_btn_sarah", use_container_width=True,
+                     type="primary" if _pl == "Sarah" else "secondary"):
+            st.session_state['sc_player'] = 'Sarah'
+            st.rerun()
+    player = _pl_labels[_pl]
     remove_pre_tracking = st.toggle("Remove Pre-Tracking Scores", value=False, key="remove_pre_tracking_toggle")
     remove_pre_survey = st.toggle("Remove Pre-Survey Scores", value=False, key="remove_pre_survey_toggle")
     window_length = st.slider("Rolling Average Window", min_value=1, max_value=30, value=5, step=1)
