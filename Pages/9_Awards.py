@@ -4,7 +4,7 @@ import pandas as pd
 from PIL import Image
 
 # --- Configuration ---
-st.set_page_config(page_title="Hall of Fame", layout="wide")
+st.set_page_config(page_title="Awards", layout="wide")
 from background import set_random_sarah_background
 set_random_sarah_background(lightness_level=0.7)
 
@@ -192,6 +192,29 @@ st.markdown(
             text-transform: uppercase;
             letter-spacing: 1px;
             border-radius: 4px;
+        }
+        /* Sidebar pill buttons */
+        div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
+        div[data-testid="stSidebar"] button[kind="primary"] {
+            background-color: #3a3935 !important;
+            color: #eae8dc !important;
+            border-color: #3a3935 !important;
+            border-radius: 20px !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+        div[data-testid="stSidebar"] button[kind="secondary"] {
+            background-color: #d9d7cc !important;
+            color: #696761 !important;
+            border-color: #d9d7cc !important;
+            border-radius: 20px !important;
+            font-weight: 500 !important;
+        }
+        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+            background-color: #c8c6bb !important;
+            color: #3a3935 !important;
+            border-color: #8f8d85 !important;
         }
     </style>
     """,
@@ -702,39 +725,235 @@ def render_cabinet(player_name, trophies_yearly, trophies_quarterly, trophies_mo
         unsafe_allow_html=True
     )
 
+def generate_shame_trophies_for_period(row, daily_data, period_label, is_yearly=False, is_ongoing=False):
+    if daily_data.empty:
+        return [], []
+    daily_data = daily_data.sort_values('Date')
+    t_m, t_s = [], []
+
+    # Lowest Total Score (📉)
+    m_min_idx = daily_data['Michael Total Score'].idxmin()
+    s_min_idx = daily_data['Sarah Total Score'].idxmin()
+    m_min_val = daily_data.loc[m_min_idx, 'Michael Total Score']
+    s_min_val = daily_data.loc[s_min_idx, 'Sarah Total Score']
+    m_date = daily_data.loc[m_min_idx, 'Date'].strftime('%b %d')
+    s_date = daily_data.loc[s_min_idx, 'Date'].strftime('%b %d')
+    if m_min_val < s_min_val:
+        t_m.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(m_min_val):,}<br>-{int(s_min_val-m_min_val):,} ({m_date})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+    elif s_min_val < m_min_val:
+        t_s.append({"icon": "📉", "title": period_label, "desc": f"Low Total: {int(s_min_val):,}<br>-{int(m_min_val-s_min_val):,} ({s_date})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+    else:
+        t_m.append({"icon": "📉", "title": period_label, "desc": f"Tie Low: {int(m_min_val):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        t_s.append({"icon": "📉", "title": period_label, "desc": f"Tie Low: {int(s_min_val):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+
+    # Biggest Loss (🤕)
+    diffs = (daily_data['Michael Total Score'] - daily_data['Sarah Total Score']).abs()
+    if not diffs.empty and diffs.max() > 0:
+        idx = diffs.idxmax(); r = daily_data.loc[idx]
+        d = int(diffs[idx]); date_str = r['Date'].strftime('%b %d')
+        if r['Michael Total Score'] < r['Sarah Total Score']:
+            t_m.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        elif r['Sarah Total Score'] < r['Michael Total Score']:
+            t_s.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+
+    # Double Black Rounds (⬛)
+    m_f, s_f = row['M_Total_Fail'], row['S_Total_Fail']
+    if m_f > 0 or s_f > 0:
+        if m_f > s_f:
+            t_m.append({"icon": "⬛", "title": period_label, "desc": f"Double Black: {int(m_f)}<br>+{int(m_f-s_f)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        elif s_f > m_f:
+            t_s.append({"icon": "⬛", "title": period_label, "desc": f"Double Black: {int(s_f)}<br>+{int(s_f-m_f)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+        else:
+            t_m.append({"icon": "⬛", "title": period_label, "desc": f"Tie Black: {int(m_f)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+            t_s.append({"icon": "⬛", "title": period_label, "desc": f"Tie Black: {int(s_f)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "total"})
+
+    # Lowest Geo Score (🏚️)
+    m_gi = daily_data['M_Geo_Row'].idxmin(); s_gi = daily_data['S_Geo_Row'].idxmin()
+    m_gv = daily_data.loc[m_gi, 'M_Geo_Row']; s_gv = daily_data.loc[s_gi, 'S_Geo_Row']
+    m_gd = daily_data.loc[m_gi, 'Date'].strftime('%b %d'); s_gd = daily_data.loc[s_gi, 'Date'].strftime('%b %d')
+    if m_gv < s_gv:
+        t_m.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(m_gv):,}<br>-{int(s_gv-m_gv):,} ({m_gd})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    elif s_gv < m_gv:
+        t_s.append({"icon": "🏚️", "title": period_label, "desc": f"Low Geo: {int(s_gv):,}<br>-{int(m_gv-s_gv):,} ({s_gd})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+    else:
+        t_m.append({"icon": "🏚️", "title": period_label, "desc": f"Tie Low Geo: {int(m_gv):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        t_s.append({"icon": "🏚️", "title": period_label, "desc": f"Tie Low Geo: {int(s_gv):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # Biggest Geo Loss (🤕)
+    geo_diffs = (daily_data['M_Geo_Row'] - daily_data['S_Geo_Row']).abs()
+    if not geo_diffs.empty and geo_diffs.max() > 0:
+        idx = geo_diffs.idxmax(); r = daily_data.loc[idx]
+        d = int(geo_diffs[idx]); date_str = r['Date'].strftime('%b %d')
+        if r['M_Geo_Row'] < r['S_Geo_Row']:
+            t_m.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Geo Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        elif r['S_Geo_Row'] < r['M_Geo_Row']:
+            t_s.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Geo Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # Geo Black Rounds (🌍⬛)
+    m_gf, s_gf = row['M_Geo_Fail'], row['S_Geo_Fail']
+    if m_gf > 0 or s_gf > 0:
+        if m_gf > s_gf:
+            t_m.append({"icon": "🌍⬛", "title": period_label, "desc": f"Geo Black: {int(m_gf)}<br>+{int(m_gf-s_gf)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        elif s_gf > m_gf:
+            t_s.append({"icon": "🌍⬛", "title": period_label, "desc": f"Geo Black: {int(s_gf)}<br>+{int(s_gf-m_gf)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+        else:
+            t_m.append({"icon": "🌍⬛", "title": period_label, "desc": f"Tie Geo Black: {int(m_gf)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+            t_s.append({"icon": "🌍⬛", "title": period_label, "desc": f"Tie Geo Black: {int(s_gf)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "geo"})
+
+    # Lowest Time Score (🐌)
+    m_ti = daily_data['M_Time_Row'].idxmin(); s_ti = daily_data['S_Time_Row'].idxmin()
+    m_tv = daily_data.loc[m_ti, 'M_Time_Row']; s_tv = daily_data.loc[s_ti, 'S_Time_Row']
+    m_td = daily_data.loc[m_ti, 'Date'].strftime('%b %d'); s_td = daily_data.loc[s_ti, 'Date'].strftime('%b %d')
+    if m_tv < s_tv:
+        t_m.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(m_tv):,}<br>-{int(s_tv-m_tv):,} ({m_td})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    elif s_tv < m_tv:
+        t_s.append({"icon": "🐌", "title": period_label, "desc": f"Low Time: {int(s_tv):,}<br>-{int(m_tv-s_tv):,} ({s_td})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+    else:
+        t_m.append({"icon": "🐌", "title": period_label, "desc": f"Tie Low Time: {int(m_tv):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        t_s.append({"icon": "🐌", "title": period_label, "desc": f"Tie Low Time: {int(s_tv):,}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+
+    # Biggest Time Loss (🤕)
+    time_diffs = (daily_data['M_Time_Row'] - daily_data['S_Time_Row']).abs()
+    if not time_diffs.empty and time_diffs.max() > 0:
+        idx = time_diffs.idxmax(); r = daily_data.loc[idx]
+        d = int(time_diffs[idx]); date_str = r['Date'].strftime('%b %d')
+        if r['M_Time_Row'] < r['S_Time_Row']:
+            t_m.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Time Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        elif r['S_Time_Row'] < r['M_Time_Row']:
+            t_s.append({"icon": "🤕", "title": period_label, "desc": f"Biggest Time Loss: -{d:,}<br>({date_str})", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+
+    # Time Black Rounds (📆⬛)
+    m_tf, s_tf = row['M_Time_Fail'], row['S_Time_Fail']
+    if m_tf > 0 or s_tf > 0:
+        if m_tf > s_tf:
+            t_m.append({"icon": "📆⬛", "title": period_label, "desc": f"Time Black: {int(m_tf)}<br>+{int(m_tf-s_tf)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        elif s_tf > m_tf:
+            t_s.append({"icon": "📆⬛", "title": period_label, "desc": f"Time Black: {int(s_tf)}<br>+{int(s_tf-m_tf)}", "is_tie": False, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+        else:
+            t_m.append({"icon": "📆⬛", "title": period_label, "desc": f"Tie Time Black: {int(m_tf)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+            t_s.append({"icon": "📆⬛", "title": period_label, "desc": f"Tie Time Black: {int(s_tf)}", "is_tie": True, "is_yearly": is_yearly, "is_ongoing": is_ongoing, "category": "time"})
+
+    return t_m, t_s
+
+def calculate_shame(df):
+    if df is None or df.empty:
+        return [], [], [], [], [], []
+    current_now = pd.Timestamp.now()
+    current_year = current_now.year
+    current_quarter = current_now.to_period('Q')
+    current_month = current_now.to_period('M')
+
+    daily_check = df.groupby('Date')[['Michael Total Score', 'Sarah Total Score']].first()
+    valid_dates = daily_check[(daily_check['Michael Total Score'] > 0) & (daily_check['Sarah Total Score'] > 0)].index
+    df_valid = df[df['Date'].isin(valid_dates)].copy()
+    if df_valid.empty:
+        return [], [], [], [], [], []
+
+    df_valid['M_Geo_Row'] = (df_valid['Michael Geography Score (Min)'] + df_valid['Michael Geography Score (Max)']) / 2
+    df_valid['S_Geo_Row'] = (df_valid['Sarah Geography Score (Min)'] + df_valid['Sarah Geography Score (Max)']) / 2
+    df_valid['M_Time_Row'] = (df_valid['Michael Time Score (Min)'] + df_valid['Michael Time Score (Max)']) / 2
+    df_valid['S_Time_Row'] = (df_valid['Sarah Time Score (Min)'] + df_valid['Sarah Time Score (Max)']) / 2
+    df_valid['M_Geo_Fail'] = (df_valid['M_Geo_Row'] < 2500).astype(int)
+    df_valid['S_Geo_Fail'] = (df_valid['S_Geo_Row'] < 2500).astype(int)
+    df_valid['M_Time_Fail'] = (df_valid['M_Time_Row'] == 0).astype(int)
+    df_valid['S_Time_Fail'] = (df_valid['S_Time_Row'] == 0).astype(int)
+    df_valid['M_Total_Fail'] = ((df_valid['M_Geo_Row'] < 2500) & (df_valid['M_Time_Row'] == 0)).astype(int)
+    df_valid['S_Total_Fail'] = ((df_valid['S_Geo_Row'] < 2500) & (df_valid['S_Time_Row'] == 0)).astype(int)
+
+    daily_stats = df_valid.groupby('Date').agg({
+        'Michael Total Score': 'first', 'Sarah Total Score': 'first',
+        'M_Geo_Row': 'sum', 'S_Geo_Row': 'sum', 'M_Time_Row': 'sum', 'S_Time_Row': 'sum',
+        'M_Geo_Fail': 'sum', 'S_Geo_Fail': 'sum', 'M_Time_Fail': 'sum', 'S_Time_Fail': 'sum',
+        'M_Total_Fail': 'sum', 'S_Total_Fail': 'sum'
+    }).reset_index()
+    daily_stats['Year'] = daily_stats['Date'].dt.year
+    daily_stats['Quarter'] = daily_stats['Date'].dt.to_period('Q')
+    daily_stats['MonthPeriod'] = daily_stats['Date'].dt.to_period('M')
+
+    fail_cols = ['M_Geo_Fail', 'S_Geo_Fail', 'M_Time_Fail', 'S_Time_Fail', 'M_Total_Fail', 'S_Total_Fail']
+    yearly_m, yearly_s, quarterly_m, quarterly_s, monthly_m, monthly_s = [], [], [], [], [], []
+
+    yearly_agg = daily_stats.groupby('Year').agg({**{c: 'sum' for c in fail_cols}, 'Date': 'count'}).reset_index()
+    yearly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    for year_val in sorted(daily_stats['Year'].unique(), reverse=True):
+        subset = daily_stats[daily_stats['Year'] == year_val]
+        if subset['Quarter'].nunique() < 2:
+            continue
+        agg_row = yearly_agg[yearly_agg['Year'] == year_val].iloc[0]
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, subset, str(int(year_val)), is_yearly=True, is_ongoing=(year_val == current_year))
+        yearly_m.extend(t_m); yearly_s.extend(t_s)
+
+    quarterly_agg = daily_stats.groupby('Quarter').agg({**{c: 'sum' for c in fail_cols}, 'Date': 'count'}).reset_index()
+    quarterly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    for q in sorted(daily_stats['Quarter'].unique(), reverse=True):
+        subset = daily_stats[daily_stats['Quarter'] == q]
+        if subset['MonthPeriod'].nunique() < 2:
+            continue
+        agg_row = quarterly_agg[quarterly_agg['Quarter'] == q].iloc[0]
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, subset, f"Q{q.quarter} {q.year}", is_ongoing=(q == current_quarter))
+        quarterly_m.extend(t_m); quarterly_s.extend(t_s)
+
+    monthly_agg = daily_stats.groupby('MonthPeriod').agg({**{c: 'sum' for c in fail_cols}, 'Date': 'count'}).reset_index()
+    monthly_agg.rename(columns={'Date': 'DaysCount'}, inplace=True)
+    for m in sorted(daily_stats['MonthPeriod'].unique(), reverse=True):
+        subset = daily_stats[daily_stats['MonthPeriod'] == m]
+        agg_row = monthly_agg[monthly_agg['MonthPeriod'] == m].iloc[0]
+        t_m, t_s = generate_shame_trophies_for_period(agg_row, subset, m.strftime('%B %Y'), is_ongoing=(m == current_month))
+        monthly_m.extend(t_m); monthly_s.extend(t_s)
+
+    return yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s
+
+# --- Sidebar ---
+with st.sidebar:
+    st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
+    _mode = st.session_state.get('hof_mode', 'fame')
+    _hm1, _hm2 = st.columns(2)
+    with _hm1:
+        if st.button("Fame", key="hof_btn_fame", use_container_width=True,
+                     type="primary" if _mode == "fame" else "secondary"):
+            st.session_state['hof_mode'] = 'fame'
+            st.rerun()
+    with _hm2:
+        if st.button("Shame", key="hof_btn_shame", use_container_width=True,
+                     type="primary" if _mode == "shame" else "secondary"):
+            st.session_state['hof_mode'] = 'shame'
+            st.rerun()
+    mode = _mode
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
+    _cat = st.session_state.get('hof_category', 'total')
+    _hc1, _hc2, _hc3 = st.columns(3)
+    with _hc1:
+        if st.button("Total", key="hof_btn_total", use_container_width=True,
+                     type="primary" if _cat == "total" else "secondary"):
+            st.session_state['hof_category'] = 'total'
+            st.rerun()
+    with _hc2:
+        if st.button("Geo", key="hof_btn_geo", use_container_width=True,
+                     type="primary" if _cat == "geo" else "secondary"):
+            st.session_state['hof_category'] = 'geo'
+            st.rerun()
+    with _hc3:
+        if st.button("Time", key="hof_btn_time", use_container_width=True,
+                     type="primary" if _cat == "time" else "secondary"):
+            st.session_state['hof_category'] = 'time'
+            st.rerun()
+    category = _cat
+
 # --- Header ---
-st.title("Hall of Fame")
-st.markdown("### Trophy Cabinet")
-st.markdown("<br>", unsafe_allow_html=True)
+st.title("Awards")
 
 # --- Data Loading & Processing ---
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 df = load_data(stats_mtime)
-yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s = calculate_trophies(df)
 
-# --- Tabs for Category Organization ---
-tab1, tab2, tab3 = st.tabs(["🏆 Overall & Total", "🌍 Geography", "🕰️ Time"])
+if mode == 'fame':
+    yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s = calculate_trophies(df)
+else:
+    yearly_m, quarterly_m, monthly_m, yearly_s, quarterly_s, monthly_s = calculate_shame(df)
 
-# --- TAB 1: TOTAL ---
-with tab1:
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "total", "michael-theme", "michael-text")
-    with col2:
-        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "total", "sarah-theme", "sarah-text")
-
-# --- TAB 2: GEOGRAPHY ---
-with tab2:
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "geo", "michael-theme", "michael-text")
-    with col2:
-        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "geo", "sarah-theme", "sarah-text")
-
-# --- TAB 3: TIME ---
-with tab3:
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, "time", "michael-theme", "michael-text")
-    with col2:
-        render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, "time", "sarah-theme", "sarah-text")
+col1, col2 = st.columns(2, gap="large")
+with col1:
+    render_cabinet("Michael", yearly_m, quarterly_m, monthly_m, category, "michael-theme", "michael-text")
+with col2:
+    render_cabinet("Sarah", yearly_s, quarterly_s, monthly_s, category, "sarah-theme", "sarah-text")
