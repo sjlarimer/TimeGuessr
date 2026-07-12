@@ -497,7 +497,7 @@ if date:
     is_act_edit = st.session_state.get(f"edit_act_{date}", False)
     if act_exists and not is_act_edit:
         for r_idx in range(1, 6):
-            for k in [f"ay_{r_idx}_{date}", f"ac_{r_idx}_{date}", f"as_{r_idx}_{date}", f"acs_{r_idx}_{date}", f"aci_{r_idx}_{date}"]:
+            for k in [f"ay_{r_idx}_{date}", f"ac_{r_idx}_{date}", f"as_{r_idx}_{date}", f"acs_{r_idx}_{date}", f"aci_{r_idx}_{date}", f"acity_{r_idx}_{date}"]:
                 if k in st.session_state: del st.session_state[k]
     
     m_path = "./Data/Timeguessr_Michael_Parsed.csv"
@@ -644,62 +644,84 @@ if date:
             st.markdown(f"**Round {r}**")
             if not act_hidden:
                 row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
-                
-                r_top = st.columns(2)
-                r_bot = st.columns(2)
-                
+
                 y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
-                y = r_top[0].text_input("Year", value=y_val, key=f"ay_{r}_{date}", disabled=not edit_act)
-                
-                opts = [""] + list(config.get('countries', {}).keys())
-                c_def = row['Country'] if 'Country' in row and row['Country'] in opts else opts[0]
-                c_idx = opts.index(c_def) if c_def in opts else 0
-                cou = r_top[1].selectbox("Country", opts, index=c_idx, key=f"ac_{r}_{date}", disabled=not edit_act)
-                
-                subs = [""]
-                if cou:
-                    raw_subs = []
-                    for v_list in config['countries'].get(cou, {}).values():
-                        raw_subs.extend(v_list)
-                    subs.extend(sorted(list(set(raw_subs))))
+                c_def_raw = row.get('Country', '')
                 s_def = row.get('Subdivision', '')
-                s_idx = subs.index(s_def) if s_def in subs else 0
-                sub = r_bot[0].selectbox("Sub", subs, index=s_idx, key=f"as_{r}_{date}", disabled=not edit_act)
-                
-                with r_bot[1]:
-                    cities = []
-                    if cou and not act_df.empty and 'Country' in act_df.columns and 'City' in act_df.columns:
-                        filtered_df = act_df[act_df['Country'] == cou]
-                        if sub and 'Subdivision' in filtered_df.columns:
-                            filtered_df = filtered_df[filtered_df['Subdivision'] == sub]
-                        cities = sorted(filtered_df['City'].dropna().unique().tolist())
-                    
-                    c_opts = [""] + cities + ["Other"]
-                    c_val = row.get('City', '')
-                    if c_val in cities: cit_idx = c_opts.index(c_val)
-                    elif c_val: cit_idx = c_opts.index("Other")
-                    else: cit_idx = 0
-                    
-                    sel_c = st.selectbox("City", c_opts, index=cit_idx, key=f"acs_{r}_{date}", disabled=not edit_act)
-                    
-                    if sel_c == "Other":
-                        def_txt = c_val if c_val not in cities else ""
-                        cit = st.text_input("New City", value=def_txt, key=f"aci_{r}_{date}", disabled=not edit_act, placeholder="City Name")
-                    else: cit = sel_c
-                
-                valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=date.year
-                actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
-                
-                if edit_act:
-                    if not (y and cou and cit and valid_y): all_valid_act = False
-                    save_rows_act.append({
-                        "Timeguessr Day": timeguessr_day, 
-                        "Timeguessr Round": r, 
-                        "City": cit,
-                        "Subdivision": sub,
-                        "Country": cou,
-                        "Year": int(y) if valid_y else 0
-                    })
+                c_val = row.get('City', '')
+
+                if act_exists and not edit_act:
+                    flag_html = get_flag_emoji(c_def_raw) if c_def_raw else get_flag_emoji("United Nations")
+                    sub_country = c_def_raw or "—"
+                    if s_def: sub_country = f"{s_def}, {sub_country}"
+
+                    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fff5f5,#ffe8e8); border-radius:10px; padding:12px 14px; border-left:4px solid #db5049; box-shadow:0 2px 6px rgba(219,80,73,0.12); margin-top:2px;">
+    <div style="font-weight:700; color:#db5049; font-size:1.05em; margin-bottom:6px;">{c_val or "—"}</div>
+    <div style="display:flex; align-items:center; gap:7px; margin-bottom:4px;">
+        <span style="font-size:1.1em; line-height:1;">{flag_html}</span>
+        <span style="color:#444; font-size:0.88em;">{sub_country}</span>
+    </div>
+    <div style="color:#555; font-size:0.85em;">📅 {y_val or "—"}</div>
+</div>
+                    """, unsafe_allow_html=True)
+
+                    valid_y = y_val.isdigit() and len(y_val)==4 and 1900<=int(y_val)<=date.year
+                    actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
+                else:
+                    r_top = st.columns(2)
+                    r_bot = st.columns(2)
+
+                    y = r_top[0].text_input("Year", value=y_val, key=f"ay_{r}_{date}", disabled=not edit_act)
+                    cit = r_top[1].text_input("City", value=c_val, key=f"acity_{r}_{date}", disabled=not edit_act, placeholder="City name")
+
+                    opts = [""] + list(config.get('countries', {}).keys())
+                    c_def = c_def_raw if c_def_raw in opts else opts[0]
+                    c_idx = opts.index(c_def) if c_def in opts else 0
+                    cou = r_bot[0].selectbox("Country", opts, index=c_idx, key=f"ac_{r}_{date}", disabled=not edit_act)
+
+                    # Build subdivision list; float subs that contain the typed city to top
+                    subs_raw = []
+                    if cou:
+                        for v_list in config['countries'].get(cou, {}).values():
+                            subs_raw.extend(v_list)
+                    subs_raw = sorted(set(subs_raw))
+
+                    typed_city = (cit or "").strip().lower()
+                    matching_subs = []
+                    if typed_city and cou and not act_df.empty and 'City' in act_df.columns and 'Subdivision' in act_df.columns:
+                        hit_subs = act_df[
+                            (act_df['Country'] == cou) &
+                            (act_df['City'].str.lower() == typed_city)
+                        ]['Subdivision'].dropna().unique().tolist()
+                        matching_subs = [s for s in subs_raw if s in hit_subs]
+
+                    other_subs = [s for s in subs_raw if s not in matching_subs]
+                    subs_ordered = [""] + matching_subs + other_subs
+                    matching_set = set(matching_subs)
+
+                    if s_def in subs_ordered: s_idx = subs_ordered.index(s_def)
+                    else: s_idx = 0
+
+                    sub = r_bot[1].selectbox(
+                        "Sub", subs_ordered, index=s_idx,
+                        format_func=lambda s, ms=matching_set: ("★ " + s if s in ms else s),
+                        key=f"as_{r}_{date}", disabled=not edit_act
+                    )
+
+                    valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=date.year
+                    actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
+
+                    if edit_act:
+                        if not (y and cou and cit and valid_y): all_valid_act = False
+                        save_rows_act.append({
+                            "Timeguessr Day": timeguessr_day,
+                            "Timeguessr Round": r,
+                            "City": cit,
+                            "Subdivision": sub,
+                            "Country": cou,
+                            "Year": int(y) if valid_y else 0
+                        })
                     
         # PLAYER ROUNDS
         for col, p_name in [(rc2, "Michael"), (rc3, "Sarah")]:
