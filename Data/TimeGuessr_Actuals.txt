@@ -1089,3 +1089,10 @@ TimeGuessr #1135
 3. Sydney (New South Wales), Australia, 1938
 4. Kabul, Afghanistan, 1980
 5. Memphis (Tennessee), United States, 1943
+
+TimeGuessr #1138
+1. Montreal (Quebec), Canada, 1983
+2. San Juan (Puerto Rico), United States, 1960
+3. Kathmandu, Nepal, 2007
+4. Amsterdam (North Holland), Netherlands, 1947
+5. Washington DC (Washington DC), United States, 1930
