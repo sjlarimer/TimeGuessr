@@ -1096,3 +1096,10 @@ TimeGuessr #1138
 3. Kathmandu, Nepal, 2007
 4. Amsterdam (North Holland), Netherlands, 1947
 5. Washington DC (Washington DC), United States, 1930
+
+TimeGuessr #1139
+1. Washington DC (Washington DC), United States, 2026
+2. Moscow (Central), Russia, 1913
+3. Kosice, Slovakia, 1938
+4. Palamos (Catalonia), Spain, 1960
+5. New York (New York), United States, 1979
