@@ -1103,3 +1103,10 @@ TimeGuessr #1139
 3. Kosice, Slovakia, 1938
 4. Palamos (Catalonia), Spain, 1960
 5. New York (New York), United States, 1979
+
+TimeGuessr #1140
+1. Washington DC (Washington DC), United States, 1925
+2. London (England), United Kingdom, 1973
+3. Phnom Penh, Cambodia, 2024
+4. Mexico City (Mexico City), Mexico, 1980
+5. Belgrade, Serbia, 1959
