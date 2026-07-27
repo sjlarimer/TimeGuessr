@@ -1110,3 +1110,10 @@ TimeGuessr #1140
 3. Phnom Penh, Cambodia, 2024
 4. Mexico City (Mexico City), Mexico, 1980
 5. Belgrade, Serbia, 1959
+
+TimeGuessr #1152
+1. Crow Agency (Montana), United States, 1941
+2. Helsinki (Helsinki-Uusimaa), Finland, 1970
+3. Port Moresby, Papua New Guinea, 2024
+4. Santiago (Santiago Metropolitan), Chile, 1931
+5. Zurich (Zurich), Switzerland, 1992

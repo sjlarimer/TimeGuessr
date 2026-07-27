@@ -1,0 +1,51 @@
+TimeGuessr Average Template
+Average - 
+Years Average - 
+Location Average - 
+Michael Percentile - 
+Michael Years - 
+Michael Location - 
+Sarah Years - 
+Sarah Location - 
+Sarah Percentile - 
+1 - 
+1 Time - 
+1 Geo - 
+2 - 
+2 Time - 
+2 Geo - 
+3 - 
+3 Time - 
+3 Geo - 
+4 - 
+4 Time - 
+4 Geo - 
+5 - 
+5 Time - 
+5 Geo - 
+
+TimeGuessr #1152
+Average - 27909
+Years Average - 48
+Location Average - 46
+Michael Percentile - 96.8% 
+Michael Years - 68
+Michael Location - 87
+Sarah Percentile - 94%
+Sarah Years - 64
+Sarah Location - 77
+1 - 5012
+1 Time - 16.3
+1 Geo - 707.3 mi
+2 - 7293
+2 Time - 8.4
+2 Geo - 324 mi
+3 - 5542
+3 Time - 7.3
+3 Geo - 4728.6
+4 - 4238
+4 Time - 13.1
+4 Geo - 4079.7 mi
+5 - 5824
+5 Time - 18.7
+5 Geo - 213.8 mi
