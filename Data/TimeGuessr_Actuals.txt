@@ -1117,3 +1117,24 @@ TimeGuessr #1152
 3. Port Moresby, Papua New Guinea, 2024
 4. Santiago (Santiago Metropolitan), Chile, 1931
 5. Zurich (Zurich), Switzerland, 1992
+
+TimeGuessr #1153
+1. Washington DC (Washington DC), United States, 1963
+2. Mexico City (Mexico City), Mexico, 2019
+3. Stockholm (Svealand), Sweden, 1956
+4. Old Delhi (Delhi), India, 1986
+5. Copenhagen (Capital Region), Denmark, 1924
+
+TimeGuessr #1154
+1. New York (New York), United States, 1981
+2. Berlin (Berlin), Germany, 1935
+3. Madrid (Madrid), Spain, 1961
+4. Manila, Philippines, 2008
+5. London (England), United Kingdom, 1976
+
+TimeGuessr #1155
+1. Jakarta, Indonesia, 2017
+2. Budapest (Central Hungary), Hungary, 1933
+3. Plains (Georgia), United States, 1977
+4. Manama, Bahrain, 1991
+5. Venice (Veneto), Italy, 1964

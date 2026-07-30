@@ -5,9 +5,9 @@ Location Average -
 Michael Percentile - 
 Michael Years - 
 Michael Location - 
+Sarah Percentile - 
 Sarah Years - 
 Sarah Location - 
-Sarah Percentile - 
 1 - 
 1 Time - 
 1 Geo - 
@@ -25,27 +25,105 @@ Sarah Percentile -
 5 Geo - 
 
 TimeGuessr #1152
-Average - 27909
+Average - 27813
 Years Average - 48
-Location Average - 46
+Location Average - 45
 Michael Percentile - 96.8% 
 Michael Years - 68
 Michael Location - 87
 Sarah Percentile - 94%
 Sarah Years - 64
 Sarah Location - 77
-1 - 5012
-1 Time - 16.3
-1 Geo - 707.3 mi
-2 - 7293
-2 Time - 8.4
-2 Geo - 324 mi
-3 - 5542
-3 Time - 7.3
-3 Geo - 4728.6
-4 - 4238
+1 - 5009
+1 Time - 16.4
+1 Geo - 710.3 mi
+2 - 7209
+2 Time - 8.6
+2 Geo - 346.4 mi
+3 - 5575
+3 Time - 7.4
+3 Geo - 4669.4 mi
+4 - 4218
 4 Time - 13.1
-4 Geo - 4079.7 mi
-5 - 5824
-5 Time - 18.7
-5 Geo - 213.8 mi
+4 Geo - 4136.2 mi
+5 - 5801
+5 Time - 18.8
+5 Geo - 227 mi
+
+TimeGuessr #1153
+Average - 37373
+Years Average - 70
+Location Average - 63
+Michael Percentile - 87.9%
+Michael Years - 83
+Michael Location - 82
+Sarah Percentile - 55.9%
+Sarah Years - 71
+Sarah Location - 67
+1 - 9643
+1 Time - 1.1
+1 Geo - 80.1 mi
+2 - 6776
+2 Time - 7.1
+2 Geo - 1120.3 mi
+3 - 7377
+3 Time - 8
+3 Geo - 373.9 mi
+4 - 6188
+4 Time - 10.4
+4 Geo - 672.8 mi
+5 - 7389
+5 Time - 9
+5 Geo - 340.2 mi
+
+TimeGuessr #1154
+Average - 37371
+Years Average - 64
+Location Average - 63
+Michael Percentile - 91.3%
+Michael Years - 79
+Michael Location - 85
+Sarah Percentile - 98%
+Sarah Years - 89
+Sarah Location - 91
+1 - 6955
+1 Time - 6.9
+1 Geo - 2066.1 mi
+2 - 6625
+2 Time - 14.1
+2 Geo - 171.9 mi
+3 - 6075
+3 Time - 11.2 
+3 Geo - 1496.8 mi
+4 - 7381
+4 Time - 7.1
+4 Geo - 925.4 mi
+5 - 8437
+5 Time - 4.3 
+5 Geo - 653.9 mi
+
+TimeGuessr #1155
+Average - 35630
+Years Average - 69
+Location Average - 50 
+Michael Percentile - 99.8%
+Michael Years - 98
+Michael Location - 90
+Sarah Percentile - 99.7%
+Sarah Years - 99
+Sarah Location - 81 
+1 - 6642
+1 Time - 4.6
+1 Geo - 1540 mi
+2 - 6773
+2 Time - 11.7
+2 Geo - 309.3 mi
+3 - 8269
+3 Time - 4.2
+3 Geo - 281 mi
+4 - 6622
+4 Time - 7.9
+4 Geo - 753.7 mi
+5 - 7325
+5 Time - 8.7
+5 Geo - 269 mi
