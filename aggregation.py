@@ -9,10 +9,11 @@ try:
 except Exception:
     pass
 
-MICHAEL_TXT = "Data/TimeGuessr_Michael.txt"
-SARAH_TXT   = "Data/TimeGuessr_Sarah.txt"
-ACTUALS_TXT = "Data/TimeGuessr_Actuals.txt"
-STATS_CSV   = "Data/Timeguessr_Stats.csv"
+MICHAEL_TXT   = "Data/TimeGuessr_Michael.txt"
+SARAH_TXT     = "Data/TimeGuessr_Sarah.txt"
+ACTUALS_TXT   = "Data/TimeGuessr_Actuals.txt"
+AVERAGES_TXT  = "Data/TimeGuessr_Averages.txt"
+STATS_CSV     = "Data/Timeguessr_Stats.csv"
 
 
 def _needs_update():
@@ -21,9 +22,35 @@ def _needs_update():
     stats_mtime = os.path.getmtime(STATS_CSV)
     return any(
         os.path.getmtime(p) > stats_mtime
-        for p in (MICHAEL_TXT, SARAH_TXT, ACTUALS_TXT)
+        for p in (MICHAEL_TXT, SARAH_TXT, ACTUALS_TXT, AVERAGES_TXT)
         if os.path.exists(p)
     )
+
+
+def _parse_distance_to_meters(value):
+    if value is None:
+        return np.nan
+    if isinstance(value, float) and value != value:
+        return np.nan
+    if not isinstance(value, str):
+        return np.nan
+    v = value.strip().lower()
+    m = re.search(r"([\d.,]+)", v)
+    if not m:
+        return np.nan
+    try:
+        num = float(m.group(1).replace(",", ""))
+    except Exception:
+        return np.nan
+    if "km" in v:
+        return num * 1000
+    if "mi" in v:
+        return num * 1609.344
+    if "ft" in v:
+        return num * 0.3048
+    if "m" in v:
+        return num
+    return np.nan
 
 
 def parse_user_blocks(lines, user):
@@ -166,31 +193,7 @@ def parse_user_blocks(lines, user):
                     _s = _s.replace(_ch, '')
                 _rd[_field] = _s.strip()
 
-        _gd = _rd.get("Geography Distance")
-        if _gd is None or (isinstance(_gd, float) and _gd != _gd):
-            _rd["Geography Distance"] = np.nan
-        elif isinstance(_gd, str):
-            _gval = _gd.strip().lower()
-            _nm = re.search(r"([\d.,]+)", _gval)
-            if not _nm:
-                _rd["Geography Distance"] = np.nan
-            else:
-                try:
-                    _num = float(_nm.group(1).replace(",", ""))
-                    if "km" in _gval:
-                        _rd["Geography Distance"] = _num * 1000
-                    elif "mi" in _gval:
-                        _rd["Geography Distance"] = _num * 1609.344
-                    elif "ft" in _gval:
-                        _rd["Geography Distance"] = _num * 0.3048
-                    elif "m" in _gval:
-                        _rd["Geography Distance"] = _num
-                    else:
-                        _rd["Geography Distance"] = np.nan
-                except Exception:
-                    _rd["Geography Distance"] = np.nan
-        else:
-            _rd["Geography Distance"] = np.nan
+        _rd["Geography Distance"] = _parse_distance_to_meters(_rd.get("Geography Distance"))
 
     _cols = [
         "Timeguessr Day", "Timeguessr Round", "Total Score", "Round Score",
@@ -322,6 +325,172 @@ def parse_actuals(lines):
     })
 
 
+_DAILY_COLS = [
+    "Timeguessr Day",
+    "Community Average", "Community Years Average", "Community Location Average",
+    "Michael Percentile", "Michael Years", "Michael Location",
+    "Sarah Percentile", "Sarah Years", "Sarah Location",
+]
+_ROUND_COLS = [
+    "Timeguessr Day", "Timeguessr Round",
+    "Community Round Score", "Community Time Distance", "Community Geography Distance",
+]
+
+
+def parse_averages(lines):
+    daily_rows = []
+    round_rows = []
+    i = 0
+    n = len(lines)
+
+    while i < n:
+        header = re.match(r"^TimeGuessr #(\d+)$", lines[i])
+        if not header:
+            i += 1
+            continue
+        day = int(header.group(1))
+        i += 1
+
+        block = []
+        while i < n and not re.match(r"^TimeGuessr #(\d+)$", lines[i]):
+            block.append(lines[i])
+            i += 1
+
+        daily = {c: np.nan for c in _DAILY_COLS}
+        daily["Timeguessr Day"] = day
+        rounds = {r: {c: np.nan for c in _ROUND_COLS} for r in range(1, 6)}
+        for r in range(1, 6):
+            rounds[r]["Timeguessr Day"] = day
+            rounds[r]["Timeguessr Round"] = r
+
+        for bline in block:
+            m = re.match(r"^Average\s*-\s*([\d,.]+)", bline)
+            if m: daily["Community Average"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Years Average\s*-\s*([\d,.]+)", bline)
+            if m: daily["Community Years Average"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Location Average\s*-\s*([\d,.]+)", bline)
+            if m: daily["Community Location Average"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Michael Percentile\s*-\s*([\d.]+)", bline)
+            if m: daily["Michael Percentile"] = float(m.group(1)) / 100; continue
+            m = re.match(r"^Michael Years\s*-\s*([\d,.]+)", bline)
+            if m: daily["Michael Years"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Michael Location\s*-\s*([\d,.]+)", bline)
+            if m: daily["Michael Location"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Sarah Percentile\s*-\s*([\d.]+)", bline)
+            if m: daily["Sarah Percentile"] = float(m.group(1)) / 100; continue
+            m = re.match(r"^Sarah Years\s*-\s*([\d,.]+)", bline)
+            if m: daily["Sarah Years"] = float(m.group(1).replace(",", "")); continue
+            m = re.match(r"^Sarah Location\s*-\s*([\d,.]+)", bline)
+            if m: daily["Sarah Location"] = float(m.group(1).replace(",", "")); continue
+
+            m = re.match(r"^([1-5])\s+Time\s*-\s*([\d.]+)", bline)
+            if m: rounds[int(m.group(1))]["Community Time Distance"] = float(m.group(2)); continue
+            m = re.match(r"^([1-5])\s+Geo\s*-\s*(.+)$", bline)
+            if m: rounds[int(m.group(1))]["Community Geography Distance"] = _parse_distance_to_meters(m.group(2)); continue
+            m = re.match(r"^([1-5])\s*-\s*([\d,]+)$", bline)
+            if m: rounds[int(m.group(1))]["Community Round Score"] = float(m.group(2).replace(",", "")); continue
+
+        daily_rows.append(daily)
+        round_rows.extend(rounds[r] for r in range(1, 6))
+
+    df_daily = pd.DataFrame(daily_rows, columns=_DAILY_COLS) if daily_rows else pd.DataFrame(columns=_DAILY_COLS)
+    df_rounds = pd.DataFrame(round_rows, columns=_ROUND_COLS) if round_rows else pd.DataFrame(columns=_ROUND_COLS)
+    if not df_daily.empty:
+        df_daily["Timeguessr Day"] = df_daily["Timeguessr Day"].astype(np.int64)
+    if not df_rounds.empty:
+        df_rounds["Timeguessr Day"] = df_rounds["Timeguessr Day"].astype(np.int64)
+        df_rounds["Timeguessr Round"] = df_rounds["Timeguessr Round"].astype(np.int64)
+    return df_daily, df_rounds
+
+
+_AVERAGES_BLOCK_LABELS = (
+    ["Average", "Years Average", "Location Average",
+     "Michael Percentile", "Michael Years", "Michael Location",
+     "Sarah Percentile", "Sarah Years", "Sarah Location"]
+    + [f"{r}{suffix}" for r in range(1, 6) for suffix in ("", " Time", " Geo")]
+)
+
+
+def _update_averages_block(day, updates):
+    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
+    setting each `label -> value` in `updates` while leaving every other
+    line in the block untouched."""
+    if not updates:
+        return
+
+    if os.path.exists(AVERAGES_TXT):
+        with open(AVERAGES_TXT, "r", encoding="utf-8") as f:
+            raw_lines = f.read().splitlines()
+    else:
+        raw_lines = []
+
+    header = f"TimeGuessr #{day}"
+    start = next((idx for idx, line in enumerate(raw_lines) if line.strip() == header), None)
+
+    if start is None:
+        block = [header] + [f"{label} - " for label in _AVERAGES_BLOCK_LABELS]
+        for idx, label in enumerate(_AVERAGES_BLOCK_LABELS, start=1):
+            if label in updates:
+                block[idx] = f"{label} - {updates[label]}"
+        if raw_lines and raw_lines[-1].strip() != "":
+            raw_lines.append("")
+        raw_lines.extend(block)
+        raw_lines.append("")
+    else:
+        end = next(
+            (idx for idx in range(start + 1, len(raw_lines)) if re.match(r"^TimeGuessr #\d+$", raw_lines[idx].strip())),
+            len(raw_lines),
+        )
+        for label, val in updates.items():
+            for idx in range(start + 1, end):
+                if re.match(rf"^{re.escape(label)}\s*-", raw_lines[idx]):
+                    raw_lines[idx] = f"{label} - {val}"
+                    break
+            else:
+                raw_lines.insert(end, f"{label} - {val}")
+                end += 1
+
+    with open(AVERAGES_TXT, "w", encoding="utf-8") as f:
+        f.write("\n".join(raw_lines).rstrip("\n") + "\n")
+
+
+def update_averages_entry(day, player, percentile=None, years=None, location=None):
+    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
+    setting `{player} Percentile/Years/Location` while leaving every other
+    line in the block untouched."""
+    updates = {}
+    if percentile is not None:
+        updates[f"{player} Percentile"] = f"{percentile:g}%"
+    if years is not None:
+        updates[f"{player} Years"] = f"{years:g}"
+    if location is not None:
+        updates[f"{player} Location"] = f"{location:g}"
+    _update_averages_block(day, updates)
+
+
+def update_community_averages_entry(day, average=None, years_average=None, location_average=None, rounds=None):
+    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
+    setting the community `Average`/`Years Average`/`Location Average` and/or
+    per-round `N`/`N Time`/`N Geo` lines. `rounds` is a dict of
+    {round_num: {'score': float|None, 'time': float|None, 'geo_text': str|None}}.
+    `geo_text` is written verbatim (e.g. "710.3 mi")."""
+    updates = {}
+    if average is not None:
+        updates["Average"] = f"{average:g}"
+    if years_average is not None:
+        updates["Years Average"] = f"{years_average:g}"
+    if location_average is not None:
+        updates["Location Average"] = f"{location_average:g}"
+    for r, vals in (rounds or {}).items():
+        if vals.get("score") is not None:
+            updates[f"{r}"] = f"{vals['score']:g}"
+        if vals.get("time") is not None:
+            updates[f"{r} Time"] = f"{vals['time']:g}"
+        if vals.get("geo_text"):
+            updates[f"{r} Geo"] = vals["geo_text"]
+    _update_averages_block(day, updates)
+
+
 def run_aggregation():
     if not _needs_update():
         return
@@ -332,6 +501,11 @@ def run_aggregation():
         sarah_lines = [line.strip() for line in f if line.strip()]
     with open(ACTUALS_TXT, "r", encoding="utf-8") as f:
         actuals_lines = [line.strip() for line in f if line.strip()]
+    if os.path.exists(AVERAGES_TXT):
+        with open(AVERAGES_TXT, "r", encoding="utf-8") as f:
+            averages_lines = [line.strip() for line in f if line.strip()]
+    else:
+        averages_lines = []
 
     df_michael = parse_user_blocks(michael_lines, "Michael")
     df_michael.to_csv("Data/Timeguessr_Michael_Parsed.csv", index=False)
@@ -342,8 +516,15 @@ def run_aggregation():
     df_actuals = parse_actuals(actuals_lines)
     df_actuals.to_csv("Data/Timeguessr_Actuals_Parsed.csv", index=False)
 
+    df_avg_daily, df_avg_rounds = parse_averages(averages_lines)
+    df_avg_parsed = pd.merge(df_avg_rounds, df_avg_daily, on="Timeguessr Day", how="left")
+    df_avg_parsed = df_avg_parsed.sort_values(["Timeguessr Day", "Timeguessr Round"]).reset_index(drop=True)
+    df_avg_parsed.to_csv("Data/Timeguessr_Averages_Parsed.csv", index=False)
+
     df_all = pd.merge(df_michael, df_sarah, on=["Timeguessr Day", "Timeguessr Round"], how="outer")
     df_all = pd.merge(df_all, df_actuals, on=["Timeguessr Day", "Timeguessr Round"], how="left")
+    df_all = pd.merge(df_all, df_avg_daily, on="Timeguessr Day", how="left")
+    df_all = pd.merge(df_all, df_avg_rounds, on=["Timeguessr Day", "Timeguessr Round"], how="left")
 
     if "Michael Time Distance" in df_all.columns and "Michael Time Guessed" in df_all.columns:
         mask = df_all["Michael Time Distance"].isna() & df_all["Michael Time Guessed"].notna() & df_all["Year"].notna()
