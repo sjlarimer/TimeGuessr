@@ -103,27 +103,209 @@ Sarah Location - 91
 5 Geo - 653.9 mi
 
 TimeGuessr #1155
-Average - 35630
+Average - 35595
 Years Average - 69
-Location Average - 50 
+Location Average - 49 
 Michael Percentile - 99.8%
 Michael Years - 98
 Michael Location - 90
 Sarah Percentile - 99.7%
 Sarah Years - 99
 Sarah Location - 81 
-1 - 6642
-1 Time - 4.6
-1 Geo - 1540 mi
-2 - 6773
-2 Time - 11.7
-2 Geo - 309.3 mi
-3 - 8269
-3 Time - 4.2
-3 Geo - 281 mi
-4 - 6622
-4 Time - 7.9
-4 Geo - 753.7 mi
-5 - 7325
-5 Time - 8.7
-5 Geo - 269 mi
+1 - 6608
+1 Time - 4.7
+1 Geo - 1568 mi
+2 - 6750
+2 Time - 11.6
+2 Geo - 324.6 mi
+3 - 8307
+3 Time - 4.1
+3 Geo - 272 mi
+4 - 6617
+4 Time - 7.8
+4 Geo - 754.9 mi
+5 - 7313
+5 Time - 8.6
+5 Geo - 279.5 mi
+
+TimeGuessr #1156
+Average - 32790
+Years Average - 60
+Location Average - 53
+Michael Percentile - 77.1%
+Michael Years - 72
+Michael Location - 78
+Sarah Percentile - 96.4%
+Sarah Years - 82
+Sarah Location - 74
+1 - 7840
+1 Time - 6.8
+1 Geo - 257.3 mi
+2 - 7058
+2 Time - 12.2
+2 Geo - 239.8
+3 - 4872
+3 Time - 12.3
+3 Geo - 2230.1 mi
+4 - 6579
+4 Time - 11.1
+4 Geo - 565.3 mi
+5 - 6439
+5 Time - 6.5
+5 Geo - 1937.1 mi
+
+TimeGuessr #1159
+Average - 32917
+Years Average - 54
+Location Average - 58
+Michael Percentile - 71.2
+Michael Years - 48
+Michael Location - 89
+Sarah Percentile - 
+Sarah Years - 
+Sarah Location - 
+1 - 6309
+1 Time - 8.2
+1 Geo - 1325.5 mi
+2 - 6135
+2 Time - 14.2
+2 Geo - 718.1 mi
+3 - 6192
+3 Time - 13.9
+3 Geo - 414.4 mi
+4 - 6841
+4 Time - 14
+4 Geo - 232 mi
+5 - 7441
+5 Time - 7.1
+5 Geo - 389.2 mi
+
+TimeGuessr #1160
+Average - 36597
+Years Average - 64
+Location Average - 62
+Michael Percentile - 95.1%
+Michael Years - 81
+Michael Location - 91
+Sarah Percentile - 96.4%
+Sarah Years - 98
+Sarah Location - 59
+1 - 7892
+1 Time - 6.6
+1 Geo - 931.1 mi
+2 - 7260
+2 Time - 9.1
+2 Geo - 279.1 mi
+3 - 7183
+3 Time - 8.7
+3 Geo - 289 mi
+4 - 6787
+4 Time - 6.4
+4 Geo - 1518.2 mi
+5 - 7475
+5 Time - 10.3
+5 Geo - 94.9 mi
+
+TimeGuessr #1161
+Average - 34608
+Years Average - 64
+Location Average - 57
+Michael Percentile - 82%
+Michael Years - 68
+Michael Location - 80
+Sarah Percentile - 80%
+Sarah Years - 63
+Sarah Location - 91 
+1 - 6735
+1 Time - 4.2
+1 Geo - 2309.9 mi
+2 - 7030
+2 Time - 8.9 
+2 Geo - 542.4
+3 - 6581
+3 Time - 11.2 
+3 Geo - 427.4 mi
+4 - 6719
+4 Time - 11
+4 Geo - 503.4 mi
+5 - 7543
+5 Time - 7.2
+5 Geo - 425.3 mi
+
+TimeGuessr #1162
+Average - 31040
+Years Average - 56
+Location Average - 54
+Michael Percentile - 83.8%
+Michael Years - 59
+Michael Location - 94
+Sarah Percentile - 71.9%
+Sarah Years - 86
+Sarah Location - 53
+1 - 5983
+1 Time - 21
+1 Geo - 956.7 mi
+2 - 4449
+2 Time - 18.1
+2 Geo - 2988.5 mi
+3 - 6717
+3 Time - 10
+3 Geo - 608.7 mi
+4 - 7102
+4 Time - 8.8
+4 Geo - 402.6 mi
+5 - 6791
+5 Time - 5.4
+5 Geo - 2694.5 mi
+
+TimeGuessr #1163
+Average - 32901
+Years Average - 51
+Location Average - 56
+Michael Percentile - 96%
+Michael Years - 72
+Michael Location - 76
+Sarah Percentile - 13.1%
+Sarah Years - 40
+Sarah Location - 46
+1 - 6364
+1 Time - 23.1
+1 Geo - 38.9 mi
+2 - 6416
+2 Time - 10.7
+2 Geo - 486.7 mi
+3 - 6039
+3 Time - 10.9
+3 Geo - 1519.1 mi
+4 - 7096
+4 Time - 8.3
+4 Geo - 404.9 mi
+5 - 6988
+5 Time - 9.6
+5 Geo - 347.3 mi
+
+TimeGuessr #1166
+Average - 34940
+Years Average - 66
+Location Average - 52
+Michael Percentile - 99%
+Michael Years - 91
+Michael Location - 77
+Sarah Percentile - 58.2%
+Sarah Years - 55
+Sarah Location - 67
+1 - 7482
+1 Time - 7.4
+1 Geo - 317.1 mi
+2 - 7596
+2 Time - 6.3
+2 Geo - 331.1 mi
+3 - 6623
+3 Time - 8.5
+3 Geo - 927.7 mi
+4 - 6136
+4 Time - 7.3
+4 Geo - 2147.5 mi
+5 - 7104
+5 Time - 10.5
+5 Geo - 190.6 mi

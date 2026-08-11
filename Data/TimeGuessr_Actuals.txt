@@ -1138,3 +1138,52 @@ TimeGuessr #1155
 3. Plains (Georgia), United States, 1977
 4. Manama, Bahrain, 1991
 5. Venice (Veneto), Italy, 1964
+
+TimeGuessr #1156
+1. Boston (Massachusetts), United States, 1984
+2. Lisbon (Lisbon), Portugal, 1935
+3. Bucharest, Romania, 1970
+4. Saint Petersburg (Northwestern), Russia, 1917
+5. Toronto (Ontario), Canada, 1995
+
+TimeGuessr #1159
+1. Blackpool (England), United Kingdom, 1981
+2. Lisbon (Lisbon), Portugal, 1953
+3. Cairo, Egypt, 1961
+4. Amsterdam (North Holland), Netherlands, 1910
+5. Des Moines (Iowa), United States, 2009
+
+TimeGuessr #1160
+1. Auckland (Auckland), New Zealand, 1971
+2. Prague (Bohemia), Czechia, 1960
+3. Fira (South Aegean), Greece, 1991
+4. Sao Paulo (Southeast), Brazil, 2017
+5. Chicago (Illinois), United States, 1940
+
+TimeGuessr #1161
+1. Mexico City (Mexico City), Mexico, 2024
+2. Reykjavik, Iceland, 1974
+3. Rome (Lazio), Italy, 1926
+4. Geneva (Lake Geneva Region), Switzerland, 1966
+5. Los Angeles (California), United States, 1997
+
+TimeGuessr #1162
+1. New York (New York), United States, 1904
+2. Buenos Aires, Argentina, 1982
+3. Budapest (Central Hungary), Hungary, 1958
+4. Helsinki (Helsinki-Uusimaa), Finland, 1971
+5. Pearl Harbor (Hawaii), United States, 1941
+
+TimeGuessr #1163
+1. Venice (Veneto), Italy, 1970
+2. Kiev, Ukraine, 1961
+3. Belfast (Northern Ireland), United Kingdom, 2007
+4. Seoul (Seoul Capital Area), South Korea, 1984
+5. Philadelphia (Pennsylvania), United States, 1948
+
+TimeGuessr #1166
+1. Rotterdam (South Holland), Netherlands, 1957
+2. Gothenburg (Gotaland), Sweden, 1977
+3. Long Beach (California), United States, 1925
+4. Lima (Lima), Peru, 2012
+5. Old Delhi (Delhi), India, 1999
