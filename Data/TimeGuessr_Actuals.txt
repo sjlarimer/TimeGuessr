@@ -1187,3 +1187,10 @@ TimeGuessr #1166
 3. Long Beach (California), United States, 1925
 4. Lima (Lima), Peru, 2012
 5. Old Delhi (Delhi), India, 1999
+
+TimeGuessr #1167
+1. Brussels (Brussels Capital Region), Belgium, 1960
+2. Ulaanbaatar, Mongolia, 1992
+3. Iringa, Tanzania, 2010
+4. Garwolin (Masovia), Poland, 1933
+5. Kingston, Jamaica, 1997
