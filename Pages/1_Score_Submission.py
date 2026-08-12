@@ -185,9 +185,9 @@ def generate_player_html(player_name, date_rows, players, highlight=False):
     html = [f'<div class="tg-container" style="background-color: {bg}; {border}"><div class="tg-header" style="color: {header};">{player_name}</div><div class="tg-total">{total_text}</div>']
     
     if geo_sum == 0 and time_sum == 0:
-        html.append('<div class="tg-sub">🌎 Geography: <b>???</b>/25,000</div><div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
+        html.append('<div class="tg-sub">🌎 Geo: <b>???</b>/25,000</div><div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
     else:
-        html.append(f'<div class="tg-sub">🌎 Geography: <b>{int(geo_sum):,}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
+        html.append(f'<div class="tg-sub">🌎 Geo: <b>{int(geo_sum):,}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
     
     html.append('<div class="tg-rounds-wrapper">')
     
@@ -217,7 +217,55 @@ def generate_player_html(player_name, date_rows, players, highlight=False):
         t_txt = f"{int(time_score):,}/5k" if pd.notna(time_score) else ("???/5k" if time_pattern not in TIME_RANGES else f"{TIME_RANGES[time_pattern][0]:,}-{TIME_RANGES[time_pattern][1]:,}/5k")
         
         html.append(f'<div class="tg-round"><div class="tg-row"><div class="tg-half"><div class="tg-score-note">{flag} <small>{g_txt}</small></div>{half_bar_html(geo_score, geo_pattern, GEOGRAPHY_RANGES)}</div><div class="tg-half"><div class="tg-score-note">📅 <small>{t_txt}</small></div>{half_bar_html(time_score, time_pattern, TIME_RANGES)}</div></div></div>')
-    
+
+    html.append('</div></div>')
+    return "\n".join(html)
+
+def generate_community_html(date_rows):
+    if len(date_rows) == 0: return ""
+    row_0 = date_rows.iloc[0]
+    total_score = row_0.get("Community Average")
+    total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
+
+    # Geo/Time sub-totals aren't reported for the community average, so estimate them
+    # by summing each round's estimated geo/time score (from years-off/distance, via
+    # the same formulas used for players) — display-only, hence the quotation marks.
+    geo_sum_est, time_sum_est = 0, 0
+    have_geo_est, have_time_est = False, False
+    round_scores = []
+
+    for r_num in range(1, 6):
+        r_data = date_rows[date_rows["Timeguessr Round"] == r_num]
+        row_r = r_data.iloc[0] if len(r_data) > 0 else None
+        round_scores.append(row_r.get("Community Round Score") if row_r is not None else None)
+
+        time_off = row_r.get("Community Time Distance") if row_r is not None else None
+        if pd.notna(time_off):
+            t_est = calculate_time_score(float(time_off), 0)
+            if t_est is not None:
+                time_sum_est += t_est
+                have_time_est = True
+
+        dist_m = row_r.get("Community Geography Distance") if row_r is not None else None
+        if pd.notna(dist_m):
+            geo_sum_est += geography_score(float(dist_m))
+            have_geo_est = True
+
+    html = [f'<div class="tg-container" style="background-color: #e9ecef;"><div class="tg-header" style="color: #495057;">Community</div><div class="tg-total">{total_text}</div>']
+
+    geo_txt = f'"{int(geo_sum_est):,}"' if have_geo_est else '"???"'
+    time_txt = f'"{int(time_sum_est):,}"' if have_time_est else '"???"'
+    html.append(f'<div class="tg-sub">🌎 Geo: <b>{geo_txt}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{time_txt}</b>/25,000</div>')
+
+    html.append('<div class="tg-rounds-wrapper">')
+
+    for r_num, round_score in zip(range(1, 6), round_scores):
+        r_txt = f"{int(round_score):,}/10k" if pd.notna(round_score) else "???/10k"
+        pct = min(max(float(round_score) / 10000 * 100.0, 0.0), 100.0) if pd.notna(round_score) else 0
+        bar_html = f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#6c757d;"></div></div>'
+
+        html.append(f'<div class="tg-round"><div class="tg-score-note">🏆 <small>{r_txt}</small></div>{bar_html}</div>')
+
     html.append('</div></div>')
     return "\n".join(html)
 
@@ -349,9 +397,9 @@ def validate_time_pattern(guessed_year, actual_year, time_pattern, round_num):
         return False, f"Round {round_num}: Year diff ({diff}) is too large (expects {low}-{high})"
 
 # --- 4. Main Layout & Execution ---
-input_col, score_col = st.columns([1, 1.5]) 
+date_col, michael_col, sarah_col, community_col = st.columns([1, 1, 1, 1])
 
-with input_col:
+with date_col:
     date = st.date_input("Date", value=datetime.date.today(), max_value=datetime.date.today())
 
 # Load data at top level so it's available to all columns
@@ -365,7 +413,7 @@ if date:
 
 # Render Scoreboard & Custom Bar Chart
 if not date_rows.empty:
-    with input_col:
+    with date_col:
         # Prepare Data
         m_total_scores = []
         s_total_scores = []
@@ -493,53 +541,50 @@ if not date_rows.empty:
         """
         st.markdown(bars_html, unsafe_allow_html=True)
 
-    with score_col:
-        row_0 = date_rows.iloc[0]
-        m_total = row_0.get("Michael Total Score", 0)
-        s_total = row_0.get("Sarah Total Score", 0)
-        m_val = 0 if pd.isna(m_total) else m_total
-        s_val = 0 if pd.isna(s_total) else s_total
-        players = ["Michael", "Sarah"]
-        
-        p1_html = generate_player_html(players[0], date_rows, players, highlight=(m_val > s_val))
-        p2_html = generate_player_html(players[1], date_rows, players, highlight=(s_val > m_val))
-        
-        component_css = """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
-        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        .tg-container { position: relative; padding: 10px 12px; box-sizing: border-box; width: 100%; border-radius: 12px; margin-bottom: 0; }
-        .tg-header { font-weight:700; font-size:30px; margin:0 0 5px 0; line-height:1.1; }
-        .tg-total { color:#222; font-size:24px; font-weight:600; margin:0 0 7px 0; line-height:1.1; }
-        .tg-sub { font-size:20px; margin:0 0 7px 0; line-height:1.1; color:#333; }
-        .tg-rounds-wrapper { margin-top:7px; }
-        .tg-round { margin:7px 0; }
-        .tg-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; }
-        .tg-half { width: 50%; flex: 1; }
-        .tg-bar-bg { background:#b0afaa; border-radius:10px; height:10px; overflow:hidden; width: 100%; position: relative; }
-        .tg-bar-fill { height:10px; border-radius:10px; background:#db5049; }
-        .tg-score-note { font-size:18px; margin:0 0 7px 0; white-space: nowrap; }
-        .tg-score-note small { color:#444; }
-        
-        /* Flexbox for the inner scoreboard containers to wrap on mobile */
-        .dual-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 20px; 
-            justify-content: center; 
-            width: 100%; 
-        }
-        .dual-container > div { flex: 1; min-width: 250px; }
-        </style>
-        """
-        combined_html = f'{component_css}<div class="dual-container"><div>{p1_html}</div><div>{p2_html}</div></div>'
-        components_html(combined_html, height=450, scrolling=True)
+    row_0 = date_rows.iloc[0]
+    m_total = row_0.get("Michael Total Score", 0)
+    s_total = row_0.get("Sarah Total Score", 0)
+    m_val = 0 if pd.isna(m_total) else m_total
+    s_val = 0 if pd.isna(s_total) else s_total
+    players = ["Michael", "Sarah"]
+
+    p1_html = generate_player_html(players[0], date_rows, players, highlight=(m_val > s_val))
+    p2_html = generate_player_html(players[1], date_rows, players, highlight=(s_val > m_val))
+
+    component_css = """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+    body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+    .tg-container { position: relative; padding: 10px 12px; box-sizing: border-box; width: 100%; border-radius: 12px; margin-bottom: 0; }
+    .tg-header { font-weight:700; font-size:30px; margin:0 0 5px 0; line-height:1.1; }
+    .tg-total { color:#222; font-size:24px; font-weight:600; margin:0 0 7px 0; line-height:1.1; }
+    .tg-sub { font-size:20px; margin:0 0 7px 0; line-height:1.1; color:#333; }
+    .tg-rounds-wrapper { margin-top:7px; }
+    .tg-round { margin:7px 0; }
+    .tg-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; }
+    .tg-half { width: 50%; flex: 1; }
+    .tg-bar-bg { background:#b0afaa; border-radius:10px; height:10px; overflow:hidden; width: 100%; position: relative; }
+    .tg-bar-fill { height:10px; border-radius:10px; background:#db5049; }
+    .tg-score-note { font-size:18px; margin:0 0 7px 0; white-space: nowrap; }
+    .tg-score-note small { color:#444; }
+    </style>
+    """
+
+    with michael_col:
+        components_html(f'{component_css}{p1_html}', height=450, scrolling=True)
+
+    with sarah_col:
+        components_html(f'{component_css}{p2_html}', height=450, scrolling=True)
+
+    with community_col:
+        community_html = generate_community_html(date_rows)
+        components_html(f'{component_css}{community_html}', height=450, scrolling=True)
 
 elif df is None:
-    with score_col:
+    with date_col:
         st.error("Data file not found.")
 else:
-    with score_col:
+    with date_col:
         st.info("No data found for this date.")
 
 # --- 5. Row-Based Input Section ---
@@ -1009,18 +1054,37 @@ if date:
 
             if community_fields_disabled:
                 c_score_in, c_time_in, c_dist_in = def_c_score, def_c_time, def_c_dist
+
+                # Estimated scores derived from the average years-off/distance, purely for
+                # display — NOT the true community average (that would require averaging
+                # individual scores, not scoring the averaged inputs), so shown in quotes
+                # and never saved anywhere.
+                time_est_txt = "—"
+                if def_c_time:
+                    try:
+                        time_est = calculate_time_score(float(def_c_time), 0)
+                        if time_est is not None:
+                            time_est_txt = f'"{time_est:,.0f}"'
+                    except ValueError:
+                        pass
+
+                geo_est_txt = "—"
+                dist_val_parsed, dist_unit_parsed = parse_distance_input(def_c_dist)
+                if dist_val_parsed is not None and dist_unit_parsed is not None:
+                    geo_est_txt = f'"{geography_score(distance_to_meters(dist_val_parsed, dist_unit_parsed)):,.0f}"'
+
                 st.markdown(f'''<div style="background:#eef0f2; border-radius:10px; padding:10px 14px; border-left:4px solid #6c757d; box-shadow:0 2px 6px rgba(0,0,0,0.08); margin-top:2px;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <span style="color:#444; font-size:0.9em;">🏆 Score</span>
         <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_score or "—"}</span>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
-        <span style="color:#444; font-size:0.9em;">📅 Time</span>
-        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_time or "—"}</span>
+        <span style="color:#444; font-size:0.9em;">📅 {def_c_time or "—"}</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{time_est_txt}</span>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
-        <span style="color:#444; font-size:0.9em;">🌎 Distance</span>
-        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_dist or "—"}</span>
+        <span style="color:#444; font-size:0.9em;">🌎 {def_c_dist or "—"}</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{geo_est_txt}</span>
     </div>
 </div>''', unsafe_allow_html=True)
             else:
