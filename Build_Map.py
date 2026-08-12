@@ -973,6 +973,15 @@ def process_map():
     country_col = 'ISO3'
     print("✅ ISO3 column ready.")
 
+    print("SPLITTING: Carving Kosovo out of Serbia as its own country...")
+    if 'NAME' in gdf.columns:
+        kos_mask = gdf['NAME'] == 'Kosovo-Metohija'
+        if kos_mask.any():
+            gdf.loc[kos_mask, 'ISO3'] = 'XKX'
+            gdf.loc[kos_mask, 'NAME'] = 'Kosovo'
+        else:
+            print("   - ⚠️ 'Kosovo-Metohija' row not found in source data; skipping split.")
+
     print(f"PROCESSING: Keeping subdivisions for {COUNTRIES_TO_KEEP_SPLIT}...")
     gdf_split = gdf[gdf[country_col].isin(COUNTRIES_TO_KEEP_SPLIT)].copy()
     gdf_dissolve_source = gdf[~gdf[country_col].isin(COUNTRIES_TO_KEEP_SPLIT)].copy()
