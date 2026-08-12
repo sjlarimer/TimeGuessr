@@ -178,6 +178,24 @@ TERRITORY_PARENT_MAP = {
     'COK': 'NZL', 'NIU': 'NZL', 'TKL': 'NZL',
 }
 
+# --- Territories missing from the map's own subdivision NAME list ---
+# TERRITORY_PARENT_MAP's dependents are mostly already represented in the map's
+# per-country subdivision list (e.g. FRA's "Guadeloupe", USA's "Puerto Rico") —
+# just occasionally under a differently-spelled name (e.g. "Reunion" vs "Réunion",
+# "US Virgin Islands" vs "United States Virgin Islands"), so those aren't listed
+# again here. This is only the subset that has NO representation at all in the
+# map's subdivision list for that parent ISO3 (verified by hand against the
+# actual Custom_World_Map_New.json contents) — used so the "Subdivisions" coverage
+# column's total doesn't undercount real territories the map simply has no
+# boundary for (e.g. UK's Isle of Man, Anguilla, Bermuda, ...).
+EXTRA_TERRITORIES_NOT_IN_MAP = {
+    'GBR': ['JEY', 'GGY', 'IMN', 'GIB', 'AIA', 'BMU', 'CYM', 'FLK', 'IOT', 'MSR', 'PCN', 'SGS', 'SHN', 'TCA', 'VGB'],
+    'AUS': ['CXR', 'CCK', 'NFK'],
+    'DNK': ['GRL', 'FRO'],
+    'NZL': ['COK', 'NIU', 'TKL'],
+    'NLD': ['ABW'],
+}
+
 # Split Configuration
 SPLIT_CONFIG = {
     "ESP": {"name": "Spain", "map": {}},
@@ -229,6 +247,28 @@ def get_country_converter():
     return coco.CountryConverter()
 
 cc = get_country_converter()
+
+@st.cache_resource
+def get_world_country_region_counts():
+    """Total real-world country counts per Continent and per UN_Region, based on
+    this app's own config.json country list (the authoritative set of selectable
+    countries). Uses each country's own base classification, independent of any
+    subdivision-level exclave overrides."""
+    try:
+        with open("config.json", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        return {}, {}
+    countries = list(cfg.get('countries', {}).keys())
+    if not countries:
+        return {}, {}
+    cont_vals = cc.convert(names=countries, to="continent", not_found=None)
+    reg_vals = cc.convert(names=countries, to="UNregion", not_found=None)
+    if isinstance(cont_vals, str): cont_vals = [cont_vals]
+    if isinstance(reg_vals, str): reg_vals = [reg_vals]
+    cont_counts = pd.Series(cont_vals).value_counts().to_dict()
+    reg_counts = pd.Series(reg_vals).value_counts().to_dict()
+    return cont_counts, reg_counts
 
 # --- CSS & Styles ---
 from utils import load_css
@@ -1135,7 +1175,90 @@ if not stats.empty:
 
     cols = ['Hover_Name', 'Count', 'Most Recent Location', 'Most Recent Date']
     def_sort_col = "Count"
-    def_sort_idx = 0 
+    def_sort_idx = 0
+
+    coverage_col_name = None
+
+    if map_metric == "Count" and view_mode in ("UN Regions", "Continents"):
+        coverage_col_name = "Countries"
+        world_cont_counts, world_reg_counts = get_world_country_region_counts()
+        total_counts = world_cont_counts if view_mode == "Continents" else world_reg_counts
+
+        appeared_iso = filtered_data['ISO3'].dropna().unique().tolist()
+        if appeared_iso:
+            appeared_cont_vals = cc.convert(names=appeared_iso, to='continent', not_found=None)
+            appeared_reg_vals = cc.convert(names=appeared_iso, to='UNregion', not_found=None)
+            if isinstance(appeared_cont_vals, str): appeared_cont_vals = [appeared_cont_vals]
+            if isinstance(appeared_reg_vals, str): appeared_reg_vals = [appeared_reg_vals]
+            appeared_counts = pd.Series(
+                appeared_cont_vals if view_mode == "Continents" else appeared_reg_vals
+            ).value_counts().to_dict()
+        else:
+            appeared_counts = {}
+
+        disp['_coverage_x'] = disp['Join_Key'].map(appeared_counts).fillna(0).astype(int)
+        disp['_coverage_y'] = disp['Join_Key'].map(total_counts).fillna(0).astype(int)
+
+        missing_regions = [r for r in total_counts.keys() if r not in set(disp['Join_Key'])]
+        if missing_regions:
+            missing_rows = pd.DataFrame({
+                'Join_Key': missing_regions,
+                'Hover_Name': missing_regions,
+                'Count': 0,
+                'Most Recent Location': "",
+                'Most Recent Date': "",
+                '_coverage_x': [appeared_counts.get(r, 0) for r in missing_regions],
+                '_coverage_y': [total_counts.get(r, 0) for r in missing_regions],
+            })
+            disp = pd.concat([disp, missing_rows], ignore_index=True)
+
+    elif map_metric == "Count" and view_mode == "Countries":
+        coverage_col_name = "Subdivisions"
+
+        # Build, per ISO3, the union of every subdivision NAME we know about from
+        # three sources (as name strings, so equivalent spellings from different
+        # sources correctly de-duplicate into one entry rather than double-counting):
+        #   1. the map's own subdivision list (only for countries with >1 named part)
+        #   2. known dependent territories that have NO map representation at all
+        #      (EXTRA_TERRITORIES_NOT_IN_MAP, e.g. UK's Isle of Man, Anguilla, ...)
+        #   3. subdivisions that have genuinely appeared in the recorded data, even
+        #      if neither of the above accounts for them
+        sub_name_sets = {}
+        if base_gdf is not None and 'ISO3' in base_gdf.columns and 'NAME' in base_gdf.columns:
+            for iso, names in base_gdf.groupby('ISO3')['NAME'].apply(lambda s: set(s.unique())).items():
+                if len(names) > 1:
+                    sub_name_sets[iso] = set(names)
+
+        for parent, territory_isos in EXTRA_TERRITORIES_NOT_IN_MAP.items():
+            tnames = cc.convert(names=territory_isos, to='name_short', not_found=None)
+            if isinstance(tnames, str): tnames = [tnames]
+            sub_name_sets.setdefault(parent, set()).update(tnames)
+
+        # SPLIT_CONFIG's per-country 'map' dict is the same alias table used elsewhere
+        # in this file to normalize raw recorded names (e.g. "Washington DC") to the
+        # map's own spelling ("District of Columbia") — apply it here too, so an alias
+        # doesn't get miscounted as a brand-new, never-seen-before subdivision.
+        sub_src_full = data.dropna(subset=['Subdivision'])
+        if not sub_src_full.empty:
+            for iso, sub_group in sub_src_full.groupby('ISO3')['Subdivision']:
+                name_map = SPLIT_CONFIG.get(iso, {}).get('map', {})
+                names = {name_map.get(n, n) for n in sub_group.dropna().unique()}
+                sub_name_sets.setdefault(iso, set()).update(names)
+
+        sub_totals = {iso: len(names) for iso, names in sub_name_sets.items()}
+
+        sub_appeared = {}
+        sub_src = filtered_data.dropna(subset=['Subdivision'])
+        if not sub_src.empty:
+            sub_appeared = sub_src.groupby('ISO3')['Subdivision'].nunique().to_dict()
+
+        disp['_coverage_x'] = disp['ISO_Code'].map(sub_appeared).fillna(0).astype(int)
+        disp['_coverage_y'] = disp['ISO_Code'].map(sub_totals).fillna(0).astype(int)
+
+    if coverage_col_name:
+        disp[coverage_col_name] = disp['_coverage_x'].astype(str) + " / " + disp['_coverage_y'].astype(str)
+        disp['_coverage_pct'] = np.where(disp['_coverage_y'] > 0, disp['_coverage_x'] / disp['_coverage_y'], 0.0)
+        cols = ['Hover_Name', 'Count', 'Most Recent Location', coverage_col_name, 'Most Recent Date']
 
     if map_metric == "Comparison":
         def get_win_rates(row):
@@ -1211,6 +1334,13 @@ if not stats.empty:
         sort_dir = st.selectbox("Order", options=["Descending", "Ascending"], index=def_sort_idx)
     
     ascending = sort_dir == "Ascending"
-    final_df = final_df.sort_values(by=sort_col, ascending=ascending)
-    
+    if coverage_col_name and sort_col == coverage_col_name and '_coverage_pct' in disp.columns:
+        final_df = (
+            final_df.assign(_sort_pct=disp['_coverage_pct'])
+            .sort_values(by='_sort_pct', ascending=ascending)
+            .drop(columns='_sort_pct')
+        )
+    else:
+        final_df = final_df.sort_values(by=sort_col, ascending=ascending)
+
     st.markdown(create_styled_table(final_df), unsafe_allow_html=True)
