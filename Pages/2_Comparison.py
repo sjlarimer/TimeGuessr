@@ -173,16 +173,18 @@ def prepare_total_scores_data(data: pd.DataFrame, include_single: bool = False) 
     """Prepare data for Total Scores view."""
     df_daily = data.groupby("Timeguessr Day").first().reset_index()
     
+    community_col = ["Community Average"] if "Community Average" in df_daily.columns else []
+
     if include_single:
         # Include all days with at least one score
         mask = df_daily[
             df_daily["Michael Total Score"].notna() | df_daily["Sarah Total Score"].notna()
-        ][["Date", "Michael Total Score", "Sarah Total Score"]].copy()
+        ][["Date", "Michael Total Score", "Sarah Total Score"] + community_col].copy()
     else:
         # Only include days where BOTH players have scores
         mask = df_daily[
             df_daily["Michael Total Score"].notna() & df_daily["Sarah Total Score"].notna()
-        ][["Date", "Michael Total Score", "Sarah Total Score"]].copy()
+        ][["Date", "Michael Total Score", "Sarah Total Score"] + community_col].copy()
     
     mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
@@ -286,7 +288,8 @@ def calculate_rolling_averages(df: pd.DataFrame, window_length: int, score_type:
     if score_type == "total":
         columns = {
             "Michael": "Michael Total Score",
-            "Sarah": "Sarah Total Score"
+            "Sarah": "Sarah Total Score",
+            "Community": "Community Average"
         }
     elif score_type == "time":
         columns = {
@@ -921,6 +924,15 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Score: %{y}<extra></extra>'
     ))
 
+    if score_type == "total" and "Community Average" in mask_filtered.columns:
+        fig.add_trace(go.Scatter(
+            x=x_values, y=mask_filtered["Community Average"],
+            mode='markers', name='Community Average Score',
+            marker=dict(color="#4d4d4d", size=7, opacity=0.85),
+            customdata=mask_filtered["Date"],
+            hovertemplate='Date: %{customdata|%b %d, %Y}<br>Community Avg: %{y}<extra></extra>'
+        ))
+
     # Rolling average lines
     fig.add_trace(go.Scatter(
         x=x_values, y=mask_filtered["Michael Rolling Avg"],
@@ -937,6 +949,15 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
+
+    if score_type == "total" and "Community Rolling Avg" in mask_filtered.columns:
+        fig.add_trace(go.Scatter(
+            x=x_values, y=mask_filtered["Community Rolling Avg"],
+            mode='lines', name=f'Community {window_length}-game Avg',
+            line=dict(color="black", width=2.5),
+            customdata=mask_filtered["Date"],
+            hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.0f}<extra></extra>'
+        ))
 
     # Cumulative average lines
     fig.add_trace(go.Scatter(
@@ -955,6 +976,15 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
+    if score_type == "total" and "Community Cumulative Avg" in mask_filtered.columns:
+        fig.add_trace(go.Scatter(
+            x=x_values, y=mask_filtered["Community Cumulative Avg"],
+            mode='lines', name='Community Cumulative Avg',
+            line=dict(color="black", width=1.5, dash='dot'),
+            opacity=0.7,
+            customdata=mask_filtered["Date"],
+            hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
+        ))
     # Best / worst reference lines
     m_vals = mask_filtered[michael_col].dropna()
     s_vals = mask_filtered[sarah_col].dropna()
@@ -964,6 +994,11 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     if not s_vals.empty:
         fig.add_hline(y=s_vals.max(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
         fig.add_hline(y=s_vals.min(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
+    if score_type == "total" and "Community Average" in mask_filtered.columns:
+        c_vals = mask_filtered["Community Average"].dropna()
+        if not c_vals.empty:
+            fig.add_hline(y=c_vals.max(), line=dict(color="black", width=1, dash='dash'), opacity=0.45)
+            fig.add_hline(y=c_vals.min(), line=dict(color="black", width=1, dash='dash'), opacity=0.45)
 
     # Layout
     fig.update_layout(
@@ -1243,7 +1278,100 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
         rangemode='tozero',
         showticklabels=False # Absolute density values are relative and not strictly necessary
     )
-    
+
+    return fig
+
+def create_cumulative_histogram(series_list, ceiling: int) -> go.Figure:
+    """Overlapping step histogram: for every integer threshold X in [x_start, ceiling],
+    how many days had a score strictly greater than X, where x_start is the nearest
+    multiple of 5,000 at or below the combined minimum score across all series.
+    `series_list` is a list of (scores: pd.Series, name: str, color: str)."""
+    fig = go.Figure()
+
+    non_empty = [(s, n, c) for s, n, c in series_list if len(s) > 0]
+    if not non_empty:
+        return fig
+
+    all_scores = pd.concat([s for s, _, _ in non_empty]).dropna()
+    x_start = max(0, int(np.floor(all_scores.min() / 5000) * 5000)) if not all_scores.empty else 0
+    x_vals = np.arange(x_start, ceiling + 1, 1)
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    def days_above(scores):
+        sorted_scores = np.sort(scores.dropna().to_numpy())
+        return len(sorted_scores) - np.searchsorted(sorted_scores, x_vals, side='right')
+
+    for scores, name, color in non_empty:
+        if len(scores) > 0:
+            counts = days_above(scores)
+            total = len(scores.dropna())
+            percentile = 100 - (counts / total * 100)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=counts,
+                name=name,
+                mode='lines',
+                line=dict(color=color, width=3),
+                fill='tozeroy',
+                fillcolor=hex_to_rgba(color, 0.4),
+                customdata=percentile,
+                hovertemplate='Score > %{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
+            ))
+
+            median_val = scores.median()
+            fig.add_vline(
+                x=median_val,
+                line=dict(color=color, width=1.5, dash='dash'),
+                opacity=0.7
+            )
+
+    fig.update_layout(
+        xaxis_title='Score Threshold (X)',
+        yaxis_title='Days with Score > X',
+        height=350,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color=COLORS['text'])
+        ),
+        hovermode='x unified'
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=False,
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        range=[x_start, ceiling]
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero'
+    )
+
     return fig
 
 def add_zero_crossing_interpolation(mask_filtered: pd.DataFrame, window_length: int) -> pd.DataFrame:
@@ -2215,12 +2343,12 @@ with st.sidebar:
                 st.session_state['cc_player'] = 'Both'
                 st.rerun()
         with _plc2:
-            if st.button("Mike", key="cc_btn_michael", use_container_width=True,
+            if st.button("M", key="cc_btn_michael", use_container_width=True,
                          type="primary" if _pl == "Mike" else "secondary"):
                 st.session_state['cc_player'] = 'Mike'
                 st.rerun()
         with _plc3:
-            if st.button("Sarah", key="cc_btn_sarah", use_container_width=True,
+            if st.button("S", key="cc_btn_sarah", use_container_width=True,
                          type="primary" if _pl == "Sarah" else "secondary"):
                 st.session_state['cc_player'] = 'Sarah'
                 st.rerun()
@@ -2230,6 +2358,7 @@ with st.sidebar:
 
     _ptr = st.session_state.get('cc_pre_tracking', False)
     _psr = st.session_state.get('cc_pre_survey', False)
+    _psm = st.session_state.get('cc_pre_summary', False)
     _tg1, _tg2 = st.columns(2)
     with _tg1:
         if st.button("Post-Track", key="cc_btn_pretracking", use_container_width=True,
@@ -2241,21 +2370,28 @@ with st.sidebar:
                      type="primary" if _psr else "secondary"):
             st.session_state['cc_pre_survey'] = not _psr
             st.rerun()
+    if st.button("Post-Summary", key="cc_btn_presummary", use_container_width=True,
+                 type="primary" if _psm else "secondary"):
+        st.session_state['cc_pre_summary'] = not _psm
+        st.rerun()
     remove_pre_tracking = _ptr
     remove_pre_survey = _psr
+    remove_pre_summary = _psm
 
     _d_min = data["Date"].min().to_pydatetime()
     if remove_pre_tracking:
         _d_min = max(_d_min, pd.Timestamp('2025-10-20').to_pydatetime())
     if remove_pre_survey:
         _d_min = max(_d_min, pd.Timestamp('2026-05-18').to_pydatetime())
+    if remove_pre_summary:
+        _d_min = max(_d_min, pd.Timestamp('2026-07-27').to_pydatetime())
     _d_max = data["Date"].max().to_pydatetime()
     start_date, end_date = st.slider(
         "Date Range",
         min_value=_d_min, max_value=_d_max,
         value=(_d_min, _d_max),
         format="MMM DD, YYYY",
-        key=f"cc_date_range_{_ptr}_{_psr}",
+        key=f"cc_date_range_{_ptr}_{_psr}_{_psm}",
         label_visibility="collapsed"
     )
 
@@ -2300,6 +2436,8 @@ with st.sidebar:
             player_data = player_data[player_data['Date'] >= pd.Timestamp('2025-10-20')].copy()
         if remove_pre_survey:
             player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-05-18')].copy()
+        if remove_pre_summary:
+            player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-07-27')].copy()
         if player_data.empty:
             st.warning("No data available for selected options.")
             st.stop()
@@ -2351,6 +2489,9 @@ if comp_type == 'Cross':
     if remove_pre_survey:
         mask = mask[mask['Date'] >= pd.Timestamp('2026-05-18')].copy()
         df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-05-18')].copy()
+    if remove_pre_summary:
+        mask = mask[mask['Date'] >= pd.Timestamp('2026-07-27')].copy()
+        df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-07-27')].copy()
 
     view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")
     st.markdown(f"## {view_label}")
@@ -2393,6 +2534,9 @@ if comp_type == 'Cross':
             st.markdown(create_stats_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
                                                 bin_size, date_format, ceiling), unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
+            st.plotly_chart(create_cumulative_histogram(
+                [(michael_scores, 'Michael', COLORS['michael']), (sarah_scores, 'Sarah', COLORS['sarah'])], ceiling
+            ), use_container_width=True, key="cumulative_histogram_chart")
             st.plotly_chart(create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling),
                             use_container_width=True, key="density_chart")
         with col2:
@@ -2490,6 +2634,10 @@ else:
                 time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
                 bin_size=bin_size, ceiling=streak_ceiling
             ), unsafe_allow_html=True)
+            st.plotly_chart(create_cumulative_histogram(
+                [(time_scores_clean, 'Time', COLORS['time']), (geo_scores_clean, 'Geography', COLORS['geography'])],
+                streak_ceiling
+            ), use_container_width=True, key="self_cumulative_histogram_chart")
             st.subheader("Score Distribution")
             st.plotly_chart(self_create_density_plot(
                 time_scores_clean, geo_scores_clean, ceiling=streak_ceiling
