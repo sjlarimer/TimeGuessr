@@ -491,6 +491,69 @@ def update_community_averages_entry(day, average=None, years_average=None, locat
     _update_averages_block(day, updates)
 
 
+def _replace_txt_block(path, day, new_block_lines, header_regex):
+    """Replace (or append) the block for `day` in a TimeGuessr raw-text `path`
+    file, where blocks are delimited by lines matching `header_regex` (must
+    capture the day number in group 1) and end at the next blank line or the
+    next header line."""
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            raw_lines = f.read().splitlines()
+    else:
+        raw_lines = []
+
+    start = None
+    for idx, line in enumerate(raw_lines):
+        m = re.match(header_regex, line.strip())
+        if m and int(m.group(1)) == day:
+            start = idx
+            break
+
+    if start is None:
+        if raw_lines and raw_lines[-1].strip() != "":
+            raw_lines.append("")
+        raw_lines.extend(new_block_lines)
+        raw_lines.append("")
+    else:
+        end = start + 1
+        while end < len(raw_lines) and raw_lines[end].strip() != "" and not re.match(header_regex, raw_lines[end].strip()):
+            end += 1
+        raw_lines[start:end] = new_block_lines
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(raw_lines).rstrip("\n") + "\n")
+
+
+def update_actuals_txt_entry(day, rounds):
+    """Replace (or create) the Data/TimeGuessr_Actuals.txt block for `day`.
+    `rounds` is a dict of {round_num(1-5): {'city', 'subdivision', 'country', 'year'}}."""
+    block = [f"TimeGuessr #{day}"]
+    for r in range(1, 6):
+        v = rounds.get(r, {})
+        city = v.get("city") or ""
+        sub = v.get("subdivision") or ""
+        country = v.get("country") or ""
+        year = v.get("year")
+        city_part = f"{city} ({sub})" if sub else city
+        block.append(f"{r}. {city_part}, {country}, {year}")
+    _replace_txt_block(ACTUALS_TXT, day, block, header_regex=r"^TimeGuessr #(\d+)")
+
+
+def update_player_txt_entry(player, day, total_score, rounds):
+    """Replace (or create) the Data/TimeGuessr_{player}.txt block for `day`,
+    using the numeric round format aggregation's parser understands (exact
+    year-guessed + exact distance per round). Scores are always re-derivable
+    from these plus the actual answer once merged, so nothing is lost even
+    though the actual may not be known yet at submission time.
+    `rounds` is a dict of {round_num(1-5): {'geo_emoji', 'time_emoji', 'year', 'dist_value', 'unit'}}."""
+    path = MICHAEL_TXT if player == "Michael" else SARAH_TXT
+    block = [f"TimeGuessr #{day} {total_score:,}/50,000"]
+    for r in range(1, 6):
+        v = rounds.get(r, {})
+        block.append(f"🌎{v.get('geo_emoji', '')} 📅{v.get('time_emoji', '')} {v.get('year')}, {v.get('dist_value'):g} {v.get('unit')}")
+    _replace_txt_block(path, day, block, header_regex=r"^TimeGuessr #(\d+)")
+
+
 def run_aggregation():
     if not _needs_update():
         return

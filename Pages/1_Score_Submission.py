@@ -21,10 +21,15 @@ except ImportError:
     def score_update(): pass
 
 try:
-    from aggregation import update_averages_entry, update_community_averages_entry
+    from aggregation import (
+        update_averages_entry, update_community_averages_entry,
+        update_actuals_txt_entry, update_player_txt_entry,
+    )
 except ImportError:
     def update_averages_entry(*args, **kwargs): pass
     def update_community_averages_entry(*args, **kwargs): pass
+    def update_actuals_txt_entry(*args, **kwargs): pass
+    def update_player_txt_entry(*args, **kwargs): pass
 
 from utils import load_css
 load_css()
@@ -710,12 +715,12 @@ if date:
     with h4:
         if has_community:
             chh1, chh2 = st.columns([2, 1])
-            with chh1: st.subheader("Community")
+            with chh1: st.subheader("Community Averages")
             with chh2:
                 st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
                 edit_community = st.toggle("Edit", key=f"edit_community_{date}")
         else:
-            st.subheader("Community")
+            st.subheader("Community Averages")
             edit_community = True
 
     # --- ROUNDS ROW-BY-ROW LOOP ---
@@ -1002,14 +1007,32 @@ if date:
                 elif last_c_unit == "ft": def_c_dist = f"{cval/0.3048:.0f} ft"
                 else:                     def_c_dist = f"{cval:.0f} m"
 
-            c_score_in = st.text_input("Score", value=def_c_score, key=f"cs_{r}_{date}", disabled=community_fields_disabled, placeholder="5009")
-            c_time_in = st.text_input("Time", value=def_c_time, key=f"ct_{r}_{date}", disabled=community_fields_disabled, placeholder="16.4")
-            c_dist_in = st.text_input("Distance", value=def_c_dist, key=f"cd_{r}_{date}", disabled=community_fields_disabled, placeholder="_ ft, _ mi, _ m, or _ km")
-            _, c_dist_unit = parse_distance_input(c_dist_in)
-            if c_dist_in.strip() and c_dist_unit is None:
-                st.caption("⚠️ Include a unit: ft, mi, m, or km")
-            if c_dist_unit is not None:
-                st.session_state[c_unit_key] = c_dist_unit
+            if community_fields_disabled:
+                c_score_in, c_time_in, c_dist_in = def_c_score, def_c_time, def_c_dist
+                st.markdown(f'''<div style="background:#eef0f2; border-radius:10px; padding:10px 14px; border-left:4px solid #6c757d; box-shadow:0 2px 6px rgba(0,0,0,0.08); margin-top:2px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span style="color:#444; font-size:0.9em;">🏆 Score</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_score or "—"}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">📅 Time</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_time or "—"}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">🌎 Distance</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_dist or "—"}</span>
+    </div>
+</div>''', unsafe_allow_html=True)
+            else:
+                c_score_in = st.text_input("Score", value=def_c_score, key=f"cs_{r}_{date}", placeholder="5009")
+                ctd1, ctd2 = st.columns(2)
+                c_time_in = ctd1.text_input("Time", value=def_c_time, key=f"ct_{r}_{date}", placeholder="16.4")
+                c_dist_in = ctd2.text_input("Distance", value=def_c_dist, key=f"cd_{r}_{date}", placeholder="_ ft, _ mi, _ m, or _ km")
+                _, c_dist_unit = parse_distance_input(c_dist_in)
+                if c_dist_in.strip() and c_dist_unit is None:
+                    st.caption("⚠️ Include a unit: ft, mi, m, or km")
+                if c_dist_unit is not None:
+                    st.session_state[c_unit_key] = c_dist_unit
 
             community_round_input[r] = {'score': c_score_in, 'time': c_time_in, 'dist': c_dist_in}
 
@@ -1025,6 +1048,13 @@ if date:
                     f_df = act_df[act_df['Timeguessr Day'] != timeguessr_day]
                     f_df = pd.concat([f_df, pd.DataFrame(save_rows_act)], ignore_index=True)
                     f_df.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(act_path, index=False)
+
+                    rounds_for_txt = {row["Timeguessr Round"]: row for row in save_rows_act}
+                    update_actuals_txt_entry(timeguessr_day, {
+                        r: {'city': v['City'], 'subdivision': v['Subdivision'], 'country': v['Country'], 'year': v['Year']}
+                        for r, v in rounds_for_txt.items()
+                    })
+
                     st.success("Saved!"); st.rerun()
                 else: st.error("Invalid actuals")
                 
@@ -1082,23 +1112,27 @@ if date:
                                 return
 
                             geo_pats, time_pats = [], []
+                            geo_emoji, time_emoji = [], []
                             for i, line in enumerate(lines[1:6], 1):
-                                if not line.startswith('🌎') or '📅' not in line: 
+                                if not line.startswith('🌎') or '📅' not in line:
                                     st.error(f"Round {i} format error"); return
                                 parts = line.split('📅')
                                 g_part = parts[0].replace('🌎', '').strip()
                                 t_part = parts[1].strip()
-                                
-                                if g_part not in valid_combos: 
+
+                                if g_part not in valid_combos:
                                     st.error(f"Round {i} invalid geo emoji"); return
-                                if t_part not in valid_combos: 
+                                if t_part not in valid_combos:
                                     st.error(f"Round {i} invalid time emoji"); return
-                                
+
                                 conv = lambda s: s.replace('🟩','O').replace('🟨','%').replace('⬛️','X').replace('⬛','X')
                                 geo_pats.append(conv(g_part))
                                 time_pats.append(conv(t_part))
+                                geo_emoji.append(g_part)
+                                time_emoji.append(t_part)
 
                             new_rows = []
+                            rounds_for_txt = {}
                             for r in range(1, 6):
                                 d = st_state['input'][r]
                                 if not d['dist_raw'] or not d['year']:
@@ -1155,7 +1189,12 @@ if date:
 
                                 if pd.notna(t_score) and pd.notna(d['g_score']):
                                     r_score = t_score + d['g_score']
-                                
+
+                                rounds_for_txt[r] = {
+                                    'geo_emoji': geo_emoji[r-1], 'time_emoji': time_emoji[r-1],
+                                    'year': d['year_int'], 'dist_value': d['dist_value'], 'unit': d['unit'],
+                                }
+
                                 new_rows.append({
                                     "Timeguessr Day": int(timeguessr_day),
                                     "Timeguessr Round": int(r),
@@ -1191,6 +1230,7 @@ if date:
                                     years=_to_float(yrs_in),
                                     location=_to_float(loc_in),
                                 )
+                                update_player_txt_entry(p_name, timeguessr_day, ts_val, rounds_for_txt)
 
                                 st.success("Saved!")
                                 st.rerun()
