@@ -352,49 +352,6 @@ def distance_to_meters(value, unit):
     if unit == "ft": return value * 0.3048
     return value
 
-def validate_distance_pattern(dist_meters, geo_pattern, round_num, unit):
-    patterns = {
-        "OOO": (0, 50), "OO%": (50, 37500), "OOX": (37500, 100000),
-        "O%X": (100000, 250000), "OXX": (250000, 1000000),
-        "%XX": (1000000, 2000000), "XXX": (2000000, float('inf'))
-    }
-    if geo_pattern not in patterns: return (True, "")
-    low, high = patterns[geo_pattern]
-
-    def fmt(meters):
-        if unit == "km":   return f"{meters/1000:.3f} km"
-        if unit == "mi":   return f"{meters/1609.344:.3f} mi"
-        if unit == "ft":   return f"{meters/0.3048:.0f} ft"
-        return f"{meters:.0f} m"
-
-    if geo_pattern == "OOO":
-        if dist_meters <= high: return (True, "")
-        return (False, f"Round {round_num}: Distance is {fmt(dist_meters - high)} too great (🟩🟩🟩 requires ≤ 50 m)")
-    elif geo_pattern == "XXX":
-        if dist_meters > low: return (True, "")
-        return (False, f"Round {round_num}: Distance is {fmt(low - dist_meters + 1)} too few (⬛⬛⬛ requires > 2000 km)")
-    else:
-        if low < dist_meters <= high: return (True, "")
-        elif dist_meters <= low:
-            return (False, f"Round {round_num}: Distance is {fmt(low - dist_meters + 1)} too few")
-        else:
-            return (False, f"Round {round_num}: Distance is {fmt(dist_meters - high)} too great")
-
-def validate_time_pattern(guessed_year, actual_year, time_pattern, round_num):
-    if actual_year is None or time_pattern == "": return True, ""
-    diff = abs(int(guessed_year) - actual_year)
-    patterns = {
-        "OOO": (0, 0), "OO%": (1, 2), "OOX": (3, 4),
-        "O%X": (5, 7), "OXX": (8, 15), "%XX": (16, 20), "XXX": (21, float('inf'))
-    }
-    if time_pattern not in patterns: return True, ""
-    low, high = patterns[time_pattern]
-    if low <= diff <= high: return True, ""
-    
-    if diff < low:
-        return False, f"Round {round_num}: Year diff ({diff}) is too small (expects {low}-{high})"
-    else:
-        return False, f"Round {round_num}: Year diff ({diff}) is too large (expects {low}-{high})"
 
 # --- 4. Main Layout & Execution ---
 date_col, michael_col, sarah_col, community_col = st.columns([1, 1, 1, 1])
@@ -631,10 +588,7 @@ if date:
     m_has = not pd.read_csv(m_path)[pd.read_csv(m_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(m_path) else False
     s_has = not pd.read_csv(s_path)[pd.read_csv(s_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(s_path) else False
     
-    rev_key_act = f"reveal_act_{timeguessr_day}"
-    if rev_key_act not in st.session_state: st.session_state[rev_key_act] = False
-    
-    act_hidden = date == datetime.date.today() and act_exists and not (m_has and s_has) and not st.session_state[rev_key_act]
+    act_hidden = date == datetime.date.today() and act_exists and not (m_has and s_has)
 
     # --- Pre-load Player State Data ---
     p_state = {}
@@ -651,62 +605,26 @@ if date:
         has_g = not curr_p.empty
         opp_has_g = not curr_o.empty
         
-        rev_key_p = f"{p_name.lower()}_reveal_{timeguessr_day}"
-        if rev_key_p not in st.session_state: st.session_state[rev_key_p] = False
-        
-        is_hid = date == datetime.date.today() and has_g and not opp_has_g and not st.session_state[rev_key_p]
-        
+        is_hid = date == datetime.date.today() and has_g and not opp_has_g
+
         is_p_edit = st.session_state.get(f"edit_{p_name}_{date}", False)
         if has_g and not is_p_edit:
             for r_idx in range(1, 6):
-                for k in [f"d_{p_name}_{r_idx}_{date}", f"y_{p_name}_{r_idx}_{date}", f"u_{p_name}_{r_idx}_{date}"]:
+                for k in [f"d_{p_name}_{r_idx}_{date}", f"y_{p_name}_{r_idx}_{date}"]:
                     if k in st.session_state: del st.session_state[k]
-            if f"ta_{p_name}_{date}" in st.session_state:
-                del st.session_state[f"ta_{p_name}_{date}"]
-        
-        default_txt = ""
+            for suffix in ("masked", "real"):
+                for k in [f"ts_{p_name}_{date}_{suffix}", f"pct_{p_name}_{date}_{suffix}", f"yrs_{p_name}_{date}_{suffix}", f"loc_{p_name}_{date}_{suffix}"]:
+                    if k in st.session_state: del st.session_state[k]
+
+        def_total = ""
         if has_g:
             ts = curr_p.iloc[0].get(f'{p_name} Total Score')
-            fmt = f"{int(ts):,}/50,000" if pd.notna(ts) else "_____/50,000"
-            default_txt = f"TimeGuessr #{timeguessr_day} {fmt}\n"
-            
-            def map_emoji(pattern):
-                if pd.isna(pattern): return "⬛️⬛️⬛️"
-                return pattern.replace('O', '🟩').replace('%', '🟨').replace('X', '⬛️')
-            
-            for r in range(1, 6):
-                r_row = curr_p[curr_p['Timeguessr Round'] == r]
-                if not r_row.empty:
-                    g = r_row.iloc[0].get(f'{p_name} Geography', '')
-                    t = r_row.iloc[0].get(f'{p_name} Time', '')
-                    default_txt += f"🌎{map_emoji(g)} 📅{map_emoji(t)}\n"
-            default_txt = default_txt.strip()
-            
-        ta_key = f"ta_{p_name}_{date}"
-        current_ta_val = st.session_state.get(ta_key, default_txt)
-        
-        geo_pats = [""] * 5
-        time_pats = [""] * 5
-        lines = current_ta_val.strip().split('\n')
-        round_idx = 0
-        valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-        conv = lambda s: s.replace('🟩','O').replace('🟨','%').replace('⬛️','X').replace('⬛','X')
-        
-        for line in lines:
-            if '🌎' in line and '📅' in line:
-                parts = line.split('📅')
-                g_part = parts[0].replace('🌎', '').strip()
-                t_part = parts[1].strip()
-                if g_part in valid_combos and t_part in valid_combos and round_idx < 5:
-                    geo_pats[round_idx] = conv(g_part)
-                    time_pats[round_idx] = conv(t_part)
-                    round_idx += 1
+            def_total = "" if pd.isna(ts) else f"{ts:g}"
 
         p_state[p_name] = {
             'df': df_p, 'curr': curr_p, 'has_g': has_g, 'is_hid': is_hid,
-            'rev_key': rev_key_p, 'def_txt': default_txt, 'csv': csv_p,
+            'def_total': def_total, 'csv': csv_p,
             'input': {}, 'comp_tot': 0, 'edit': False,
-            'geo_pats': geo_pats, 'time_pats': time_pats
         }
 
     # --- HEADERS ROW ---
@@ -714,47 +632,27 @@ if date:
 
     edit_act = False
     with h1:
-        if act_hidden:
-            st.subheader("Actual Answers")
-            st.warning("Hidden until both played.")
-            if st.button("Reveal Actuals", key=f"rev_act_{date}"): 
-                st.session_state[rev_key_act] = True
-                st.rerun()
-        else:
-            ah1, ah2 = st.columns([2, 1])
-            with ah1: st.subheader("Actual Answers")
-            with ah2: 
-                edit_act = True
-                if act_exists: 
-                    st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
-                    edit_act = st.toggle("Edit", key=f"edit_act_{date}")
-                    
+        ah1, ah2 = st.columns([2, 1])
+        with ah1: st.subheader("Actual Answers")
+        with ah2:
+            edit_act = True
+            if act_exists:
+                st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
+                edit_act = st.toggle("Edit", key=f"edit_act_{date}")
+                if act_hidden and not edit_act:
+                    st.caption("🔒 Hidden until both play")
+
     for col, p_name in [(h2, "Michael"), (h3, "Sarah")]:
         with col:
             st_state = p_state[p_name]
-            if st_state['is_hid']:
-                st.subheader(f"{p_name}'s Guesses")
-                st.warning(f"⚠️ Hidden until opponent submits.")
-                if st.button(f"Reveal {p_name}", key=f"btn_rev_{p_name}_{date}"):
-                    st.session_state[f"popup_{p_name}_{timeguessr_day}"] = True
-                    
-                if st.session_state.get(f"popup_{p_name}_{timeguessr_day}", False):
-                    st.info("Are you sure?")
-                    pc1, pc2 = st.columns(2)
-                    if pc1.button("Yes", key=f"y_{p_name}_{date}"):
-                        st.session_state[st_state['rev_key']] = True
-                        st.session_state[f"popup_{p_name}_{timeguessr_day}"] = False
-                        st.rerun()
-                    if pc2.button("No", key=f"n_{p_name}_{date}"):
-                        st.session_state[f"popup_{p_name}_{timeguessr_day}"] = False
-                        st.rerun()
-            else:
-                ph1, ph2 = st.columns([2, 1])
-                with ph1: st.subheader(f"{p_name}'s Guesses")
-                with ph2:
-                    if st_state['has_g']:
-                        st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
-                        st_state['edit'] = st.toggle("Edit", value=False, key=f"edit_{p_name}_{date}")
+            ph1, ph2 = st.columns([2, 1])
+            with ph1: st.subheader(f"{p_name}'s Guesses")
+            with ph2:
+                if st_state['has_g']:
+                    st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
+                    st_state['edit'] = st.toggle("Edit", value=False, key=f"edit_{p_name}_{date}")
+            if st_state['is_hid'] and not st_state['edit']:
+                st.caption("🔒 Hidden until opponent submits")
 
     edit_community = False
     with h4:
@@ -782,15 +680,26 @@ if date:
         # ACTUALS ROUND
         with rc1:
             st.markdown(f"**Round {r}**")
-            if not act_hidden:
-                row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
+            row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
 
-                y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
-                c_def_raw = row.get('Country', '')
-                s_def = row.get('Subdivision', '')
-                c_val = row.get('City', '')
+            y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
+            c_def_raw = row.get('Country', '')
+            s_def = row.get('Subdivision', '')
+            c_val = row.get('City', '')
 
-                if act_exists and not edit_act:
+            if act_exists and not edit_act:
+                if act_hidden:
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#fff5f5,#ffe8e8); border-radius:10px; padding:12px 14px; border-left:4px solid #db5049; box-shadow:0 2px 6px rgba(219,80,73,0.12); margin-top:2px;">
+    <div style="font-weight:700; color:#db5049; font-size:1.05em; margin-bottom:6px;">?</div>
+    <div style="display:flex; align-items:center; gap:7px; margin-bottom:4px;">
+        <span style="font-size:1.1em; line-height:1;">❓</span>
+        <span style="color:#444; font-size:0.88em;">?</span>
+    </div>
+    <div style="color:#555; font-size:0.85em;">📅 ?</div>
+</div>
+                    """, unsafe_allow_html=True)
+                else:
                     flag_html = get_flag_emoji(c_def_raw) if c_def_raw else get_flag_emoji("United Nations")
                     sub_country = c_def_raw or "—"
                     if pd.notna(s_def) and str(s_def).strip(): sub_country = f"{s_def}, {sub_country}"
@@ -806,230 +715,189 @@ if date:
 </div>
                     """, unsafe_allow_html=True)
 
-                    valid_y = y_val.isdigit() and len(y_val)==4 and 1900<=int(y_val)<=date.year
-                    actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
-                else:
-                    r_top = st.columns(2)
-                    r_bot = st.columns(2)
+                valid_y = y_val.isdigit() and len(y_val)==4 and 1900<=int(y_val)<=date.year
+                actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
+            else:
+                r_top = st.columns(2)
+                r_bot = st.columns(2)
 
-                    y = r_top[0].text_input("Year", value=y_val, key=f"ay_{r}_{date}", disabled=not edit_act, placeholder="1995")
-                    cit = r_top[1].text_input("City", value=c_val, key=f"acity_{r}_{date}", disabled=not edit_act, placeholder="City name")
+                y = r_top[0].text_input("Year", value=y_val, key=f"ay_{r}_{date}", disabled=not edit_act)
+                cit = r_top[1].text_input("City", value=c_val, key=f"acity_{r}_{date}", disabled=not edit_act)
 
-                    # Build country list from config; float countries matching typed city to top
-                    all_countries = list(config.get('countries', {}).keys())
-                    typed_city_for_country = (cit or "").strip().lower()
-                    matching_countries = []
-                    if typed_city_for_country and not act_df.empty and 'City' in act_df.columns and 'Country' in act_df.columns:
-                        hit_countries = act_df[
-                            act_df['City'].str.lower() == typed_city_for_country
-                        ]['Country'].dropna().unique().tolist()
-                        matching_countries = [c for c in all_countries if c in hit_countries]
+                # Build country list from config; float countries matching typed city to top
+                all_countries = list(config.get('countries', {}).keys())
+                typed_city_for_country = (cit or "").strip().lower()
+                matching_countries = []
+                if typed_city_for_country and not act_df.empty and 'City' in act_df.columns and 'Country' in act_df.columns:
+                    hit_countries = act_df[
+                        act_df['City'].str.lower() == typed_city_for_country
+                    ]['Country'].dropna().unique().tolist()
+                    matching_countries = [c for c in all_countries if c in hit_countries]
 
-                    other_countries = [c for c in all_countries if c not in matching_countries]
-                    opts = [""] + matching_countries + other_countries
-                    matching_country_set = set(matching_countries)
+                other_countries = [c for c in all_countries if c not in matching_countries]
+                opts = [""] + matching_countries + other_countries
+                matching_country_set = set(matching_countries)
 
-                    c_def = c_def_raw if c_def_raw in opts else opts[0]
-                    c_idx = opts.index(c_def) if c_def in opts else 0
-                    cou = r_bot[0].selectbox(
-                        "Country", opts, index=c_idx,
-                        format_func=lambda c, ms=matching_country_set: ("★ " + c if c in ms else c),
-                        key=f"ac_{r}_{date}", disabled=not edit_act
+                c_def = c_def_raw if c_def_raw in opts else opts[0]
+                c_idx = opts.index(c_def) if c_def in opts else 0
+                cou = r_bot[0].selectbox(
+                    "Country", opts, index=c_idx,
+                    format_func=lambda c, ms=matching_country_set: ("★ " + c if c in ms else c),
+                    key=f"ac_{r}_{date}", disabled=not edit_act
+                )
+
+                # Build subdivision list from map data; float subs matching typed city to top
+                iso3 = country_to_iso3(cou) if cou else None
+                subs_raw = map_subdivs.get(iso3, []) if iso3 else []
+
+                typed_city = (cit or "").strip().lower()
+                matching_subs = []
+                if subs_raw and typed_city and not act_df.empty and 'City' in act_df.columns and 'Subdivision' in act_df.columns:
+                    hit_subs = act_df[
+                        (act_df['Country'] == cou) &
+                        (act_df['City'].str.lower() == typed_city)
+                    ]['Subdivision'].dropna().unique().tolist()
+                    matching_subs = [s for s in subs_raw if s in hit_subs]
+
+                if subs_raw:
+                    other_subs = [s for s in subs_raw if s not in matching_subs]
+                    subs_ordered = [""] + matching_subs + other_subs
+                    matching_set = set(matching_subs)
+
+                    if s_def in subs_ordered: s_idx = subs_ordered.index(s_def)
+                    else: s_idx = 0
+
+                    sub = r_bot[1].selectbox(
+                        "Sub", subs_ordered, index=s_idx,
+                        format_func=lambda s, ms=matching_set: ("★ " + s if s in ms else s),
+                        key=f"as_{r}_{date}", disabled=not edit_act
                     )
+                else:
+                    sub = ""
 
-                    # Build subdivision list from map data; float subs matching typed city to top
-                    iso3 = country_to_iso3(cou) if cou else None
-                    subs_raw = map_subdivs.get(iso3, []) if iso3 else []
+                valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=date.year
+                actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
 
-                    typed_city = (cit or "").strip().lower()
-                    matching_subs = []
-                    if subs_raw and typed_city and not act_df.empty and 'City' in act_df.columns and 'Subdivision' in act_df.columns:
-                        hit_subs = act_df[
-                            (act_df['Country'] == cou) &
-                            (act_df['City'].str.lower() == typed_city)
-                        ]['Subdivision'].dropna().unique().tolist()
-                        matching_subs = [s for s in subs_raw if s in hit_subs]
+                if edit_act:
+                    if not (y and cou and cit and valid_y): all_valid_act = False
+                    save_rows_act.append({
+                        "Timeguessr Day": timeguessr_day,
+                        "Timeguessr Round": r,
+                        "City": cit,
+                        "Subdivision": sub,
+                        "Country": cou,
+                        "Year": int(y) if valid_y else 0
+                    })
 
-                    if subs_raw:
-                        other_subs = [s for s in subs_raw if s not in matching_subs]
-                        subs_ordered = [""] + matching_subs + other_subs
-                        matching_set = set(matching_subs)
-
-                        if s_def in subs_ordered: s_idx = subs_ordered.index(s_def)
-                        else: s_idx = 0
-
-                        sub = r_bot[1].selectbox(
-                            "Sub", subs_ordered, index=s_idx,
-                            format_func=lambda s, ms=matching_set: ("★ " + s if s in ms else s),
-                            key=f"as_{r}_{date}", disabled=not edit_act
-                        )
-                    else:
-                        sub = ""
-
-                    valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=date.year
-                    actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
-
-                    if edit_act:
-                        if not (y and cou and cit and valid_y): all_valid_act = False
-                        save_rows_act.append({
-                            "Timeguessr Day": timeguessr_day,
-                            "Timeguessr Round": r,
-                            "City": cit,
-                            "Subdivision": sub,
-                            "Country": cou,
-                            "Year": int(y) if valid_y else 0
-                        })
-                    
         # PLAYER ROUNDS
         for col, p_name in [(rc2, "Michael"), (rc3, "Sarah")]:
             with col:
                 st_state = p_state[p_name]
-                if not st_state['is_hid']:
-                    d_dist, d_year = "", ""
+                d_dist, d_year = "", ""
 
-                    unit_key = f"u_{p_name}_{r}_{date}"
-                    last_unit = st.session_state.get(unit_key, "ft")
-                    if last_unit not in ["ft", "mi", "m", "km"]:
-                        last_unit = "ft"
+                if st_state['has_g']:
+                    r_row = st_state['curr'][st_state['curr']['Timeguessr Round'] == r]
+                    if not r_row.empty:
+                        rw = r_row.iloc[0]
+                        dist_raw = rw.get(f'{p_name} Geography Distance')
+                        if pd.notna(dist_raw):
+                            d_dist = f"{float(dist_raw)/0.3048:.0f} ft"
+                        time_raw = rw.get(f'{p_name} Time Guessed')
+                        if pd.notna(time_raw): d_year = str(int(time_raw))
 
-                    if st_state['has_g']:
-                        r_row = st_state['curr'][st_state['curr']['Timeguessr Round'] == r]
-                        if not r_row.empty:
-                            rw = r_row.iloc[0]
-                            dist_raw = rw.get(f'{p_name} Geography Distance')
-                            if pd.notna(dist_raw):
-                                val = float(dist_raw)
-                                if last_unit == "km":  d_dist = f"{val/1000:.3f} km"
-                                elif last_unit == "mi": d_dist = f"{val/1609.344:.3f} mi"
-                                elif last_unit == "ft": d_dist = f"{val/0.3048:.0f} ft"
-                                else:                   d_dist = f"{val:.0f} m"
-                            time_raw = rw.get(f'{p_name} Time Guessed')
-                            if pd.notna(time_raw): d_year = str(int(time_raw))
+                d_key = f"d_{p_name}_{r}_{date}"
+                y_key = f"y_{p_name}_{r}_{date}"
 
-                    d_key = f"d_{p_name}_{r}_{date}"
-                    y_key = f"y_{p_name}_{r}_{date}"
+                st.markdown(f"**Round {r}**")
 
-                    st.markdown(f"**Round {r}**")
+                # Pre-calculate scores from session state before rendering widgets
+                g_score_disp = None
+                d_meters_calc = 0
+                current_dist_val = st.session_state.get(d_key, d_dist)
+                current_dist_num, current_unit = parse_distance_input(current_dist_val)
+                has_dist_val = current_dist_num is not None
+                dist_unit_missing = has_dist_val and current_unit is None
+                if has_dist_val and current_unit is not None:
+                    if current_dist_num >= 0:
+                        d_meters_calc = distance_to_meters(current_dist_num, current_unit)
+                        g_score_disp = geography_score(d_meters_calc)
+                        st_state['comp_tot'] += g_score_disp
 
-                    # Pre-calculate scores from session state before rendering widgets
-                    g_score_disp = None
-                    d_meters_calc = 0
-                    current_dist_val = st.session_state.get(d_key, d_dist)
-                    current_dist_num, current_unit = parse_distance_input(current_dist_val)
-                    has_dist_val = current_dist_num is not None
-                    dist_unit_missing = has_dist_val and current_unit is None
-                    if has_dist_val and current_unit is not None:
-                        if current_dist_num >= 0:
-                            d_meters_calc = distance_to_meters(current_dist_num, current_unit)
-                            g_score_disp = geography_score(d_meters_calc)
-                            st_state['comp_tot'] += g_score_disp
-                        st.session_state[unit_key] = current_unit
+                t_score_disp = None
+                year_int = None
+                y_valid = False
+                act_y = None
+                current_year_val = st.session_state.get(y_key, d_year)
+                has_year_val = bool(current_year_val and str(current_year_val).strip())
+                if has_year_val:
+                    if current_year_val.isdigit() and len(current_year_val) == 4:
+                        y_val = int(current_year_val)
+                        if 1900 <= y_val <= date.year:
+                            y_valid = True
+                            year_int = y_val
+                            if r in actual_rounds_data and actual_rounds_data.get(r, {}).get('year_valid'):
+                                act_y = int(actual_rounds_data[r]['year'])
+                            if act_y:
+                                t_score_disp = calculate_time_score(y_val, act_y)
+                                st_state['comp_tot'] += t_score_disp
 
-                    t_score_disp = None
-                    year_int = None
-                    y_valid = False
-                    act_y = None
-                    current_year_val = st.session_state.get(y_key, d_year)
-                    has_year_val = bool(current_year_val and str(current_year_val).strip())
-                    if has_year_val:
-                        if current_year_val.isdigit() and len(current_year_val) == 4:
-                            y_val = int(current_year_val)
-                            if 1900 <= y_val <= date.year:
-                                y_valid = True
-                                year_int = y_val
-                                if r in actual_rounds_data and actual_rounds_data.get(r, {}).get('year_valid'):
-                                    act_y = int(actual_rounds_data[r]['year'])
-                                if act_y:
-                                    t_score_disp = calculate_time_score(y_val, act_y)
-                                    st_state['comp_tot'] += t_score_disp
+                submitted = st_state['has_g'] and not st_state['edit']
+                p_color = "#221e8f" if p_name == "Michael" else "#8a005c"
+                p_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
 
-                    submitted = st_state['has_g'] and not st_state['edit']
-                    p_color = "#221e8f" if p_name == "Michael" else "#8a005c"
-                    p_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
+                if submitted:
+                    year_val_in = d_year
+                    dist_val = d_dist
 
-                    if submitted:
-                        year_val_in = d_year
-                        dist_val = d_dist
-
-                        time_color, time_bg = p_color, p_bg
-                        time_warn, time_msg = "", ""
-                        if t_score_disp is not None:
-                            pat = st_state['time_pats'][r-1]
-                            if pat and act_y is not None:
-                                time_valid, time_msg = validate_time_pattern(year_int, act_y, pat, r)
-                                if not time_valid:
-                                    time_color, time_bg = "#d32f2f", "#ffd6d6"
-                                    time_warn = " ⚠️"
+                    if st_state['is_hid']:
+                        st.markdown(f'''<div style="background:{p_bg}; border-radius:10px; padding:10px 14px; border-left:4px solid {p_color}; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-top:2px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span style="color:#444; font-size:0.9em;">📅 ?</span>
+        <span style="color:{p_color}; background-color:{p_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px;">?</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">🌎 ?</span>
+        <span style="color:{p_color}; background-color:{p_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px;">?</span>
+    </div>
+</div>''', unsafe_allow_html=True)
+                    else:
                         time_txt = f"{t_score_disp:.0f}" if t_score_disp is not None else ("?" if y_valid else "—")
-
-                        geo_color, geo_bg = p_color, p_bg
-                        geo_warn, dist_msg = "", ""
-                        if g_score_disp is not None:
-                            pat = st_state['geo_pats'][r-1]
-                            if pat:
-                                dist_valid, dist_msg = validate_distance_pattern(d_meters_calc, pat, r, current_unit)
-                                if not dist_valid:
-                                    geo_color, geo_bg = "#d32f2f", "#ffd6d6"
-                                    geo_warn = " ⚠️"
                         geo_txt = f"{g_score_disp:.0f}" if g_score_disp is not None else "—"
-
-                        time_title = f' title="{time_msg}"' if time_warn else ''
-                        geo_title = f' title="{dist_msg}"' if geo_warn else ''
 
                         st.markdown(f'''<div style="background:{p_bg}; border-radius:10px; padding:10px 14px; border-left:4px solid {p_color}; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-top:2px;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <span style="color:#444; font-size:0.9em;">📅 {d_year or "—"}</span>
-        <span style="color:{time_color}; background-color:{time_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;"{time_title}>{time_txt}{time_warn}</span>
+        <span style="color:{p_color}; background-color:{p_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{time_txt}</span>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
         <span style="color:#444; font-size:0.9em;">🌎 {d_dist or "—"}</span>
-        <span style="color:{geo_color}; background-color:{geo_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;"{geo_title}>{geo_txt}{geo_warn}</span>
+        <span style="color:{p_color}; background-color:{p_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{geo_txt}</span>
     </div>
 </div>''', unsafe_allow_html=True)
-                    else:
-                        year_val_in = st.text_input("Year", value=d_year, key=y_key, placeholder="1995")
-                        if has_year_val:
-                            c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
-                            c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
-                            if t_score_disp is not None:
-                                warning_html = ""
-                                time_msg = ""
-                                pat = st_state['time_pats'][r-1]
-                                if pat and act_y is not None:
-                                    time_valid, time_msg = validate_time_pattern(year_int, act_y, pat, r)
-                                    if not time_valid:
-                                        c_color = "#d32f2f"
-                                        c_bg = "#ffd6d6"
-                                        warning_html = " ⚠️"
-                                title_attr = f' title="{time_msg}"' if warning_html else ''
-                                st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Time Score</p></label><div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};"{title_attr}>📅 {t_score_disp:.0f}{warning_html}</div></div>', unsafe_allow_html=True)
-                            elif y_valid:
-                                st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Time Score</p></label><div class="score-box" style="background-color:#bcb0ff; color:#221e8f; border-left:5px solid #221e8f;" title="Submit actuals to see score">📅 ?</div></div>', unsafe_allow_html=True)
+                else:
+                    year_val_in = st.text_input("Year", value=d_year, key=y_key)
+                    if has_year_val:
+                        c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
+                        c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
+                        if t_score_disp is not None:
+                            st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Time Score</p></label><div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};">📅 {t_score_disp:.0f}</div></div>', unsafe_allow_html=True)
+                        elif y_valid:
+                            st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Time Score</p></label><div class="score-box" style="background-color:#bcb0ff; color:#221e8f; border-left:5px solid #221e8f;" title="Submit actuals to see score">📅 ?</div></div>', unsafe_allow_html=True)
 
-                        dist_val = st.text_input("Distance", value=d_dist, key=d_key, placeholder="_ ft, _ mi, _ m, or _ km")
-                        if dist_unit_missing:
-                            st.caption("⚠️ Include a unit: ft, mi, m, or km")
-                        if has_dist_val and g_score_disp is not None:
-                            c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
-                            c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
-                            warning_html = ""
-                            dist_msg = ""
-                            pat = st_state['geo_pats'][r-1]
-                            if pat:
-                                dist_valid, dist_msg = validate_distance_pattern(d_meters_calc, pat, r, current_unit)
-                                if not dist_valid:
-                                    c_color = "#d32f2f"
-                                    c_bg = "#ffd6d6"
-                                    warning_html = " ⚠️"
-                            title_attr = f' title="{dist_msg}"' if warning_html else ''
-                            st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Geo Score</p></label><div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};"{title_attr}>🌎 {g_score_disp:.0f}{warning_html}</div></div>', unsafe_allow_html=True)
+                    dist_val = st.text_input("Distance", value=d_dist, key=d_key)
+                    if dist_unit_missing:
+                        st.caption("⚠️ Include a unit: ft, mi, m, or km")
+                    if has_dist_val and g_score_disp is not None:
+                        c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
+                        c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
+                        st.markdown(f'<div style="margin-top: 0px;"><label style="margin-bottom: 6px; display: block;"><p style="font-size: 14px; margin: 0; padding: 0;">Geo Score</p></label><div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};">🌎 {g_score_disp:.0f}</div></div>', unsafe_allow_html=True)
 
-                    st_state['input'][r] = {
-                        'dist_raw': dist_val, 'dist_value': current_dist_num, 'unit': current_unit,
-                        'dist_m': d_meters_calc,
-                        'year': year_val_in, 'year_int': year_int, 'y_valid': y_valid,
-                        'g_score': g_score_disp
-                    }
+                st_state['input'][r] = {
+                    'dist_raw': dist_val, 'dist_value': current_dist_num, 'unit': current_unit,
+                    'dist_m': d_meters_calc,
+                    'year': year_val_in, 'year_int': year_int, 'y_valid': y_valid,
+                    'g_score': g_score_disp
+                }
 
         # COMMUNITY ROUND
         with rc4:
@@ -1088,10 +956,10 @@ if date:
     </div>
 </div>''', unsafe_allow_html=True)
             else:
-                c_score_in = st.text_input("Score", value=def_c_score, key=f"cs_{r}_{date}", placeholder="5009")
+                c_score_in = st.text_input("Score", value=def_c_score, key=f"cs_{r}_{date}")
                 ctd1, ctd2 = st.columns(2)
-                c_time_in = ctd1.text_input("Time", value=def_c_time, key=f"ct_{r}_{date}", placeholder="16.4")
-                c_dist_in = ctd2.text_input("Distance", value=def_c_dist, key=f"cd_{r}_{date}", placeholder="_ ft, _ mi, _ m, or _ km")
+                c_time_in = ctd1.text_input("Time", value=def_c_time, key=f"ct_{r}_{date}")
+                c_dist_in = ctd2.text_input("Distance", value=def_c_dist, key=f"cd_{r}_{date}")
                 _, c_dist_unit = parse_distance_input(c_dist_in)
                 if c_dist_in.strip() and c_dist_unit is None:
                     st.caption("⚠️ Include a unit: ft, mi, m, or km")
@@ -1105,8 +973,8 @@ if date:
     fc1, fc2, fc3, fc4 = st.columns([1, 1, 1, 1])
 
     with fc1:
-        if edit_act and not act_hidden:
-            st.markdown("<br>", unsafe_allow_html=True) 
+        if edit_act:
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Submit Actuals", key=f"sub_act_{date}", use_container_width=True):
                 if all_valid_act:
                     f_df = act_df[act_df['Timeguessr Day'] != timeguessr_day]
@@ -1125,17 +993,21 @@ if date:
     for col, p_name in [(fc2, "Michael"), (fc3, "Sarah")]:
         with col:
             st_state = p_state[p_name]
-            if not st_state['is_hid']:
+            masked_footer = st_state['is_hid'] and not st_state['edit']
+            with st.container():
                 ct1, ct2 = st.columns([1, 1])
                 with ct1: st.markdown(f"**Computed Total**")
                 with ct2:
                     c_color = "#221e8f" if p_name == "Michael" else "#8a005c"
                     c_bg = "#dde5eb" if p_name == "Michael" else "#edd3df"
-                    st.markdown(f'<div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};">{int(st_state["comp_tot"]):,}</div>', unsafe_allow_html=True)
+                    total_display = "?" if masked_footer else f'{int(st_state["comp_tot"]):,}'
+                    st.markdown(f'<div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};">{total_display}</div>', unsafe_allow_html=True)
 
-                pct_key = f"pct_{p_name}_{date}"
-                yrs_key = f"yrs_{p_name}_{date}"
-                loc_key = f"loc_{p_name}_{date}"
+                key_suffix = "masked" if masked_footer else "real"
+                pct_key = f"pct_{p_name}_{date}_{key_suffix}"
+                yrs_key = f"yrs_{p_name}_{date}_{key_suffix}"
+                loc_key = f"loc_{p_name}_{date}_{key_suffix}"
+                ts_key = f"ts_{p_name}_{date}_{key_suffix}"
                 fields_disabled = st_state['has_g'] and not st_state['edit']
 
                 def _stat_default(col, mult=1):
@@ -1143,57 +1015,61 @@ if date:
                     v = row_for_stats.get(col)
                     return "" if pd.isna(v) else f"{v * mult:g}"
 
-                pc1, pc2, pc3 = st.columns(3)
-                pct_in = pc1.text_input("Percentile", value=_stat_default(f"{p_name} Percentile", 100), key=pct_key, disabled=fields_disabled, placeholder="96.8")
-                yrs_in = pc2.text_input("Years", value=_stat_default(f"{p_name} Years"), key=yrs_key, disabled=fields_disabled, placeholder="68")
-                loc_in = pc3.text_input("Location", value=_stat_default(f"{p_name} Location"), key=loc_key, disabled=fields_disabled, placeholder="87")
+                if masked_footer or fields_disabled:
+                    tt1, tt2 = st.columns([1, 1])
+                    with tt1: st.markdown(f"**Total Score**")
+                    with tt2:
+                        ts_display = "?" if masked_footer else (st_state['def_total'] or "—")
+                        st.markdown(f'<div class="score-box" style="background-color:{c_bg}; color:{c_color}; border-left:5px solid {c_color};">{ts_display}</div>', unsafe_allow_html=True)
+                    total_input = st_state['def_total']
+                else:
+                    total_input = st.text_input("Total Score", value=st_state['def_total'], key=ts_key)
 
-                total_input = st.text_area(
-                    "Total Score Text", value=st_state['def_txt'], key=f"ta_{p_name}_{date}", height=180,
-                    disabled=(st_state['has_g'] and not st_state['edit']),
-                    placeholder="TimeGuessr #880 32,415/50,000\n🌎🟩🟩🟨 📅🟩🟩⬛\n🌎🟩🟨⬛ 📅🟩🟩🟩\n🌎🟩🟩🟩 📅🟩🟨⬛\n🌎🟨⬛⬛ 📅🟩🟩⬛\n🌎🟩🟩🟨 📅🟩🟨⬛"
-                )
+                if masked_footer or fields_disabled:
+                    pct_val = "?" if masked_footer else (_stat_default(f"{p_name} Percentile", 100) or "—")
+                    yrs_val = "?" if masked_footer else (_stat_default(f"{p_name} Years") or "—")
+                    loc_val = "?" if masked_footer else (_stat_default(f"{p_name} Location") or "—")
+                    st.markdown(f'''<div style="background:{c_bg}; border-radius:10px; padding:10px 14px; border-left:4px solid {c_color}; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-top:2px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span style="color:#444; font-size:0.9em;">Percentile</span>
+        <span style="color:{c_color}; background-color:{c_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{pct_val}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">Years</span>
+        <span style="color:{c_color}; background-color:{c_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{yrs_val}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">Location</span>
+        <span style="color:{c_color}; background-color:{c_bg}; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{loc_val}</span>
+    </div>
+</div>''', unsafe_allow_html=True)
+                    pct_in = "" if masked_footer else _stat_default(f"{p_name} Percentile", 100)
+                    yrs_in = "" if masked_footer else _stat_default(f"{p_name} Years")
+                    loc_in = "" if masked_footer else _stat_default(f"{p_name} Location")
+                else:
+                    pc1, pc2, pc3 = st.columns(3)
+                    pct_in = pc1.text_input("Percentile", value=_stat_default(f"{p_name} Percentile", 100), key=pct_key)
+                    yrs_in = pc2.text_input("Years", value=_stat_default(f"{p_name} Years"), key=yrs_key)
+                    loc_in = pc3.text_input("Location", value=_stat_default(f"{p_name} Location"), key=loc_key)
 
                 if not st_state['has_g'] or (st_state['has_g'] and st_state['edit']):
                     if st.button(f"Submit {p_name}'s Guesses", key=f"sub_{p_name}_{date}", use_container_width=True):
-                        
+
                         def process_submission():
-                            valid_combos = ['🟩🟩🟩', '🟩🟩🟨', '🟩🟩⬛', '🟩🟩⬛️', '🟩🟨⬛', '🟩🟨⬛️', '🟩⬛⬛', '🟩⬛️⬛️', '🟩⬛⬛️', '🟩⬛️⬛', '🟨⬛⬛', '🟨⬛️⬛️', '🟨⬛⬛️', '🟨⬛️⬛', '⬛⬛⬛', '⬛️⬛️⬛️', '⬛⬛⬛️', '⬛️⬛⬛', '⬛⬛️⬛', '⬛️⬛️⬛', '⬛️⬛⬛️']
-                            if not total_input.strip(): 
+                            def _to_float(s):
+                                s = (s or "").strip()
+                                if not s: return None
+                                try: return float(s)
+                                except ValueError: return None
+
+                            total_val = _to_float(total_input)
+                            if total_val is None:
                                 st.error("Missing Total Score"); return
-                            
-                            lines = total_input.strip().split('\n')[:7]
-                            if len(lines) < 6 or not lines[0].startswith('TimeGuessr #'): 
-                                st.error("Invalid format"); return
-                            
-                            try:
-                                ts_val = int(lines[0].split()[-1].split('/')[0].replace(',', ''))
-                            except: 
-                                st.error("Cannot parse total score number"); return
+                            ts_val = int(round(total_val))
 
                             if abs(ts_val - st_state['comp_tot']) > 10:
                                 st.error(f"Computed total ({int(st_state['comp_tot']):,}) differs from Total Score ({ts_val:,}) by more than 10 points.")
                                 return
-
-                            geo_pats, time_pats = [], []
-                            geo_emoji, time_emoji = [], []
-                            for i, line in enumerate(lines[1:6], 1):
-                                if not line.startswith('🌎') or '📅' not in line:
-                                    st.error(f"Round {i} format error"); return
-                                parts = line.split('📅')
-                                g_part = parts[0].replace('🌎', '').strip()
-                                t_part = parts[1].strip()
-
-                                if g_part not in valid_combos:
-                                    st.error(f"Round {i} invalid geo emoji"); return
-                                if t_part not in valid_combos:
-                                    st.error(f"Round {i} invalid time emoji"); return
-
-                                conv = lambda s: s.replace('🟩','O').replace('🟨','%').replace('⬛️','X').replace('⬛','X')
-                                geo_pats.append(conv(g_part))
-                                time_pats.append(conv(t_part))
-                                geo_emoji.append(g_part)
-                                time_emoji.append(t_part)
 
                             new_rows = []
                             rounds_for_txt = {}
@@ -1207,55 +1083,21 @@ if date:
                                     st.error(f"Round {r}: Enter a distance with a unit (ft, mi, m, or km)"); return
                                 if d['dist_value'] < 0:
                                     st.error(f"Round {r} negative distance"); return
-                                
-                                ok, msg = validate_distance_pattern(d['dist_m'], geo_pats[r-1], r, d['unit'])
-                                if not ok: 
-                                    st.error(msg); return
-                                
+
                                 act_y = actual_rounds_data.get(r, {}).get('year')
-                                if act_y:
-                                    ok_t, msg_t = validate_time_pattern(d['year_int'], int(act_y), time_pats[r-1], r)
-                                    if not ok_t:
-                                        st.error(msg_t); return
-                                
+
                                 t_dist = np.nan
                                 t_score = np.nan
-                                t_min = np.nan
-                                t_max = np.nan
                                 r_score = np.nan
-                                time_pat = time_pats[r-1]
-                                
+
                                 if act_y:
                                     t_dist = abs(d['year_int'] - int(act_y))
                                     t_score = calculate_time_score(d['year_int'], int(act_y))
-                                
-                                if pd.notna(t_score):
-                                    t_min = t_score
-                                    t_max = t_score
-                                else:
-                                    if time_pat == "OOO":
-                                        t_score = 5000
-                                        t_min = 5000; t_max = 5000
-                                    elif time_pat == "%XX":
-                                        t_score = 1000
-                                        t_min = 1000; t_max = 1000
-                                    elif time_pat == "XXX":
-                                        t_score = 0
-                                        t_min = 0; t_max = 0
-                                    elif time_pat == "OO%":
-                                        t_min = 4800; t_max = 4950
-                                    elif time_pat == "OOX":
-                                        t_min = 4300; t_max = 4600
-                                    elif time_pat == "O%X":
-                                        t_min = 3400; t_max = 3900
-                                    elif time_pat == "OXX":
-                                        t_min = 2000; t_max = 2500
 
                                 if pd.notna(t_score) and pd.notna(d['g_score']):
                                     r_score = t_score + d['g_score']
 
                                 rounds_for_txt[r] = {
-                                    'geo_emoji': geo_emoji[r-1], 'time_emoji': time_emoji[r-1],
                                     'year': d['year_int'], 'dist_value': d['dist_value'], 'unit': d['unit'],
                                 }
 
@@ -1264,8 +1106,6 @@ if date:
                                     "Timeguessr Round": int(r),
                                     f"{p_name} Total Score": ts_val,
                                     f"{p_name} Round Score": r_score,
-                                    f"{p_name} Geography": geo_pats[r-1],
-                                    f"{p_name} Time": time_pat,
                                     f"{p_name} Geography Distance": int(d['dist_m']),
                                     f"{p_name} Time Guessed": int(d['year_int']),
                                     f"{p_name} Time Distance": t_dist,
@@ -1273,20 +1113,14 @@ if date:
                                     f"{p_name} Geography Score (Min)": d['g_score'],
                                     f"{p_name} Geography Score (Max)": d['g_score'],
                                     f"{p_name} Time Score": t_score,
-                                    f"{p_name} Time Score (Min)": t_min,
-                                    f"{p_name} Time Score (Max)": t_max,
+                                    f"{p_name} Time Score (Min)": t_score,
+                                    f"{p_name} Time Score (Max)": t_score,
                                 })
 
                             try:
                                 df_out = st_state['df'][st_state['df']['Timeguessr Day'] != timeguessr_day]
                                 df_out = pd.concat([df_out, pd.DataFrame(new_rows)], ignore_index=True)
                                 df_out.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(st_state['csv'], index=False)
-
-                                def _to_float(s):
-                                    s = (s or "").strip()
-                                    if not s: return None
-                                    try: return float(s)
-                                    except ValueError: return None
 
                                 update_averages_entry(
                                     timeguessr_day, p_name,
@@ -1304,23 +1138,51 @@ if date:
                         process_submission()
 
     with fc4:
+        def _to_float_c(s):
+            s = (s or "").strip()
+            if not s: return None
+            try: return float(s)
+            except ValueError: return None
+
+        community_comp_tot = sum(
+            v for v in (_to_float_c(community_round_input.get(r, {}).get('score')) for r in range(1, 6))
+            if v is not None
+        )
+
+        cct1, cct2 = st.columns([1, 1])
+        with cct1: st.markdown(f"**Computed Total**")
+        with cct2:
+            st.markdown(f'<div class="score-box" style="background-color:#e9ecef; color:#495057; border-left:5px solid #6c757d;">{int(community_comp_tot):,}</div>', unsafe_allow_html=True)
+
         def_c_avg = "" if row_for_stats is None or pd.isna(row_for_stats.get("Community Average")) else f"{row_for_stats.get('Community Average'):g}"
         def_c_yrs = "" if row_for_stats is None or pd.isna(row_for_stats.get("Community Years Average")) else f"{row_for_stats.get('Community Years Average'):g}"
         def_c_loc = "" if row_for_stats is None or pd.isna(row_for_stats.get("Community Location Average")) else f"{row_for_stats.get('Community Location Average'):g}"
 
-        c_avg_in = st.text_input("Average", value=def_c_avg, key=f"cavg_{date}", disabled=community_fields_disabled, placeholder="27813")
-        cf1, cf2 = st.columns(2)
-        c_yrs_in = cf1.text_input("Years Average", value=def_c_yrs, key=f"cyrs_{date}", disabled=community_fields_disabled, placeholder="48")
-        c_loc_in = cf2.text_input("Location Average", value=def_c_loc, key=f"cloc_{date}", disabled=community_fields_disabled, placeholder="45")
+        if community_fields_disabled:
+            cat1, cat2 = st.columns([1, 1])
+            with cat1: st.markdown(f"**Average Score**")
+            with cat2:
+                st.markdown(f'<div class="score-box" style="background-color:#e9ecef; color:#495057; border-left:5px solid #6c757d;">{def_c_avg or "—"}</div>', unsafe_allow_html=True)
+
+            st.markdown(f'''<div style="background:#eef0f2; border-radius:10px; padding:10px 14px; border-left:4px solid #6c757d; box-shadow:0 2px 6px rgba(0,0,0,0.08); margin-top:2px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span style="color:#444; font-size:0.9em;">Years Avg</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_yrs or "—"}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+        <span style="color:#444; font-size:0.9em;">Location Avg</span>
+        <span style="color:#495057; background-color:#e9ecef; font-weight:700; font-size:0.9em; padding:1px 8px; border-radius:6px; white-space:nowrap;">{def_c_loc or "—"}</span>
+    </div>
+</div>''', unsafe_allow_html=True)
+            c_avg_in, c_yrs_in, c_loc_in = def_c_avg, def_c_yrs, def_c_loc
+        else:
+            c_avg_in = st.text_input("Average Score", value=def_c_avg, key=f"cavg_{date}")
+            cf1, cf2 = st.columns(2)
+            c_yrs_in = cf1.text_input("Years Average", value=def_c_yrs, key=f"cyrs_{date}")
+            c_loc_in = cf2.text_input("Location Average", value=def_c_loc, key=f"cloc_{date}")
 
         if edit_community:
             if st.button("Save Community Stats", key=f"sub_community_{date}", use_container_width=True):
-                def _to_float_c(s):
-                    s = (s or "").strip()
-                    if not s: return None
-                    try: return float(s)
-                    except ValueError: return None
-
                 rounds_payload = {}
                 for r in range(1, 6):
                     ci = community_round_input.get(r, {})
@@ -1332,12 +1194,19 @@ if date:
                         'geo_text': geo_text,
                     }
 
-                update_community_averages_entry(
-                    timeguessr_day,
-                    average=_to_float_c(c_avg_in),
-                    years_average=_to_float_c(c_yrs_in),
-                    location_average=_to_float_c(c_loc_in),
-                    rounds=rounds_payload,
-                )
-                st.success("Saved!")
-                st.rerun()
+                avg_val = _to_float_c(c_avg_in)
+                round_scores = [rounds_payload[r]['score'] for r in range(1, 6)]
+                round_sum = sum(s for s in round_scores if s is not None)
+
+                if avg_val is not None and all(s is not None for s in round_scores) and abs(round_sum - avg_val) > 10:
+                    st.error(f"Sum of round scores ({round_sum:,.0f}) differs from Average ({avg_val:,.0f}) by more than 10 points.")
+                else:
+                    update_community_averages_entry(
+                        timeguessr_day,
+                        average=avg_val,
+                        years_average=_to_float_c(c_yrs_in),
+                        location_average=_to_float_c(c_loc_in),
+                        rounds=rounds_payload,
+                    )
+                    st.success("Saved!")
+                    st.rerun()

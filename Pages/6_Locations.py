@@ -801,9 +801,25 @@ def calculate_stats(df, active_splits, view_mode, metric, score_mode):
         
         def fmt_loc(r):
             parts = [str(x).strip() for x in [r['City'], r['Subdivision'], r['Country']] if pd.notna(x) and str(x).strip()]
-            return ", ".join(dict.fromkeys(parts)) 
+            return ", ".join(dict.fromkeys(parts))
         grouped['Most Recent Location'] = grouped.apply(fmt_loc, axis=1)
-    
+
+    # 11. Unique Locations Count — dedupe on City+Subdivision+Country (not City alone) so
+    # same-named cities in different subdivisions/countries (e.g. Paris, France vs Paris, TX)
+    # count as distinct locations instead of collapsing into one.
+    if {'City', 'Subdivision', 'Country'}.issubset(df_work.columns):
+        city_valid = df_work[df_work['City'].notna() & (df_work['City'].astype(str).str.strip() != '')].copy()
+        city_valid['_Loc_Key'] = (
+            city_valid['City'].astype(str).str.strip() + '||' +
+            city_valid['Subdivision'].fillna('').astype(str).str.strip() + '||' +
+            city_valid['Country'].fillna('').astype(str).str.strip()
+        )
+        uniq_locs = city_valid.groupby('Join_Key')['_Loc_Key'].nunique().rename('Unique Locations')
+        grouped = grouped.merge(uniq_locs, on='Join_Key', how='left')
+        grouped['Unique Locations'] = grouped['Unique Locations'].fillna(0).astype(int)
+    else:
+        grouped['Unique Locations'] = 0
+
     return grouped
 
 def create_styled_table(df):
@@ -829,8 +845,10 @@ def create_styled_table(df):
             style = cell_style if col == "Location" else cell_center
             content = str(val)
             
-            if col == "Count" or "Rank" in col or "Highest Score" in col or "Lowest Score" in col:
+            if col == "Count" or col == "Unique Locations" or "Rank" in col or "Highest Score" in col or "Lowest Score" in col:
                 content = f"{int(val):,}"
+            elif col == "Games per Location":
+                content = f"{val:.1f}"
             elif col == "Score Advantage":
                 if pd.isna(val):
                     content = "-"
@@ -1173,7 +1191,7 @@ if not stats.empty:
     else:
         disp['Most Recent Date'] = ""
 
-    cols = ['Hover_Name', 'Count', 'Most Recent Location', 'Most Recent Date']
+    cols = ['Hover_Name', 'Count', 'Unique Locations', 'Games per Location', 'Most Recent Location', 'Most Recent Date']
     def_sort_col = "Count"
     def_sort_idx = 0
 
@@ -1206,6 +1224,7 @@ if not stats.empty:
                 'Hover_Name': missing_regions,
                 'Count': 0,
                 'Most Recent Location': "",
+                'Unique Locations': 0,
                 'Most Recent Date': "",
                 '_coverage_x': [appeared_counts.get(r, 0) for r in missing_regions],
                 '_coverage_y': [total_counts.get(r, 0) for r in missing_regions],
@@ -1258,7 +1277,9 @@ if not stats.empty:
     if coverage_col_name:
         disp[coverage_col_name] = disp['_coverage_x'].astype(str) + " / " + disp['_coverage_y'].astype(str)
         disp['_coverage_pct'] = np.where(disp['_coverage_y'] > 0, disp['_coverage_x'] / disp['_coverage_y'], 0.0)
-        cols = ['Hover_Name', 'Count', 'Most Recent Location', coverage_col_name, 'Most Recent Date']
+        cols = ['Hover_Name', 'Count', 'Unique Locations', 'Games per Location', coverage_col_name, 'Most Recent Location', 'Most Recent Date']
+
+    disp['Games per Location'] = np.where(disp['Unique Locations'] > 0, disp['Count'] / disp['Unique Locations'], 0.0)
 
     if map_metric == "Comparison":
         def get_win_rates(row):
