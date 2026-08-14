@@ -1201,3 +1201,10 @@ TimeGuessr #1168
 3. Montevideo, Uruguay, 1948
 4. Kyoto (Kansai), Japan, 1978
 5. Vancouver (British Columbia), Canada, 1936
+
+TimeGuessr #1169
+1. London (England), United Kingdom, 1937
+2. Helsinki (Helsinki-Uusimaa), Finland, 1970
+3. New York (New York), United States, 1959
+4. Geneva (Lake Geneva Region), Switzerland, 1988
+5. Dubai, United Arab Emirates, 2007
