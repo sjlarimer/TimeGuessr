@@ -1208,3 +1208,31 @@ TimeGuessr #1169
 3. New York (New York), United States, 1959
 4. Geneva (Lake Geneva Region), Switzerland, 1988
 5. Dubai, United Arab Emirates, 2007
+
+TimeGuessr #1170
+1. Abidjan, Côte d'Ivoire, 2025
+2. Vienna (Vienna), Austria, 1978
+3. Manila, Philippines, 1968
+4. Houston (Texas), United States, 1994
+5. Rome (Lazio), Italy, 1947
+
+TimeGuessr #1173
+1. Chisinau, Moldova, 2013
+2. Oslo (Eastern Norway), Norway, 1933
+3. Beijing (Beijing), China, 1998
+4. Cherbourg-en-Cotentin (Normandy), France, 1944
+5. New York (New York), United States, 1912
+
+TimeGuessr #1174
+1. San Angelo (Texas), United States, 1939
+2. Prague (Bohemia), Czechia, 1974
+3. Nicosia, Cyprus, 1964
+4. Copenhagen (Capital Region), Denmark, 1958
+5. Moscow (Central), Russia, 1998
+
+TimeGuessr #1175
+1. Havana, Cuba, 1984
+2. Berlin (Berlin), Germany, 1936
+3. Beijing (Beijing), China, 1956
+4. Paris (Ile-de-France), France, 1965
+5. San Francisco (California), United States, 2024
