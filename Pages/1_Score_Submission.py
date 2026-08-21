@@ -549,7 +549,14 @@ if date:
     # Calculate Day
     reference_date = datetime.date(2025, 10, 28)
     timeguessr_day = 880 + (date - reference_date).days
-    
+
+    # Exit edit mode after a successful save (must run before the Edit toggles below
+    # are instantiated — Streamlit forbids setting a widget's session-state value
+    # after the widget with that key has already been created in the same run).
+    for _edit_key in [f"edit_act_{date}", f"edit_Michael_{date}", f"edit_Sarah_{date}", f"edit_community_{date}"]:
+        if st.session_state.pop(f"_exit_{_edit_key}", False):
+            st.session_state[_edit_key] = False
+
     if "last_viewed_timeguessr_day" not in st.session_state:
         st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
     st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
@@ -987,6 +994,7 @@ if date:
                         for r, v in rounds_for_txt.items()
                     })
 
+                    st.session_state[f"_exit_edit_act_{date}"] = True
                     st.success("Saved!"); st.rerun()
                 else: st.error("Invalid actuals")
                 
@@ -1130,6 +1138,7 @@ if date:
                                 )
                                 update_player_txt_entry(p_name, timeguessr_day, ts_val, rounds_for_txt)
 
+                                st.session_state[f"_exit_edit_{p_name}_{date}"] = True
                                 st.success("Saved!")
                                 st.rerun()
                             except Exception as e:
@@ -1208,5 +1217,6 @@ if date:
                         location_average=_to_float_c(c_loc_in),
                         rounds=rounds_payload,
                     )
+                    st.session_state[f"_exit_edit_community_{date}"] = True
                     st.success("Saved!")
                     st.rerun()
