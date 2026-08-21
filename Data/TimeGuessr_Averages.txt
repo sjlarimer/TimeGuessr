@@ -465,3 +465,55 @@ Sarah Location - 57
 5 - 6736
 5 Time - 11.1
 5 Geo - 352 mi
+
+TimeGuessr #1175
+Average - 36479
+Years Average - 64
+Location Average - 68
+Michael Percentile - 99.6%
+Michael Years - 98
+Michael Location - 87
+Sarah Percentile - 47.6%
+Sarah Years - 74
+Sarah Location - 63
+1 - 6382
+1 Time - 12.8
+1 Geo - 510.6 mi
+2 - 9337
+2 Time - 2.5
+2 Geo - 44.2 mi
+3 - 4828
+3 Time - 11.1
+3 Geo - 1719.9 mi
+4 - 8093
+4 Time - 7.3
+4 Geo - 174.6 mi
+5 - 7838
+5 Time - 8.2
+5 Geo - 247.3 mi
+
+TimeGuessr #1176
+Average - 37167
+Years Average - 71
+Location Average - 63
+Michael Percentile - 64.4%
+Michael Years - 65
+Michael Location - 91
+Sarah Percentile - 74.1%
+Sarah Years - 72
+Sarah Location - 89
+1 - 6942
+1 Time - 7.6
+1 Geo - 965.9 mi
+2 - 8501
+2 Time - 4.5
+2 Geo - 237.1 mi
+3 - 7854
+3 Time - 5.9
+3 Geo - 324.3 mi
+4 - 7895
+4 Time - 6.1
+4 Geo - 722.2 mi
+5 - 5975
+5 Time - 10
+5 Geo - 3439.5 mi
