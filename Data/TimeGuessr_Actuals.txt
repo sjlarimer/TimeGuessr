@@ -1243,3 +1243,24 @@ TimeGuessr #1176
 3. Seoul (Seoul Capital Area), South Korea, 1996
 4. Mexico City (Mexico City), Mexico, 1935
 5. Adelaide (South Australia), Australia, 1920
+
+TimeGuessr #1177
+1. Birmingham (England), United Kingdom, 1939
+2. Jacksonville (Florida), United States, 1903
+3. Asuncion, Paraguay, 2016
+4. Gothenburg (Gotaland), Sweden, 1942
+5. Sarajevo, Bosnia and Herzegovina, 1965
+
+TimeGuessr #1180
+1. Kuala Lumpur, Malaysia, 1998
+2. Boothbay (Maine), United States, 1939
+3. Monte-Carlo, Monaco, 1930
+4. Budapest (Central Hungary), Hungary, 1961
+5. Paramaribo, Suriname, 1975
+
+TimeGuessr #1181
+1. Chicago (Illinois), United States, 1964
+2. St. Louis (Missouri), United States, 1907
+3. Barcelona (Catalonia), Spain, 2011
+4. Trabzon (Black Sea), Türkiye, 1976
+5. Helsinki (Helsinki-Uusimaa), Finland, 1970
