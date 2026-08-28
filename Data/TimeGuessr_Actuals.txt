@@ -1264,3 +1264,17 @@ TimeGuessr #1181
 3. Barcelona (Catalonia), Spain, 2011
 4. Trabzon (Black Sea), Türkiye, 1976
 5. Helsinki (Helsinki-Uusimaa), Finland, 1970
+
+TimeGuessr #1182
+1. Sword Beach (Normandy), France, 1944
+2. Cluj-Napoca, Romania, 1989
+3. Brisbane (Queensland), Australia, 1958
+4. Vienna (Vienna), Austria, 1969
+5. Dallas (Texas), United States, 1963
+
+TimeGuessr #1183
+1. Pyongyang, North Korea, 1990
+2. Newport News (Virginia), United States, 1941
+3. Paris (Ile-de-France), France, 1976
+4. Mandalay, Myanmar, 1986
+5. Oslo (Eastern Norway), Norway, 1907
