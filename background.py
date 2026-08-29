@@ -2,12 +2,14 @@ import os
 import random
 import base64
 import io
+import inspect
 import streamlit as st
 from PIL import Image
 
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
+@st.cache_data(show_spinner=False)
 def _get_base64_image(image_path):
     try:
         img = Image.open(image_path)
@@ -48,4 +50,22 @@ def set_random_sarah_background(lightness_level=0.7):
     ]
     if not candidates:
         return
-    _set_background(_get_base64_image(random.choice(candidates)), lightness_level)
+
+    # Identify the page that's calling so the chosen image stays fixed while
+    # the user interacts with (reruns) the same page, and only re-randomizes
+    # when they navigate to a different page.
+    try:
+        caller_file = inspect.currentframe().f_back.f_globals.get("__file__", "")
+        page_key = os.path.splitext(os.path.basename(caller_file))[0] or "_default"
+    except Exception:
+        page_key = "_default"
+
+    state_key = "_sarah_bg_choice"
+    stored = st.session_state.get(state_key)
+    if not stored or stored[0] != page_key or stored[1] not in candidates:
+        choice = random.choice(candidates)
+        st.session_state[state_key] = (page_key, choice)
+    else:
+        choice = stored[1]
+
+    _set_background(_get_base64_image(choice), lightness_level)
