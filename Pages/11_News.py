@@ -138,8 +138,68 @@ NEWS_STYLES = """
         .stat-type { font-size: 8px; font-weight: 800; color: #888; text-transform: uppercase; line-height: 1; margin-bottom: 2px; }
         .stat-winner { font-size: 11px; font-weight: 800; text-transform: uppercase; line-height: 1; }
         
-        @media (max-width: 900px) { 
-            .forecast-container { grid-template-columns: 1fr; } 
+        /* ROUND-BY-ROUND TABLE (top of each edition): rounds = rows, dimensions = columns */
+        .round-strip { padding: 20px 24px; background: #ffffff; border-bottom: 1px solid #eee; }
+        .round-strip-title { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 14px; }
+        .rss-sub { font-weight: 500; text-transform: none; letter-spacing: 0; color: #999; font-size: 11px; margin-left: 8px; }
+        .round-table-wrap { overflow-x: auto; border: 1px solid #e8e8e8; border-radius: 8px; }
+        .round-table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; }
+        .round-table th { background: #f4f4f6; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #999; padding: 7px 9px; text-align: left; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }
+        .round-table td { padding: 8px 9px; border-bottom: 1px solid #f0f0f0; border-left: 1px solid #f4f4f4; vertical-align: top; font-size: 10px; }
+        .round-table td:first-child, .round-table th:first-child { border-left: none; }
+        .round-table tr:last-child td { border-bottom: none; }
+        .round-table tbody tr.alt td { background: #fbfbfb; }
+        .round-table tbody tr.rt-hdrrow:not(:first-child) td { border-top: 2px solid #e2e2e2; }
+        .rt-round { min-width: 150px; }
+        .rt-cell { min-width: 104px; }
+        /* per-round dimension header row (value + appearance count + Rare/New) */
+        .round-table td.rt-dimhdr { border-bottom: 2px solid #e6e6e6; padding-bottom: 6px; }
+        .rt-dh-val { display: block; font-size: 11px; font-weight: 800; color: #222; line-height: 1.15; margin-bottom: 3px; }
+        .rt-appc { display: block; font-size: 8px; font-weight: 700; color: #9a9a9a; text-transform: uppercase; letter-spacing: 0.3px; }
+        .rt-gap { display: block; font-size: 8px; font-weight: 700; color: #c47a1e; margin-top: 2px; }
+        .rt-type-hdr { color: #bbb; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+        /* score-type sub-row column */
+        .rt-type { min-width: 82px; }
+        .rt-type-lbl { display: block; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: #555; }
+        .rt-type-swing { display: block; font-size: 9px; font-weight: 700; margin-top: 3px; color: #999; }
+        .rt-type-total .rt-type-lbl { color: #444; }
+        .rt-type-geo   .rt-type-lbl { color: #1b6b86; }
+        .rt-type-time  .rt-type-lbl { color: #7a4f9e; }
+        .round-table td.rt-type-geo  { box-shadow: inset 3px 0 0 #bcdbe5; }
+        .round-table td.rt-type-time { box-shadow: inset 3px 0 0 #ddccea; }
+        .rb-num { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 10px; color: #333; background: #e0e0e0; border-radius: 4px; padding: 1px 5px; }
+        .rt-loc { display: block; font-size: 10px; font-weight: 600; color: #444; line-height: 1.3; margin: 3px 0 3px; }
+        .rt-loc img { width: 13px !important; height: auto; vertical-align: -1px; margin-right: 3px; }
+        .rt-score-line { display: block; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 9px; color: #333; white-space: nowrap; line-height: 1.5; }
+        .rt-score-lbl { display: inline-block; width: 30px; color: #999; font-weight: 800; }
+        /* value-level (New / Rare) markers, shown in the round's dimension header row */
+        .rt-mk { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 3px; color: #fff; margin: 3px 4px 0 0; text-transform: uppercase; letter-spacing: 0.4px; }
+        .rt-mk-new  { background: #5db300; }
+        .rt-mk-rare { background: #e8952e; }
+        .rb-dash { color: #bbb; margin: 0 3px; }
+        .rb-score-na { color: #aaa; font-weight: 500; font-style: italic; }
+        .rb-approx { color: #b0a89e; font-weight: 700; margin-right: 1px; }
+        .rt-state { display: block; font-size: 11px; font-weight: 700; color: #444; line-height: 1.4; }
+        /* NEW / FLIP / RARE: prominent badge + whole-cell highlight (tint priority: new > flip > rare) */
+        .round-table td.rt-cell-new  { background: #edf8db !important; box-shadow: inset 4px 0 0 #5db300; }
+        .round-table td.rt-cell-flip { background: #fde3df !important; box-shadow: inset 4px 0 0 #c0392b; }
+        .round-table td.rt-cell-rare { background: #fdf1de !important; box-shadow: inset 4px 0 0 #e8952e; }
+        .rb-tag { display: inline-block; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin: 5px 4px 0 0; letter-spacing: 0.6px; text-transform: uppercase; color: #fff; }
+        .rb-tag-flip { background: #c0392b; box-shadow: 0 1px 3px rgba(192,57,43,0.4); }
+        /* Missed flip: hollow "flip that didn't happen" — no cell tint, badge only */
+        .rb-tag-missed { background: #fff; color: #c0392b; border: 1px dashed #c0392b; }
+        .rt-dir { display: inline-block; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 3px; margin: 5px 0 0 0; letter-spacing: 0.5px; color: #fff; }
+        .rt-dir-m { background: #221e8f; }
+        .rt-dir-s { background: #8a005c; }
+        .rt-dir-t { background: #999; }
+        .rt-dir-missed { background: transparent; color: #b0453a; border: 1px dashed #cf9b95; }
+        .rt-cell-new .rt-dh-val, .rt-cell-rare .rt-dh-val { color: #111; }
+        .rb-swing { font-weight: 700; }
+        .rb-was { display: block; font-size: 9px; color: #8a8a8a; font-weight: 600; font-style: italic; margin-top: 1px; }
+        .rb-na { color: #ccc; }
+
+        @media (max-width: 900px) {
+            .forecast-container { grid-template-columns: 1fr; }
             .events-list { column-count: 1; padding: 16px; }
         }
     </style>
@@ -1249,6 +1309,197 @@ def generate_decade_events(df):
                     })
     return events
 
+def generate_round_updates(df):
+    """Replay every round of every day in play order and record how that single
+    round shifted the cumulative Michael-vs-Sarah head-to-head control of its
+    continent / UN region / country / subdivision / year / decade — separately
+    for total, geography and time points.
+
+    Appearance count and the "rounds since last seen" gap (and therefore is_rare)
+    are tracked round-by-round: every round a category shows up is its own
+    appearance.
+
+    Returns {pd.Timestamp: [round_dict, ...]} with rounds in Timeguessr Round order.
+    Each round_dict has round / city / subdivision / country / year / the per-player
+    total, geo and time round scores, and metric_rows -> a 3-item list (total, geo,
+    time) each with {metric, label, swing, dims}, where dims is a per-dimension list
+    of dicts (label, value, tracked, and when tracked: leader, margin, is_new,
+    did_flip, is_rare, gap, appearances, prev_leader, prev_margin).
+    """
+    if df.empty or "Timeguessr Round" not in df.columns:
+        return {}
+
+    d = df.copy()
+    for p in ["Michael", "Sarah"]:
+        for c in ["Geography Score", "Time Score"]:
+            for suffix in ["", " (Min)", " (Max)"]:
+                col = f"{p} {c}{suffix}"
+                if col in d.columns:
+                    d[col] = pd.to_numeric(d[col], errors="coerce")
+            # fall back to the (Min)+(Max)/2 midpoint when the exact round score
+            # isn't known (early days only have the emoji-tier bounds)
+            base, lo, hi = f"{p} {c}", f"{p} {c} (Min)", f"{p} {c} (Max)"
+            if lo in d.columns and hi in d.columns:
+                est = (d[lo] + d[hi]) / 2
+                d[f"{base} _est"] = d[base].isna() & est.notna()
+                d[base] = d[base].where(d[base].notna(), est)
+            else:
+                d[f"{base} _est"] = False
+
+    # country -> UN region / continent (batch, once)
+    uc = list(d["Country"].dropna().astype(str).str.strip().unique())
+    iso_res = cc_obj.convert(names=uc, to="ISO3", not_found="Unknown") if uc else []
+    if isinstance(iso_res, str): iso_res = [iso_res]
+    iso = dict(zip(uc, iso_res))
+    ui = [i for i in set(iso.values()) if i and i != "Unknown"]
+    reg_res = cc_obj.convert(names=ui, to="UNregion", not_found="Unknown") if ui else []
+    if isinstance(reg_res, str): reg_res = [reg_res]
+    reg = dict(zip(ui, reg_res))
+    con_res = cc_obj.convert(names=ui, to="continent", not_found="Unknown") if ui else []
+    if isinstance(con_res, str): con_res = [con_res]
+    con = dict(zip(ui, con_res))
+
+    DIMS = ["continent", "region", "country", "subdivision", "year", "decade"]
+    LABELS = {"continent": "Continent", "region": "UN Region", "country": "Country",
+              "subdivision": "Subdivision", "year": "Year", "decade": "Decade"}
+    METRICS = ["total", "geo", "time"]  # each round splits into these 3 sub-rows, in this order
+    METRIC_LABEL = {"total": "Total", "geo": "Geography", "time": "Time"}
+    RARE_GAP = 125  # rounds since last appearance (~25 days at 5 rounds/day)
+    MAX_SCORE = {"total": 10000.0, "geo": 5000.0, "time": 5000.0}  # best possible round score per metric
+    state = {m: {k: {} for k in DIMS} for m in METRICS}  # metric -> dim -> value -> {m, s}
+    last_round = {k: {} for k in DIMS}    # dim -> value -> round index last seen
+    appearances = {k: {} for k in DIMS}  # dim -> value -> count of rounds it has appeared in
+
+    def leader(delta):
+        return "Michael" if delta > 0 else ("Sarah" if delta < 0 else "Tie")
+
+    out = {}
+    round_no = 0
+    for dt, day in d.groupby("Date", sort=True):
+        rounds = []
+        for _, r in day.sort_values("Timeguessr Round").iterrows():
+            round_no += 1
+            country = str(r["Country"]).strip() if pd.notna(r.get("Country")) else None
+            subdiv = str(r["Subdivision"]).strip() if (pd.notna(r.get("Subdivision")) and str(r.get("Subdivision")).strip()) else None
+            yr = r.get("Year")
+            year_s = str(int(yr)) if pd.notna(yr) else None
+            decade_s = (str(int(yr // 10) * 10) + "s") if pd.notna(yr) else None
+            isoc = iso.get(country, "Unknown") if country else "Unknown"
+            region = reg.get(isoc, "Unknown")
+            continent = con.get(isoc, "Unknown")
+
+            mg, mt = r.get("Michael Geography Score"), r.get("Michael Time Score")
+            sg, stm = r.get("Sarah Geography Score"), r.get("Sarah Time Score")
+            has = all(pd.notna(x) for x in (mg, mt, sg, stm))
+            m_geo, s_geo = (float(mg), float(sg)) if has else (None, None)
+            m_time, s_time = (float(mt), float(stm)) if has else (None, None)
+            m_round = m_geo + m_time if has else None
+            s_round = s_geo + s_time if has else None
+            estimated = has and bool(
+                r.get("Michael Geography Score _est") or r.get("Michael Time Score _est")
+                or r.get("Sarah Geography Score _est") or r.get("Sarah Time Score _est"))
+
+            dim_value = {
+                "continent": continent if continent != "Unknown" else None,
+                "region": region if region != "Unknown" else None,
+                "country": country if (country and country != "Unknown") else None,
+                "subdivision": f"{subdiv} | {country}" if (subdiv and country) else None,
+                "year": year_s,
+                "decade": decade_s,
+            }
+            dim_display = {
+                "continent": continent if continent != "Unknown" else "—",
+                "region": region if region != "Unknown" else "—",
+                "country": country or "—",
+                "subdivision": subdiv or "—",
+                "year": year_s or "—",
+                "decade": decade_s or "—",
+            }
+
+            # per-dimension round-level facts (computed once per round, not per metric)
+            dim_meta = {}
+            for k in DIMS:
+                v = dim_value[k]
+                if v is None or not has:
+                    dim_meta[k] = {"tracked": False}
+                    continue
+                prev_round = last_round[k].get(v)
+                is_new = prev_round is None
+                gap = 0 if is_new else (round_no - prev_round)
+                appearances[k][v] = appearances[k].get(v, 0) + 1
+                last_round[k][v] = round_no
+                dim_meta[k] = {
+                    "tracked": True, "is_new": is_new, "gap": gap,
+                    "appearances": appearances[k][v],
+                    "is_rare": (not is_new) and gap >= RARE_GAP,
+                }
+
+            metric_add = {"total": (m_round, s_round), "geo": (m_geo, s_geo), "time": (m_time, s_time)}
+            metric_rows = []
+            for mtr in METRICS:
+                add_m, add_s = metric_add[mtr]
+                dim_rows = []
+                for k in DIMS:
+                    v = dim_value[k]
+                    dm = dim_meta[k]
+                    row = {"key": k, "label": LABELS[k], "value": dim_display[k], "tracked": False}
+                    if dm["tracked"]:
+                        st = state[mtr][k]
+                        prev = st.get(v)
+                        pm, ps = (prev["m"], prev["s"]) if prev else (0.0, 0.0)
+                        prev_leader = leader(pm - ps)
+                        nm, ns = pm + add_m, ps + add_s
+                        st[v] = {"m": nm, "s": ns}
+                        new_leader = leader(nm - ns)
+                        did_flip = (not dm["is_new"]) and new_leader != prev_leader
+                        # "Missed flip": the leader ended this round ahead, but scored
+                        # weakly enough that the trailing player, had they posted the
+                        # maximum possible score, would have taken the lead — and didn't.
+                        missed_flip = False
+                        if (not did_flip) and (not dm["is_new"]) and new_leader != "Tie":
+                            cap = MAX_SCORE[mtr]
+                            if new_leader == "Michael":
+                                missed_flip = (ps + cap) > nm
+                            else:
+                                missed_flip = (pm + cap) > ns
+                        row.update({
+                            "tracked": True,
+                            "is_new": dm["is_new"],
+                            "did_flip": did_flip,
+                            "missed_flip": missed_flip,
+                            "is_rare": dm["is_rare"],
+                            "gap": dm["gap"],
+                            "appearances": dm["appearances"],
+                            "leader": new_leader,
+                            "margin": abs(nm - ns),
+                            "prev_leader": prev_leader,
+                            "prev_margin": abs(pm - ps),
+                        })
+                    dim_rows.append(row)
+                metric_rows.append({
+                    "metric": mtr,
+                    "label": METRIC_LABEL[mtr],
+                    "swing": (add_m - add_s) if has else None,
+                    "dims": dim_rows,
+                })
+
+            rn = r.get("Timeguessr Round")
+            rounds.append({
+                "round": int(rn) if pd.notna(rn) else len(rounds) + 1,
+                "city": str(r["City"]).strip() if pd.notna(r.get("City")) else "—",
+                "subdivision": subdiv or "",
+                "country": country or "",
+                "year": year_s or "",
+                "m_round": m_round,
+                "s_round": s_round,
+                "m_geo": m_geo, "s_geo": s_geo,
+                "m_time": m_time, "s_time": s_time,
+                "estimated": estimated,
+                "metric_rows": metric_rows,
+            })
+        out[pd.Timestamp(dt)] = rounds
+    return out
+
 def get_full_category_forecast(df, cat):
     if len(df) < 5: return None
     r5 = df["Score Diff"].rolling(window=5).mean().iloc[-1]
@@ -1336,13 +1587,123 @@ FEED_CATEGORIES = {
     "Win Streak Updates": ["streak", "streak_broken"], 
     "Score Threshold Streaks": ["score_streak", "score_streak_broken"], 
     "Win Margin Records": ["margin_record_largest", "margin_record_tightest"], 
-    "Leaderboard Records": ["score_top_10", "score_bottom_10", "score_vs_opp"], 
-    "Location Updates": ["discovery", "location_flip", "rare_location"], 
-    "Year Updates": ["year_discovery", "year_flip", "decade_discovery", "decade_flip", "rare_year", "rare_decade"], 
+    "Leaderboard Records": ["score_top_10", "score_bottom_10", "score_vs_opp"],
     "Milestones": ["milestone"]
 }
+# Location / year / decade discoveries, control flips and rare appearances are
+# now covered by the round-by-round table at the top of each edition, so their
+# feed sections were removed.
 
-def render_daily_news(dt, evs):
+def render_round_strip(rounds):
+    """Top-of-edition table. Per round: a slim header row (dimension value +
+    appearance count + Rare/New marker with rounds-since-last) sitting above 3
+    score-type rows (Total, Geography, Time). Rounds ordered by number, then by
+    score type."""
+    if not rounds or not any(dr.get("tracked")
+                             for rd in rounds for mr in rd["metric_rows"] for dr in mr["dims"]):
+        return ""
+    pc_map = {"Michael": "p-michael", "Sarah": "p-sarah", "Tie": "p-tie"}
+    dims0 = rounds[0]["metric_rows"][0]["dims"]
+
+    def ordinal(n):
+        suf = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+        return f"{n}{suf}"
+
+    def dim_header(dr):
+        if not dr.get("tracked"):
+            return '<td class="rt-cell rt-dimhdr"><span class="rt-dh-val rb-na">&mdash;</span></td>'
+        ac = dr.get("appearances", 0)
+        box_cls, meta = "", f'<span class="rt-appc">{ordinal(ac)} appearance</span>'
+        if dr.get("is_new"):
+            box_cls = " rt-cell-new"
+            meta += '<span class="rt-mk rt-mk-new">New</span>'
+        elif dr.get("is_rare"):
+            box_cls = " rt-cell-rare"
+            meta += ('<span class="rt-mk rt-mk-rare">Rare</span>'
+                     f'<span class="rt-gap">first in {dr.get("gap", 0)} rounds</span>')
+        return (f'<td class="rt-cell rt-dimhdr{box_cls}">'
+                f'<span class="rt-dh-val">{dr["value"]}</span>{meta}</td>')
+
+    def metric_cell(dr):
+        if not dr.get("tracked"):
+            return '<td class="rt-cell"><span class="rt-state rb-na">&mdash;</span></td>'
+        ld = dr["leader"]
+        lead_txt = ('<span class="p-tie">Tied</span>' if ld == "Tie"
+                    else f'<span class="{pc_map[ld]}">{ld} +{dr["margin"]:,.0f}</span>')
+        tag, was, box_cls = "", "", ""
+        # a flip on this score type overrules the value-level (New / Rare) tint;
+        # otherwise the whole column carries the New / Rare colour
+        if dr["did_flip"]:
+            box_cls = " rt-cell-flip"
+            pl, nl = dr["prev_leader"], ld
+            oc = "TIE" if pl == "Tie" else pl[0]
+            nc = "TIE" if nl == "Tie" else nl[0]
+            dcls = "m" if nl == "Michael" else ("s" if nl == "Sarah" else "t")
+            tag = (f'<span class="rb-tag rb-tag-flip">Flip</span>'
+                   f'<span class="rt-dir rt-dir-{dcls}">{oc}&#10132;{nc}</span>')
+            was = ('<span class="rb-was">was Tied</span>' if pl == "Tie"
+                   else f'<span class="rb-was">was {pl} +{dr["prev_margin"]:,.0f}</span>')
+        elif dr.get("is_new"):
+            box_cls = " rt-cell-new"
+        elif dr.get("is_rare"):
+            box_cls = " rt-cell-rare"
+        # "Missed flip": trailing player had a max-score path to the lead this round
+        # and didn't take it. Badge-only — composes with any column tint.
+        if dr.get("missed_flip") and not dr["did_flip"] and ld != "Tie":
+            trailer = "Sarah" if ld == "Michael" else "Michael"
+            tag += ('<span class="rb-tag rb-tag-missed">Missed Flip</span>'
+                    f'<span class="rt-dir rt-dir-missed">{ld[0]}&#10132;{trailer[0]}</span>')
+        return (f'<td class="rt-cell{box_cls}"><span class="rt-state">{lead_txt}{was}</span>{tag}</td>')
+
+    def swing_badge(val):
+        if val is None:
+            return ""
+        if abs(val) < 1:
+            return '<span class="rt-type-swing">even</span>'
+        w = "Michael" if val > 0 else "Sarah"
+        return f'<span class="rt-type-swing rb-swing {pc_map[w]}">{w[0]} +{abs(val):,.0f}</span>'
+
+    def score_row(lbl, m, s, prefix=""):
+        if m is None:
+            return ""
+        return (f'<span class="rt-score-line"><span class="rt-score-lbl">{lbl}</span>{prefix}'
+                f'<b class="p-michael">{m:,.0f}</b><span class="rb-dash">&ndash;</span>'
+                f'<b class="p-sarah">{s:,.0f}</b></span>')
+
+    body = ""
+    for rd in rounds:
+        loc = ", ".join([b for b in [rd["subdivision"], rd["country"]] if b]) or rd["city"]
+        flag = get_flag_html(rd["country"]) if rd["country"] else ""
+        yr = f" &middot; {rd['year']}" if rd["year"] else ""
+        approx = '<span class="rb-approx" title="estimated from score tiers">~</span>' if rd.get("estimated") else ''
+        if rd["m_round"] is not None:
+            score = (score_row("Total", rd["m_round"], rd["s_round"], prefix=approx)
+                     + score_row("Geo", rd["m_geo"], rd["s_geo"])
+                     + score_row("Time", rd["m_time"], rd["s_time"]))
+        else:
+            score = '<span class="rb-score-na">no scores</span>'
+        round_cell = (f'<td class="rt-round" rowspan="4"><span class="rb-num">R{rd["round"]}</span>'
+                      f'<span class="rt-loc">{flag}{loc}{yr}</span>{score}</td>')
+        alt = " alt" if rd["round"] % 2 == 0 else ""
+
+        vdims = rd["metric_rows"][0]["dims"]
+        hdr_cells = "".join(dim_header(dr) for dr in vdims)
+        body += (f'<tr class="rt-hdrrow{alt}">{round_cell}'
+                 f'<td class="rt-type rt-type-hdr">Standing</td>{hdr_cells}</tr>')
+        for mr in rd["metric_rows"]:
+            cells = "".join(metric_cell(dr) for dr in mr["dims"])
+            type_cell = (f'<td class="rt-type rt-type-{mr["metric"]}">'
+                         f'<span class="rt-type-lbl">{mr["label"]}</span>{swing_badge(mr["swing"])}</td>')
+            body += f'<tr class="rt-mrow{alt}">{type_cell}{cells}</tr>'
+
+    head = "".join(f'<th>{dr["label"]}</th>' for dr in dims0)
+    return (f'<div class="round-strip"><div class="round-strip-title">Round-by-Round'
+            f'<span class="rss-sub">each round, split Total &rarr; Geography &rarr; Time, across every standing</span></div>'
+            f'<div class="round-table-wrap"><table class="round-table">'
+            f'<thead><tr><th class="rt-round">Round</th><th class="rt-type">Score</th>{head}</tr></thead>'
+            f'<tbody>{body}</tbody></table></div></div>')
+
+def render_daily_news(dt, evs, round_list=None):
     ds, ec, rh = dt.strftime("%A, %B %d, %Y"), len(evs), ""
     day_id = f"day-{dt.strftime('%Y-%m-%d')}"
     
@@ -1900,7 +2261,10 @@ def render_daily_news(dt, evs):
             rh += f"""<div class="event-row {rc}"><div class="category-box"><div class="cat-icon">{ic}</div><div class="cat-name">{cs}</div></div><div class="content-box">{ct}</div></div>"""
             
         rh += '</div>'
-    return f"""<div class="daily-card" id="{day_id}"><div class="daily-header"><span class="daily-date">{ds}</span><span class="daily-badge">{ec} Updates</span></div><div class="events-list">{rh}</div></div>"""
+    strip_html = render_round_strip(round_list or [])
+    badge = f"{ec} Updates" if ec else "Round Recap"
+    body = f'<div class="events-list">{rh}</div>' if rh else ""
+    return f"""<div class="daily-card" id="{day_id}"><div class="daily-header"><span class="daily-date">{ds}</span><span class="daily-badge">{badge}</span></div>{strip_html}{body}</div>"""
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 raw_data = load_data(mtime=stats_mtime)
@@ -1931,11 +2295,9 @@ if not raw_data.empty:
     all_evs.extend(generate_score_record_events(df_t, "Total Score"))
     all_evs.extend(generate_score_record_events(df_tm, "Time Score"))
     all_evs.extend(generate_score_record_events(df_g, "Geography Score"))
-    all_evs.extend(generate_location_events(raw_data))
-    all_evs.extend(generate_year_events(raw_data))
-    all_evs.extend(generate_decade_events(raw_data))
     all_evs.extend(generate_milestone_events(raw_data))
-    
+    round_updates = generate_round_updates(raw_data)
+
     with st.sidebar:
         st.header("Feed Settings")
         sf = st.multiselect("Filter Categories:", options=list(FEED_CATEGORIES.keys()), default=list(FEED_CATEGORIES.keys()))
@@ -1950,22 +2312,24 @@ if not raw_data.empty:
     for cat_name in sf:
         active_types.update(FEED_CATEGORIES[cat_name])
 
-    # Filter events and group by date
+    # Filter events and group by date (keys normalized to Timestamp)
     fe = [e for e in all_evs if e.get('event_type') in active_types]
     ev_d = {}
     for e in fe:
-        d = e['date']
-        if d not in ev_d: ev_d[d] = []
-        ev_d[d].append(e)
-        
-    sd = sorted(ev_d.keys(), reverse=True)
-    
-    if not sd: 
+        d = pd.Timestamp(e['date'])
+        ev_d.setdefault(d, []).append(e)
+
+    # Render an edition for every day that actually has round data, plus any
+    # day that has matching events. Round strip always shows (it is the recap).
+    scored_days = {d for d, rl in round_updates.items() if any(rr["m_round"] is not None for rr in rl)}
+    sd = sorted(set(ev_d.keys()) | scored_days, reverse=True)
+
+    if not sd:
         st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No news events detected matching your filters.</div></div>', unsafe_allow_html=True)
     else:
         feed_html = '<div class="news-container">\n'
         for d in sd:
-            feed_html += render_daily_news(d, ev_d[d]) + '\n'
+            feed_html += render_daily_news(d, ev_d.get(d, []), round_updates.get(d, [])) + '\n'
         feed_html += '</div>'
         st.markdown(feed_html, unsafe_allow_html=True)
 
