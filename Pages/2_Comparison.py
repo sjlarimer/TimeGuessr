@@ -1281,10 +1281,10 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
 
     return fig
 
-def create_cumulative_histogram(series_list, ceiling: int) -> go.Figure:
+def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False) -> go.Figure:
     """Overlapping step histogram: for every integer threshold X in [x_start, ceiling],
-    how many days had a score strictly greater than X, where x_start is the nearest
-    multiple of 5,000 at or below the combined minimum score across all series.
+    how many days had a score >= X (or <= X when reverse=True), where x_start is the
+    nearest multiple of 5,000 at or below the combined minimum score across all series.
     `series_list` is a list of (scores: pd.Series, name: str, color: str)."""
     fig = go.Figure()
 
@@ -1301,15 +1301,24 @@ def create_cumulative_histogram(series_list, ceiling: int) -> go.Figure:
         r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         return f'rgba({r},{g},{b},{alpha})'
 
-    def days_above(scores):
+    def day_counts(scores):
         sorted_scores = np.sort(scores.dropna().to_numpy())
-        return len(sorted_scores) - np.searchsorted(sorted_scores, x_vals, side='right')
+        if reverse:
+            # Days with Score <= X
+            return np.searchsorted(sorted_scores, x_vals, side='right')
+        # Days with Score >= X
+        return len(sorted_scores) - np.searchsorted(sorted_scores, x_vals, side='left')
+
+    op_symbol = '≤' if reverse else '≥'
 
     for scores, name, color in non_empty:
         if len(scores) > 0:
-            counts = days_above(scores)
-            total = len(scores.dropna())
-            percentile = 100 - (counts / total * 100)
+            counts = day_counts(scores)
+            sorted_scores = np.sort(scores.dropna().to_numpy())
+            total = len(sorted_scores)
+            # Percentile rank of the threshold itself (% of days at or below X) —
+            # a stable definition independent of which direction is being plotted.
+            percentile = np.searchsorted(sorted_scores, x_vals, side='right') / total * 100
             fig.add_trace(go.Scatter(
                 x=x_vals,
                 y=counts,
@@ -1319,7 +1328,7 @@ def create_cumulative_histogram(series_list, ceiling: int) -> go.Figure:
                 fill='tozeroy',
                 fillcolor=hex_to_rgba(color, 0.4),
                 customdata=percentile,
-                hovertemplate='Score > %{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
+                hovertemplate=f'Score {op_symbol} ' + '%{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
             ))
 
             median_val = scores.median()
@@ -1331,7 +1340,117 @@ def create_cumulative_histogram(series_list, ceiling: int) -> go.Figure:
 
     fig.update_layout(
         xaxis_title='Score Threshold (X)',
-        yaxis_title='Days with Score > X',
+        yaxis_title=f'Days with Score {op_symbol} X',
+        height=350,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color=COLORS['text'])
+        ),
+        hovermode='x unified'
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=False,
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        range=[x_start, ceiling]
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero'
+    )
+
+    return fig
+
+def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = False) -> go.Figure:
+    """Companion plot to create_cumulative_histogram: for every integer threshold X,
+    what's the longest streak of consecutive days (in sequence order) with score >= X
+    (or <= X when reverse=True).
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
+    fig = go.Figure()
+
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
+    if not non_empty:
+        return fig
+
+    all_scores = pd.concat([s for s, _, _, _ in non_empty]).dropna()
+    x_start = max(0, int(np.floor(all_scores.min() / 5000) * 5000)) if not all_scores.empty else 0
+    x_vals = np.arange(x_start, ceiling + 1, 1)
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    def streak_curve(scores, dates):
+        # The longest-streak function only changes value at the distinct score values
+        # themselves, so evaluate it once per distinct score (a handful of calls) instead of
+        # once per integer threshold, then broadcast across x_vals via searchsorted.
+        scores_arr = scores.to_numpy()
+        breakpoints = np.unique(scores_arr[~np.isnan(scores_arr)])
+        breakpoints = breakpoints[(breakpoints >= x_start) & (breakpoints <= ceiling)]
+        if len(breakpoints) == 0:
+            return np.zeros(len(x_vals), dtype=int)
+
+        f_vals = np.array([
+            calculate_streak_with_dates(scores_arr, dates, v, above=not reverse)[0]
+            for v in breakpoints
+        ])
+
+        result = np.zeros(len(x_vals), dtype=int)
+        if reverse:
+            # Longest streak with score <= X is non-decreasing in X, constant at f(v) for
+            # X in [v, next breakpoint) — use the largest breakpoint <= X.
+            idx = np.searchsorted(breakpoints, x_vals, side='right')
+            valid = idx > 0
+            result[valid] = f_vals[idx[valid] - 1]
+        else:
+            # Longest streak with score >= X is non-increasing in X, constant at f(v) for
+            # X in (prev breakpoint, v] — use the smallest breakpoint >= X.
+            idx = np.searchsorted(breakpoints, x_vals, side='left')
+            valid = idx < len(breakpoints)
+            result[valid] = f_vals[idx[valid]]
+        return result
+
+    op_symbol = '≤' if reverse else '≥'
+
+    for scores, dates, name, color in non_empty:
+        y_vals = streak_curve(scores, dates)
+        fig.add_trace(go.Scatter(
+            x=x_vals,
+            y=y_vals,
+            name=name,
+            mode='lines',
+            line=dict(color=color, width=3),
+            fill='tozeroy',
+            fillcolor=hex_to_rgba(color, 0.4),
+            hovertemplate=f'Score {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days<extra></extra>'
+        ))
+
+    fig.update_layout(
+        xaxis_title='Score Threshold (X)',
+        yaxis_title=f'Longest Streak {op_symbol} X (days)',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
@@ -2531,15 +2650,21 @@ if comp_type == 'Cross':
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(create_stats_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
-                                                bin_size, date_format, ceiling), unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
             st.plotly_chart(create_cumulative_histogram(
                 [(michael_scores, 'Michael', COLORS['michael']), (sarah_scores, 'Sarah', COLORS['sarah'])], ceiling
             ), use_container_width=True, key="cumulative_histogram_chart")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown(create_stats_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
+                                                bin_size, date_format, ceiling), unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             st.plotly_chart(create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling),
                             use_container_width=True, key="density_chart")
         with col2:
+            st.plotly_chart(create_streak_score_histogram(
+                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling
+            ), use_container_width=True, key="streak_score_histogram_chart")
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(create_streaks_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
                                                   bin_size, date_format, ceiling, change_threshold),
                         unsafe_allow_html=True)
@@ -2627,22 +2752,27 @@ else:
         geo_scores_clean = player_data_filtered.loc[g_mask, geo_col].reset_index(drop=True)
         geo_dates_clean = player_data_filtered.loc[g_mask, "Date"].reset_index(drop=True)
 
+        st.subheader("Statistics Summary")
+
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Summary Statistics")
-            st.markdown(self_create_scores_stats_table(
-                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
-                bin_size=bin_size, ceiling=streak_ceiling
-            ), unsafe_allow_html=True)
             st.plotly_chart(create_cumulative_histogram(
                 [(time_scores_clean, 'Time', COLORS['time']), (geo_scores_clean, 'Geography', COLORS['geography'])],
                 streak_ceiling
             ), use_container_width=True, key="self_cumulative_histogram_chart")
+            st.markdown(self_create_scores_stats_table(
+                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
+                bin_size=bin_size, ceiling=streak_ceiling
+            ), unsafe_allow_html=True)
             st.subheader("Score Distribution")
             st.plotly_chart(self_create_density_plot(
                 time_scores_clean, geo_scores_clean, ceiling=streak_ceiling
             ), use_container_width=True, key="self_density_chart")
         with col2:
+            st.plotly_chart(create_streak_score_histogram(
+                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
+                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])], streak_ceiling
+            ), use_container_width=True, key="self_streak_score_histogram_chart")
             st.subheader("Score Streaks")
             st.markdown(self_create_scores_streaks_table(
                 time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
