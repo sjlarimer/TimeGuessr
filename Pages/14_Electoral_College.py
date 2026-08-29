@@ -172,6 +172,36 @@ st.markdown("""
         margin: 1.6rem 0 0.7rem 0;
         border-left: 4px solid #696761; padding-left: 0.6rem;
     }
+
+    /* ── Sidebar controls (pill segmented style, matches Comparison page) ── */
+    div[data-testid="stSidebar"] div[data-testid="stToggle"] label p,
+    div[data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
+        color: #eae8dc !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
+    div[data-testid="stSidebar"] button[kind="primary"] {
+        background-color: #3a3935 !important;
+        color: #eae8dc !important;
+        border-color: #3a3935 !important;
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+    div[data-testid="stSidebar"] button[kind="secondary"] {
+        background-color: #d9d7cc !important;
+        color: #696761 !important;
+        border-color: #d9d7cc !important;
+        border-radius: 20px !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+    div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background-color: #c8c6bb !important;
+        color: #3a3935 !important;
+        border-color: #8f8d85 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -857,7 +887,35 @@ def render_timelapse_player(payload):
   #tl button { font:inherit; font-size:0.85rem; font-weight:600; padding:6px 16px; border-radius:8px;
                border:1px solid #c8c3bc; background:#fff; color:#4a4844; cursor:pointer; }
   #tl button:hover { background:#f3f0ec; }
-  #tl input[type=range] { flex:1; accent-color:#8a005c; }
+  /* Timeline scrubber: light-grey track, coloured (from JS) only over spans of
+     time when someone had clinched the EC; portion past the current frame is
+     washed out. */
+  #tl input[type=range] {
+    flex:1; -webkit-appearance:none; appearance:none;
+    height:16px; background:transparent; cursor:pointer; margin:0; --tl-pos:0%;
+  }
+  #tl input[type=range]::-webkit-slider-runnable-track {
+    height:12px; border-radius:6px;
+    background:
+      linear-gradient(to right, rgba(0,0,0,0) var(--tl-pos), rgba(240,237,232,0.6) var(--tl-pos)),
+      var(--tl-grad, #d9d7cc);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.28);
+  }
+  #tl input[type=range]::-moz-range-track {
+    height:12px; border-radius:6px;
+    background:
+      linear-gradient(to right, rgba(0,0,0,0) var(--tl-pos), rgba(240,237,232,0.6) var(--tl-pos)),
+      var(--tl-grad, #d9d7cc);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.28);
+  }
+  #tl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
+    background:#fff; border:2px solid #3a3935; margin-top:-2px; box-shadow:0 1px 4px rgba(0,0,0,0.35);
+  }
+  #tl input[type=range]::-moz-range-thumb {
+    width:14px; height:14px; border-radius:50%;
+    background:#fff; border:2px solid #3a3935; box-shadow:0 1px 4px rgba(0,0,0,0.35);
+  }
   #tl .legend { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; font-size:0.78rem; margin:8px 0 2px; }
   #tl .legend span { display:inline-flex; align-items:center; gap:6px; }
   #tl .legend-sub { font-size:0.72rem; opacity:0.8; margin:2px 0 2px; }
@@ -887,8 +945,8 @@ def render_timelapse_player(payload):
     <span><span class="sw" style="background:#ddd9d4;border-color:#c8c3bc"></span>Not played</span>
   </div>
   <div class="legend legend-sub">
-    <span><span class="sw" style="background:#9b9acd"></span>Faded &mdash; still changing hands</span>
-    <span><span class="sw" style="background:#221e8f"></span>Solid &mdash; settled, never flips again</span>
+    <span><span class="sw" style="background:#cbc6be"></span>Faded &mdash; still changing hands</span>
+    <span><span class="sw" style="background:#5c5952"></span>Solid &mdash; settled, never flips again</span>
   </div>
 
   <div class="tl-foot">
@@ -957,10 +1015,35 @@ const fmt = n => n.toLocaleString('en-US');
 const BAR = ['#221e8f', '#8a005c', '#a09587', '#ddd9d4'];
 $('tl-barcap').textContent = VL;
 
+// Scrubber track (hard-edged, no blend): a near-grey tinted toward whoever
+// currently leads the electoral college, and their full solid colour across any
+// stretch where they've actually clinched it.
+const _GREY = [217, 215, 204], _MICH = [34, 30, 143], _SAR = [138, 0, 92];
+function _tint(base, target, t){
+  return 'rgb(' + base.map((v, i) => Math.round(v + (target[i] - v) * t)).join(',') + ')';
+}
+function segColor(f){
+  if (f.ev[0] >= f.threshold) return '#221e8f';
+  if (f.ev[1] >= f.threshold) return '#8a005c';
+  if (f.ev[0] > f.ev[1]) return _tint(_GREY, _MICH, 0.16);
+  if (f.ev[1] > f.ev[0]) return _tint(_GREY, _SAR,  0.16);
+  return 'rgb(217,215,204)';
+}
+(function(){
+  const stops = [];
+  for (let i = 0; i < N; i++){
+    const c = segColor(F[i]);
+    stops.push(c + ' ' + (i / N * 100).toFixed(2) + '%',
+               c + ' ' + ((i + 1) / N * 100).toFixed(2) + '%');
+  }
+  $('tl-scrub').style.setProperty('--tl-grad', 'linear-gradient(to right, ' + stops.join(', ') + ')');
+})();
+
 function paintHud(f, k){
   $('tl-date').textContent = '⏳ ' + f.date;
   $('tl-frame').textContent = 'Round ' + fmt(f.round) + ' · ' + (k+1) + ' / ' + N;
   $('tl-scrub').value = k;
+  $('tl-scrub').style.setProperty('--tl-pos', (k / (N - 1) * 100).toFixed(2) + '%');
 
   const tot = f.total || 1;
   const seg = [[f.ev[0],BAR[0]],[f.ev[2],BAR[2]],[f.ev[3],BAR[3]],[f.ev[1],BAR[1]]];
@@ -1018,18 +1101,43 @@ tick();
 # ──────────────────────────────────────────────────────────────────────────────
 # Sidebar
 # ──────────────────────────────────────────────────────────────────────────────
+_HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">'
+
 with st.sidebar:
-    st.header("Electoral Settings")
-    college_mode = st.radio(
-        "Mode:",
-        ["Electoral College", "TimeGuessr College"],
-        index=0,
-    )
-    score_mode = st.radio(
-        "Score Type:",
-        ["Total Score", "Geography Score", "Time Score"],
-        index=0,
-    )
+    st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
+
+    college_mode = st.session_state.get('ec_mode', 'Electoral College')
+    _mc1, _mc2 = st.columns(2)
+    with _mc1:
+        if st.button("Electoral", key="ec_btn_ec", use_container_width=True,
+                     type="primary" if college_mode == "Electoral College" else "secondary"):
+            st.session_state['ec_mode'] = 'Electoral College'
+            st.rerun()
+    with _mc2:
+        if st.button("TimeGuessr", key="ec_btn_tg", use_container_width=True,
+                     type="primary" if college_mode == "TimeGuessr College" else "secondary"):
+            st.session_state['ec_mode'] = 'TimeGuessr College'
+            st.rerun()
+
+    st.markdown(_HR, unsafe_allow_html=True)
+
+    score_mode = st.session_state.get('ec_score', 'Total Score')
+    _sc1, _sc2, _sc3 = st.columns(3)
+    with _sc1:
+        if st.button("Total", key="ec_btn_total", use_container_width=True,
+                     type="primary" if score_mode == "Total Score" else "secondary"):
+            st.session_state['ec_score'] = 'Total Score'
+            st.rerun()
+    with _sc2:
+        if st.button("Geo", key="ec_btn_geo", use_container_width=True,
+                     type="primary" if score_mode == "Geography Score" else "secondary"):
+            st.session_state['ec_score'] = 'Geography Score'
+            st.rerun()
+    with _sc3:
+        if st.button("Time", key="ec_btn_time", use_container_width=True,
+                     type="primary" if score_mode == "Time Score" else "secondary"):
+            st.session_state['ec_score'] = 'Time Score'
+            st.rerun()
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 data = load_data(stats_mtime)
@@ -1092,12 +1200,22 @@ st.markdown(
 df_json = filtered_data.to_json(orient='split', date_format='iso')
 frames = build_timelapse_frames(df_json, score_mode, is_tg_college)
 
-_tl_sidebar = st.sidebar
-_tl_sidebar.markdown("---")
-tl_active = _tl_sidebar.toggle(
-    "Timelapse", value=False, key="tl_toggle", disabled=len(frames) < 2,
-    help="On: replay how the map got here. Off: the current standings.",
-)
+_tl_on = st.session_state.get('ec_timelapse', False)
+with st.sidebar:
+    st.markdown(_HR, unsafe_allow_html=True)
+    _tc1, _tc2 = st.columns(2)
+    with _tc1:
+        if st.button("Static", key="ec_btn_static", use_container_width=True,
+                     type="primary" if not _tl_on else "secondary"):
+            st.session_state['ec_timelapse'] = False
+            st.rerun()
+    with _tc2:
+        if st.button("Timelapse", key="ec_btn_timelapse", use_container_width=True,
+                     type="primary" if _tl_on else "secondary",
+                     disabled=len(frames) < 2):
+            st.session_state['ec_timelapse'] = True
+            st.rerun()
+tl_active = _tl_on
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Timelapse playback — a self-contained client-side player. Nothing on the
