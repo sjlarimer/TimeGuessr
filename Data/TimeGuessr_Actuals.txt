@@ -1236,3 +1236,45 @@ TimeGuessr #1175
 3. Beijing (Beijing), China, 1956
 4. Paris (Ile-de-France), France, 1965
 5. San Francisco (California), United States, 2024
+
+TimeGuessr #1176
+1. Ramat Gan (Tel Aviv), Israel, 1962
+2. Amsterdam (North Holland), Netherlands, 1964
+3. Seoul (Seoul Capital Area), South Korea, 1996
+4. Mexico City (Mexico City), Mexico, 1935
+5. Adelaide (South Australia), Australia, 1920
+
+TimeGuessr #1177
+1. Birmingham (England), United Kingdom, 1939
+2. Jacksonville (Florida), United States, 1903
+3. Asuncion, Paraguay, 2016
+4. Gothenburg (Gotaland), Sweden, 1942
+5. Sarajevo, Bosnia and Herzegovina, 1965
+
+TimeGuessr #1180
+1. Kuala Lumpur, Malaysia, 1998
+2. Boothbay (Maine), United States, 1939
+3. Monte-Carlo, Monaco, 1930
+4. Budapest (Central Hungary), Hungary, 1961
+5. Paramaribo, Suriname, 1975
+
+TimeGuessr #1181
+1. Chicago (Illinois), United States, 1964
+2. St. Louis (Missouri), United States, 1907
+3. Barcelona (Catalonia), Spain, 2011
+4. Trabzon (Black Sea), Türkiye, 1976
+5. Helsinki (Helsinki-Uusimaa), Finland, 1970
+
+TimeGuessr #1182
+1. Sword Beach (Normandy), France, 1944
+2. Cluj-Napoca, Romania, 1989
+3. Brisbane (Queensland), Australia, 1958
+4. Vienna (Vienna), Austria, 1969
+5. Dallas (Texas), United States, 1963
+
+TimeGuessr #1183
+1. Pyongyang, North Korea, 1990
+2. Newport News (Virginia), United States, 1941
+3. Paris (Ile-de-France), France, 1976
+4. Mandalay, Myanmar, 1986
+5. Oslo (Eastern Norway), Norway, 1907
