@@ -412,6 +412,610 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
     return timeline
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Timelapse: per-day snapshots of the full board
+# ──────────────────────────────────────────────────────────────────────────────
+@st.cache_data
+def build_timelapse_frames(df_json, score_mode, is_tg):
+    """Replay US rounds chronologically, emitting one snapshot per day on which
+    any round was played. Each snapshot carries the full per-state winner map so
+    the choropleth and scoreboard can be redrawn for that moment in time."""
+    df = pd.read_json(io.StringIO(df_json), orient='split')
+    df['Date'] = pd.to_datetime(df['Date'])
+
+    us_df = df[df['Country'].isin(['United States', 'USA', 'United States of America'])].copy()
+    us_df['State'] = us_df['Subdivision'].replace(SUBDIV_NORMALIZATION)
+    us_df = us_df[us_df['State'].notna()]
+
+    m_total_col = 'Michael Round Score' if 'Michael Round Score' in us_df.columns else None
+    s_total_col = 'Sarah Round Score'   if 'Sarah Round Score'   in us_df.columns else None
+    if m_total_col and s_total_col:
+        us_df = us_df[us_df[m_total_col].notna() & us_df[s_total_col].notna()]
+
+    if score_mode == "Total Score":
+        col_m = 'Michael Round Score' if 'Michael Round Score' in us_df.columns else None
+        col_s = 'Sarah Round Score'   if 'Sarah Round Score'   in us_df.columns else None
+        us_df['_m'] = us_df[col_m] if col_m else (
+            us_df['Michael Geography Score'].fillna(0) + us_df['Michael Time Score'].fillna(0))
+        us_df['_s'] = us_df[col_s] if col_s else (
+            us_df['Sarah Geography Score'].fillna(0) + us_df['Sarah Time Score'].fillna(0))
+    elif score_mode == "Geography Score":
+        us_df['_m'] = us_df['Michael Geography Score']
+        us_df['_s'] = us_df['Sarah Geography Score']
+    else:
+        us_df['_m'] = us_df['Michael Time Score']
+        us_df['_s'] = us_df['Sarah Time Score']
+
+    us_df = us_df.sort_values('Date').reset_index(drop=True)
+
+    m_score, s_score, m_rounds, s_rounds = {}, {}, {}, {}
+    frames = []
+    total_rounds = 0
+
+    for date, group in us_df.groupby('Date', sort=True):
+        touched = False
+        for _, row in group.iterrows():
+            state = row['State']
+            if state not in ELECTORAL_VOTES:
+                continue
+            if pd.notna(row['_m']):
+                m_score[state]  = m_score.get(state, 0)  + row['_m']
+                m_rounds[state] = m_rounds.get(state, 0) + 1
+            if pd.notna(row['_s']):
+                s_score[state]  = s_score.get(state, 0)  + row['_s']
+                s_rounds[state] = s_rounds.get(state, 0) + 1
+            total_rounds += 1
+            touched = True
+
+        if not touched:
+            continue
+
+        states_snap = {}
+        for stt in ELECTORAL_VOTES:
+            ms, ss = m_score.get(stt, 0), s_score.get(stt, 0)
+            mr, sr = m_rounds.get(stt, 0), s_rounds.get(stt, 0)
+            if   mr == 0 and sr == 0: w = 'third'
+            elif mr > 0  and sr == 0: w = 'michael'
+            elif sr > 0  and mr == 0: w = 'sarah'
+            elif ms > ss:             w = 'michael'
+            elif ss > ms:             w = 'sarah'
+            else:                     w = 'tied'
+            states_snap[stt] = (w, float(ms), float(ss), int(mr), int(sr))
+
+        frames.append({
+            'Date': pd.Timestamp(date),
+            'round_num': int(total_rounds),
+            'states': states_snap,
+        })
+
+    return frames
+
+
+def frame_to_state_results(frame, is_tg_college):
+    """Turn one timelapse snapshot into a state_results-shaped DataFrame."""
+    recs = []
+    for stt, ev_ct in ELECTORAL_VOTES.items():
+        w, ms, ss, mr, sr = frame['states'][stt]
+        recs.append({
+            'State': stt, 'EV': ev_ct,
+            'Michael_Score': ms, 'Sarah_Score': ss,
+            'Michael_Rounds': mr, 'Sarah_Rounds': sr,
+            'Total_Rounds': mr + sr, 'Winner': w,
+        })
+    sr_df = pd.DataFrame(recs)
+    sr_df['abbrev']       = sr_df['State'].map(STATE_ABBREV)
+    sr_df['color']        = sr_df['Winner'].map(WIN_COLORS)
+    sr_df['winner_label'] = sr_df['Winner'].map(WIN_LABELS)
+    if is_tg_college:
+        sr_df['Votes'] = ((sr_df['Michael_Rounds'] + sr_df['Sarah_Rounds']).astype(int)) / 2 + 2
+    else:
+        sr_df['Votes'] = sr_df['EV'].astype(int)
+    return sr_df
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Shared renderers (used by both the live view and the timelapse)
+# ──────────────────────────────────────────────────────────────────────────────
+def build_ev_map(state_results, is_tg_college):
+    fig = go.Figure()
+
+    # Always emit one Choropleth trace per outcome, in a fixed order, even when
+    # empty. Keeping the trace list stable lets Plotly patch the map in place
+    # between timelapse frames instead of tearing it down and remounting (which
+    # reads as a blink).
+    for winner_key, color in WIN_COLORS.items():
+        subset = state_results[state_results['Winner'] == winner_key]
+
+        hover_texts = []
+        for _, row in subset.iterrows():
+            mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
+            ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
+            votes_val = int(row['Votes'])
+            ev_val    = int(row['EV'])
+
+            if winner_key == 'third':
+                detail = "Not yet played"
+            elif winner_key == 'tied':
+                detail = f"Tied — Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
+            elif winner_key == 'michael':
+                detail = f"Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
+            else:
+                detail = f"Sarah: {ss:,} pts ({sr} rounds) · Michael: {ms:,} pts ({mr} rounds)"
+
+            vote_line = (f"Rounds (votes): <b>{votes_val:,}</b>" if is_tg_college
+                         else f"Electoral Votes: <b>{ev_val}</b>")
+
+            hover_texts.append(
+                f"<b>{row['State']}</b><br>"
+                f"{vote_line}<br>"
+                f"Winner: <b>{row['winner_label']}</b><br>"
+                f"{detail}"
+                f"<extra></extra>"
+            )
+
+        fig.add_trace(go.Choropleth(
+            locations=list(subset['abbrev']),
+            z=[1] * len(subset),
+            locationmode='USA-states',
+            colorscale=[[0, color], [1, color]],
+            zmin=0, zmax=1,
+            showscale=False,
+            marker_line_color='white',
+            marker_line_width=1.8,
+            hovertemplate=hover_texts if hover_texts else None,
+            name=WIN_LABELS[winner_key],
+            showlegend=False,
+        ))
+
+    lats, lons, labels = [], [], []
+    for _, row in state_results.iterrows():
+        abbr = row['abbrev']
+        if abbr and abbr in STATE_CENTROIDS:
+            lat, lon = STATE_CENTROIDS[abbr]
+            lats.append(lat)
+            lons.append(lon)
+            labels.append(str(int(row['Votes'])))
+
+    fig.add_trace(go.Scattergeo(
+        lat=lats, lon=lons,
+        mode='text',
+        text=labels,
+        textfont=dict(size=8.5, color='white', family='Arial Bold'),
+        hoverinfo='skip',
+        showlegend=False,
+    ))
+
+    fig.update_layout(
+        geo=dict(
+            scope='usa',
+            showframe=False,
+            showcoastlines=False,
+            showland=True,  landcolor='#f0ede8',
+            showlakes=True, lakecolor='#dde8f0',
+            bgcolor='rgba(0,0,0,0)',
+            projection_type='albers usa',
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=0, b=0, l=0, r=0),
+        height=500,
+        hoverlabel=dict(bgcolor='white', font_size=13, bordercolor='#d9d7cc'),
+        showlegend=False,
+        # Same revision id every frame → Plotly treats each update as "same
+        # plot, new data" and re-renders in place rather than resetting.
+        uirevision='ec-map',
+    )
+    return fig
+
+
+def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s, show_popular=True):
+    TOTAL_VOTES = int(state_results['Votes'].sum())
+    ev = {k: int(state_results.loc[state_results['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
+    threshold = TOTAL_VOTES // 2 + 1
+    overall_winner = ('michael' if ev['michael'] >= threshold
+                      else 'sarah' if ev['sarah'] >= threshold
+                      else None)
+
+    threshold_desc = (f"{threshold:,} {vote_label_s} needed to win · {TOTAL_VOTES:,} total"
+                      if is_tg_college else
+                      f"270 electoral votes needed to win · {TOTAL_VOTES:,} total")
+
+    bar_total = TOTAL_VOTES if TOTAL_VOTES > 0 else 1
+    segs = [
+        (ev['michael'], WIN_COLORS['michael']),
+        (ev['tied'],    WIN_COLORS['tied']),
+        (ev['third'],   WIN_COLORS['third']),
+        (ev['sarah'],   WIN_COLORS['sarah']),
+    ]
+    bar_inner = "".join(
+        f'<div class="ev-seg" style="width:{v/bar_total*100:.2f}%;background:{c};"></div>'
+        for v, c in segs if v > 0
+    )
+
+    # Assemble the whole scoreboard as one HTML string emitted in a single
+    # st.markdown call. Fewer elements = a cleaner in-place diff between
+    # timelapse frames (less flicker).
+    html = [f'<div class="ev-bar-wrap">{bar_inner}</div>'
+            f'<div class="threshold-note">{threshold_desc}</div>']
+
+    if show_popular:
+        pv_michael = int(state_results['Michael_Score'].sum())
+        pv_sarah   = int(state_results['Sarah_Score'].sum())
+        pv_total   = pv_michael + pv_sarah
+        if pv_total > 0:
+            pv_m_pct = pv_michael / pv_total * 100
+            pv_s_pct = pv_sarah   / pv_total * 100
+            pv_winner = 'michael' if pv_michael > pv_sarah else ('sarah' if pv_sarah > pv_michael else None)
+
+            html.append(f"""
+    <div style="margin: 0.2rem 0 0.1rem 0;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem;">
+        <span style="font-size:0.75rem;font-weight:600;color:{COLORS['michael']};letter-spacing:0.04em;text-transform:uppercase;">
+          {"&#9654; " if pv_winner == "michael" else ""}Michael &nbsp;
+          <span style="font-weight:700;font-size:0.88rem;">{pv_michael:,}</span>
+          <span style="font-weight:400;opacity:0.7;"> pts ({pv_m_pct:.1f}%)</span>
+        </span>
+        <span style="font-size:0.72rem;color:#696761;font-weight:500;letter-spacing:0.03em;">Popular Vote</span>
+        <span style="font-size:0.75rem;font-weight:600;color:{COLORS['sarah']};letter-spacing:0.04em;text-transform:uppercase;text-align:right;">
+          <span style="font-weight:700;font-size:0.88rem;">{pv_sarah:,}</span>
+          <span style="font-weight:400;opacity:0.7;"> pts ({pv_s_pct:.1f}%)</span>
+          &nbsp;{"&#9664; " if pv_winner == "sarah" else ""}Sarah
+        </span>
+      </div>
+      <div style="width:100%;height:16px;background:#e8e5e0;border-radius:8px;overflow:hidden;display:flex;
+                  box-shadow:inset 0 1px 3px rgba(0,0,0,0.10);">
+        <div style="width:{pv_m_pct:.2f}%;background:linear-gradient(90deg,#221e8f,#3d37d4);height:100%;"></div>
+        <div style="width:{pv_s_pct:.2f}%;background:linear-gradient(90deg,#c2006f,#8a005c);height:100%;"></div>
+      </div>
+    </div>
+    """)
+
+    html.append("<div style='margin-bottom:0.8rem;'></div>")
+
+    def winner_badge(player):
+        return '<div class="win-badge">&#127942; WINNER</div>' if overall_winner == player else ''
+
+    m_pct  = ev['michael'] / bar_total * 100
+    s_pct  = ev['sarah']   / bar_total * 100
+    ti_pct = ev['tied']    / bar_total * 100
+    th_pct = ev['third']   / bar_total * 100
+
+    html.append(f"""
+<div class="ec-scoreboard">
+  <div class="ec-card card-michael">
+    <div class="card-name">Michael</div>
+    <div class="card-ev">{ev['michael']:,}</div>
+    <div class="card-label">{vote_label}</div>
+    <div class="card-pct">{m_pct:.1f}%</div>
+    {winner_badge('michael')}
+  </div>
+  <div class="ec-card card-sarah">
+    <div class="card-name">Sarah</div>
+    <div class="card-ev">{ev['sarah']:,}</div>
+    <div class="card-label">{vote_label}</div>
+    <div class="card-pct">{s_pct:.1f}%</div>
+    {winner_badge('sarah')}
+  </div>
+  <div class="ec-card card-tied">
+    <div class="card-name">Tied</div>
+    <div class="card-ev">{ev['tied']:,}</div>
+    <div class="card-label">{vote_label}</div>
+    <div class="card-pct">{ti_pct:.1f}%</div>
+  </div>
+  <div class="ec-card card-third">
+    <div class="card-name">Not Played</div>
+    <div class="card-ev">{ev['third']:,}</div>
+    <div class="card-label">{vote_label}</div>
+    <div class="card-pct">{th_pct:.1f}%</div>
+  </div>
+</div>
+""")
+
+    st.markdown("".join(html), unsafe_allow_html=True)
+
+    return ev, TOTAL_VOTES, threshold, overall_winner
+
+
+def render_ev_legend(vote_label_s):
+    tied_label = f"Tied (no {vote_label_s} awarded)"
+    st.markdown(f"""
+<div class="ec-legend">
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#221e8f;"></span>Michael wins
+  </span>
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#8a005c;"></span>Sarah wins
+  </span>
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#a09587;"></span>{tied_label}
+  </span>
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#ddd9d4;border-color:#c8c3bc;"></span>Not yet played
+  </span>
+</div>
+""", unsafe_allow_html=True)
+
+
+@st.cache_data(show_spinner=False)
+def _plotly_js_bundle():
+    from plotly.offline import get_plotlyjs
+    return get_plotlyjs()
+
+
+def build_timelapse_payload(frames, is_tg_college):
+    """Flatten the frame snapshots into a compact JSON payload the browser-side
+    player consumes: one map + scoreboard that it updates in place per frame.
+
+    State colour codes: 0/1 Michael faded/solid, 2/3 Sarah faded/solid,
+    4/5 tied faded/solid, 6 not played. A state stays faded while it can still
+    change hands; from the last frame its winner changes onward it is shown
+    solid ("locked in").
+    """
+    abbrevs = [STATE_ABBREV[s] for s in ELECTORAL_VOTES]
+    lats = [STATE_CENTROIDS[a][0] for a in abbrevs]
+    lons = [STATE_CENTROIDS[a][1] for a in abbrevs]
+    state_order = list(ELECTORAL_VOTES)
+
+    # Last frame at which each state's winner changed → settled from then on.
+    last_flip = {s: 0 for s in state_order}
+    prev = {s: 'third' for s in state_order}
+    for i, fr in enumerate(frames):
+        snap = fr['states']
+        for s in state_order:
+            w = snap[s][0]
+            if w != prev[s]:
+                last_flip[s] = i
+            prev[s] = w
+
+    base = {'michael': 0, 'sarah': 2, 'tied': 4}
+
+    def cc(winner, settled):
+        if winner == 'third':
+            return 6
+        return base[winner] + (1 if settled else 0)
+
+    out = []
+    for i, fr in enumerate(frames):
+        sr = frame_to_state_results(fr, is_tg_college)
+        winners = list(sr['Winner'])
+        codes = [cc(w, i >= last_flip[state_order[j]])
+                 for j, w in enumerate(winners)]
+        labels = [str(int(v)) for v in sr['Votes']]
+        ev = {k: int(sr.loc[sr['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
+        total = int(sr['Votes'].sum())
+        out.append({
+            'date':      pd.Timestamp(fr['Date']).strftime('%B %d, %Y'),
+            'round':     int(fr['round_num']),
+            'codes':     codes,
+            'labels':    labels,
+            'names':     list(sr['State']),
+            'ev':        [ev['michael'], ev['sarah'], ev['tied'], ev['third']],
+            'total':     total,
+            'threshold': total // 2 + 1,
+            'pv':        [int(sr['Michael_Score'].sum()), int(sr['Sarah_Score'].sum())],
+        })
+
+    light = {'michael': '#9b9acd', 'sarah': '#ca8cb6', 'tied': '#cbc5bd'}
+    colors = [light['michael'], WIN_COLORS['michael'],
+              light['sarah'],   WIN_COLORS['sarah'],
+              light['tied'],    WIN_COLORS['tied'],
+              WIN_COLORS['third']]
+
+    return {
+        'abbrevs':   abbrevs,
+        'lats':      lats,
+        'lons':      lons,
+        'frames':    out,
+        'colors':    colors,
+        'is_tg':     bool(is_tg_college),
+        'vote_label': "Rounds" if is_tg_college else "Electoral Votes",
+        'frame_ms':  450,
+    }
+
+
+def render_timelapse_player(payload):
+    """A self-contained HTML/JS player. The whole animation runs client-side:
+    Plotly draws the map once and each frame only restyles the state fills, so
+    nothing blinks except the states that actually change hands."""
+    import json
+    import streamlit.components.v1 as components
+
+    data_json = json.dumps(payload).replace("</", "<\\/")
+    plotly_js = _plotly_js_bundle()
+
+    html = """
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; background:transparent; font-family:"Source Sans Pro",-apple-system,BlinkMacSystemFont,sans-serif; }
+  #tl { color:#696761; }
+  #tl .tl-head { display:flex; justify-content:space-between; align-items:baseline; margin:0 0 4px; font-size:0.9rem; }
+  #tl .tl-head b { color:#4a4844; }
+  /* EV bar shares the popular-vote bar's styling */
+  #tl .ev-wrap, #tl .pvbar { width:100%; height:14px; background:#e8e5e0; border-radius:7px; overflow:hidden;
+                             display:flex; box-shadow:inset 0 1px 3px rgba(0,0,0,0.10); }
+  #tl .ev-wrap { margin:0 0 12px; }
+  #tl .pvbar   { margin:0 0 2px; }
+  #tl .ev-wrap > div, #tl .pvbar > div { height:100%; transition:width .4s ease; }
+  #tl .thresh { text-align:center; font-size:0.76rem; margin:2px 0 4px; font-weight:500; }
+  #tl .cards { display:flex; gap:12px; margin:10px 0 4px; }
+  #tl .card { flex:1; border-radius:12px; padding:12px 10px; text-align:center; color:#fff;
+              box-shadow:0 2px 12px rgba(0,0,0,0.10); }
+  #tl .card .n  { font-size:0.78rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
+  #tl .card .v  { font-size:2.4rem; font-weight:700; line-height:1.1; }
+  #tl .card .l  { font-size:0.62rem; opacity:.8; text-transform:uppercase; letter-spacing:.05em; }
+  #tl .card .p  { font-size:0.85rem; font-weight:600; opacity:.9; }
+  #tl .c0 { background:linear-gradient(135deg,#221e8f,#3d37d4); }
+  #tl .c1 { background:linear-gradient(135deg,#8a005c,#c2006f); }
+  #tl .c2 { background:linear-gradient(135deg,#857b73,#a09587); }
+  #tl .c3 { background:linear-gradient(135deg,#d9d7cc,#eeebe5); color:#696761; }
+  #tl .pv { display:flex; justify-content:space-between; font-size:0.72rem; margin:3px 0 2px; font-weight:600; }
+  #tl .pv .m { color:#221e8f; } #tl .pv .s { color:#8a005c; }
+  #tl .barcap { text-align:center; font-size:0.7rem; font-weight:600; letter-spacing:.04em;
+                text-transform:uppercase; color:#8f8a83; margin:0 0 2px; }
+  #tl #map { width:100%; height:470px; }
+  #tl .tl-foot { margin-top:8px; }
+  #tl .ctl { display:flex; align-items:center; gap:12px; }
+  #tl button { font:inherit; font-size:0.85rem; font-weight:600; padding:6px 16px; border-radius:8px;
+               border:1px solid #c8c3bc; background:#fff; color:#4a4844; cursor:pointer; }
+  #tl button:hover { background:#f3f0ec; }
+  #tl input[type=range] { flex:1; accent-color:#8a005c; }
+  #tl .legend { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; font-size:0.78rem; margin:8px 0 2px; }
+  #tl .legend span { display:inline-flex; align-items:center; gap:6px; }
+  #tl .legend-sub { font-size:0.72rem; opacity:0.8; margin:2px 0 2px; }
+  #tl .sw { width:13px; height:13px; border-radius:3px; border:1px solid rgba(0,0,0,0.12); display:inline-block; }
+</style>
+
+<div id="tl">
+  <div class="barcap" id="tl-barcap">Electoral Votes</div>
+  <div class="ev-wrap" id="tl-evwrap"></div>
+  <div class="pvbar"><div id="pvm-bar" style="background:linear-gradient(90deg,#221e8f,#3d37d4);height:100%;transition:width .4s ease;"></div><div id="pvs-bar" style="background:linear-gradient(90deg,#c2006f,#8a005c);height:100%;transition:width .4s ease;"></div></div>
+  <div class="pv"><span class="m" id="pvm">Michael</span><span>Popular Vote</span><span class="s" id="pvs">Sarah</span></div>
+  <div class="thresh" id="tl-thresh">—</div>
+
+  <div class="cards">
+    <div class="card c0"><div class="n">Michael</div><div class="v" id="ev0">0</div><div class="l" id="lbl0"></div><div class="p" id="pct0"></div></div>
+    <div class="card c1"><div class="n">Sarah</div><div class="v" id="ev1">0</div><div class="l" id="lbl1"></div><div class="p" id="pct1"></div></div>
+    <div class="card c2"><div class="n">Tied</div><div class="v" id="ev2">0</div><div class="l" id="lbl2"></div><div class="p" id="pct2"></div></div>
+    <div class="card c3"><div class="n">Not Played</div><div class="v" id="ev3">0</div><div class="l" id="lbl3"></div><div class="p" id="pct3"></div></div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:#221e8f"></span>Michael</span>
+    <span><span class="sw" style="background:#8a005c"></span>Sarah</span>
+    <span><span class="sw" style="background:#a09587"></span>Tied</span>
+    <span><span class="sw" style="background:#ddd9d4;border-color:#c8c3bc"></span>Not played</span>
+  </div>
+  <div class="legend legend-sub">
+    <span><span class="sw" style="background:#9b9acd"></span>Faded &mdash; still changing hands</span>
+    <span><span class="sw" style="background:#221e8f"></span>Solid &mdash; settled, never flips again</span>
+  </div>
+
+  <div class="tl-foot">
+    <div class="tl-head">
+      <span><b id="tl-date">—</b></span>
+      <span id="tl-frame">—</span>
+    </div>
+    <div class="ctl">
+      <button id="tl-play">⏸ Pause</button>
+      <button id="tl-restart">↺ Restart</button>
+      <input type="range" id="tl-scrub" min="0" value="0" step="1">
+    </div>
+  </div>
+</div>
+
+<script>__PLOTLY_JS__</script>
+<script>
+const D = __DATA__;
+const F = D.frames, N = F.length, C = D.colors;
+const VL = D.vote_label, IS_TG = D.is_tg;
+
+function scale(colors){
+  const n = colors.length, s = [];
+  for (let k = 0; k < n; k++){ s.push([k/n, colors[k]]); s.push([(k+1)/n, colors[k]]); }
+  return s;
+}
+const WHO  = ['Michael','Michael','Sarah','Sarah','Tied','Tied','Not yet played'];
+const SAFE = c => (c === 1 || c === 3 || c === 5);
+
+function hoverText(f){
+  return f.codes.map((c,i) => {
+    const tag = SAFE(c) ? ' · settled' : (c === 6 ? '' : ' · still changing');
+    return '<b>' + f.names[i] + '</b><br>' + VL + ': ' + f.labels[i] + '<br>' + WHO[c] + tag;
+  });
+}
+function labelColors(f){
+  return f.codes.map(c => SAFE(c) ? '#ffffff' : '#5a5651');
+}
+
+const choro = {
+  type:'choropleth', locationmode:'USA-states', locations: D.abbrevs,
+  z: F[0].codes, zmin:-0.5, zmax: C.length - 0.5,
+  colorscale: scale(C), showscale:false, autocolorscale:false,
+  marker:{ line:{ color:'white', width:1.4 } },
+  text: hoverText(F[0]), hoverinfo:'text'
+};
+const labels = {
+  type:'scattergeo', lat: D.lats, lon: D.lons, mode:'text',
+  text: F[0].labels, textfont:{ size:8.5, color: labelColors(F[0]), family:'Arial Black' },
+  hoverinfo:'skip'
+};
+const layout = {
+  geo:{ scope:'usa', projection:{ type:'albers usa' }, showframe:false, showcoastlines:false,
+        showland:true, landcolor:'#f0ede8', showlakes:true, lakecolor:'#dde8f0', bgcolor:'rgba(0,0,0,0)' },
+  paper_bgcolor:'rgba(0,0,0,0)', margin:{ t:0,b:0,l:0,r:0 }, dragmode:false,
+  hoverlabel:{ bgcolor:'white', bordercolor:'#d9d7cc' }, uirevision:'tl'
+};
+
+Plotly.newPlot('map', [choro, labels], layout,
+  {displayModeBar:false, responsive:true, scrollZoom:false, doubleClick:false, editable:false});
+
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-US');
+
+// Scoreboard / EV-bar colours are always the solid palette (michael, sarah, tied, third).
+const BAR = ['#221e8f', '#8a005c', '#a09587', '#ddd9d4'];
+$('tl-barcap').textContent = VL;
+
+function paintHud(f, k){
+  $('tl-date').textContent = '⏳ ' + f.date;
+  $('tl-frame').textContent = 'Round ' + fmt(f.round) + ' · ' + (k+1) + ' / ' + N;
+  $('tl-scrub').value = k;
+
+  const tot = f.total || 1;
+  const seg = [[f.ev[0],BAR[0]],[f.ev[2],BAR[2]],[f.ev[3],BAR[3]],[f.ev[1],BAR[1]]];
+  $('tl-evwrap').innerHTML = seg.filter(s=>s[0]>0)
+     .map(s => '<div style="width:'+(s[0]/tot*100).toFixed(2)+'%;background:'+s[1]+'"></div>').join('');
+  $('tl-thresh').textContent = fmt(f.threshold) + ' ' + VL.toLowerCase() + ' to win · ' + fmt(f.total) + ' total';
+
+  for (let j=0;j<4;j++){
+    $('ev'+j).textContent = fmt(f.ev[j]);
+    $('lbl'+j).textContent = VL;
+    $('pct'+j).textContent = (f.ev[j]/tot*100).toFixed(1) + '%';
+  }
+  const pm = f.pv[0], ps = f.pv[1], pt = (pm+ps)||1;
+  $('pvm').innerHTML = 'Michael <b>' + fmt(pm) + '</b> (' + (pm/pt*100).toFixed(1) + '%)';
+  $('pvs').innerHTML = '<b>' + fmt(ps) + '</b> (' + (ps/pt*100).toFixed(1) + '%) Sarah';
+  $('pvm-bar').style.width = (pm/pt*100).toFixed(2) + '%';
+  $('pvs-bar').style.width = (ps/pt*100).toFixed(2) + '%';
+}
+
+let i = 0, playing = true, timer = null;
+
+function render(k){
+  i = k;
+  const f = F[k];
+  Plotly.restyle('map', { z:[f.codes], text:[hoverText(f)] }, [0]);
+  Plotly.restyle('map', { text:[f.labels], 'textfont.color':[labelColors(f)] }, [1]);
+  paintHud(f, k);
+}
+function tick(){
+  if (!playing) return;
+  if (i >= N-1){ playing = false; syncBtn(); return; }
+  render(i+1);
+  timer = setTimeout(tick, D.frame_ms);
+}
+function syncBtn(){ $('tl-play').textContent = playing ? '⏸ Pause' : '▶ Play'; }
+
+$('tl-play').onclick = () => {
+  playing = !playing;
+  if (playing){ if (i >= N-1) i = 0; render(i); tick(); }
+  syncBtn();
+};
+$('tl-restart').onclick = () => { playing = true; render(0); syncBtn(); clearTimeout(timer); tick(); };
+$('tl-scrub').max = N-1;
+$('tl-scrub').oninput = e => { playing = false; clearTimeout(timer); syncBtn(); render(+e.target.value); };
+
+render(0);
+tick();
+</script>
+"""
+    # Inject data first (small, trusted template), then the Plotly bundle last
+    # so nothing inside the bundle can collide with a placeholder.
+    html = html.replace("__DATA__", data_json).replace("__PLOTLY_JS__", plotly_js)
+    components.html(html, height=880, scrolling=False)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Sidebar
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -426,23 +1030,10 @@ with st.sidebar:
         ["Total Score", "Geography Score", "Time Score"],
         index=0,
     )
-    stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
-    if "Date" in load_data(stats_mtime).columns:
-        raw = load_data(stats_mtime)
-        min_d = raw[raw['Country'].notna()]["Date"].min().date()
-        max_d = raw["Date"].max().date()
-        sel_dates = st.slider("Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
-    else:
-        sel_dates = None
 
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 data = load_data(stats_mtime)
-if sel_dates:
-    filtered_data = data[
-        (data["Date"].dt.date >= sel_dates[0]) &
-        (data["Date"].dt.date <= sel_dates[1])
-    ].copy()
-else:
-    filtered_data = data.copy()
+filtered_data = data.copy()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Compute snapshot results
@@ -488,9 +1079,6 @@ overall_winner = ('michael' if ev['michael'] >= threshold
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown(f"## {mode_emoji} {mode_title}")
 score_mode_label = {"Total Score": "total score", "Geography Score": "geography score", "Time Score": "time score"}[score_mode]
-threshold_desc = (f"{threshold:,} {vote_label_s} needed to win · {TOTAL_VOTES:,} total"
-                  if is_tg_college else
-                  f"270 electoral votes needed to win · {TOTAL_VOTES:,} total")
 st.markdown(
     f'<p style="color:#696761;font-size:0.87rem;margin-top:-0.4rem;margin-bottom:0.8rem;">'
     f'All-time {score_mode_label} decides each state · Winner-take-all · '
@@ -498,203 +1086,37 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── EV progress bar ───────────────────────────────────────────────────────────
-bar_total = TOTAL_VOTES if TOTAL_VOTES > 0 else 1
-segs = [
-    (ev['michael'], WIN_COLORS['michael']),
-    (ev['tied'],    WIN_COLORS['tied']),
-    (ev['third'],   WIN_COLORS['third']),
-    (ev['sarah'],   WIN_COLORS['sarah']),
-]
-bar_inner = "".join(
-    f'<div class="ev-seg" style="width:{v/bar_total*100:.2f}%;background:{c};"></div>'
-    for v, c in segs if v > 0
-)
-st.markdown(f'<div class="ev-bar-wrap">{bar_inner}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="threshold-note">{threshold_desc}</div>', unsafe_allow_html=True)
-
-# ── Popular vote bar ──────────────────────────────────────────────────────────
-pv_michael = int(state_results['Michael_Score'].sum())
-pv_sarah   = int(state_results['Sarah_Score'].sum())
-pv_total   = pv_michael + pv_sarah
-
-if pv_total > 0:
-    pv_m_pct = pv_michael / pv_total * 100
-    pv_s_pct = pv_sarah   / pv_total * 100
-    pv_winner = 'michael' if pv_michael > pv_sarah else ('sarah' if pv_sarah > pv_michael else None)
-
-    st.markdown(f"""
-    <div style="margin: 0.2rem 0 0.1rem 0;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem;">
-        <span style="font-size:0.75rem;font-weight:600;color:{COLORS['michael']};letter-spacing:0.04em;text-transform:uppercase;">
-          {"&#9654; " if pv_winner == "michael" else ""}Michael &nbsp;
-          <span style="font-weight:700;font-size:0.88rem;">{pv_michael:,}</span>
-          <span style="font-weight:400;opacity:0.7;"> pts ({pv_m_pct:.1f}%)</span>
-        </span>
-        <span style="font-size:0.72rem;color:#696761;font-weight:500;letter-spacing:0.03em;">Popular Vote</span>
-        <span style="font-size:0.75rem;font-weight:600;color:{COLORS['sarah']};letter-spacing:0.04em;text-transform:uppercase;text-align:right;">
-          <span style="font-weight:700;font-size:0.88rem;">{pv_sarah:,}</span>
-          <span style="font-weight:400;opacity:0.7;"> pts ({pv_s_pct:.1f}%)</span>
-          &nbsp;{"&#9664; " if pv_winner == "sarah" else ""}Sarah
-        </span>
-      </div>
-      <div style="width:100%;height:16px;background:#e8e5e0;border-radius:8px;overflow:hidden;display:flex;
-                  box-shadow:inset 0 1px 3px rgba(0,0,0,0.10);">
-        <div style="width:{pv_m_pct:.2f}%;background:linear-gradient(90deg,#221e8f,#3d37d4);height:100%;"></div>
-        <div style="width:{pv_s_pct:.2f}%;background:linear-gradient(90deg,#c2006f,#8a005c);height:100%;"></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<div style='margin-bottom:0.8rem;'></div>", unsafe_allow_html=True)
-
-# ── Score cards ───────────────────────────────────────────────────────────────
-def winner_badge(player):
-    return '<div class="win-badge">&#127942; WINNER</div>' if overall_winner == player else ''
-
-m_pct  = ev['michael'] / bar_total * 100
-s_pct  = ev['sarah']   / bar_total * 100
-ti_pct = ev['tied']    / bar_total * 100
-th_pct = ev['third']   / bar_total * 100
-
-st.markdown(f"""
-<div class="ec-scoreboard">
-  <div class="ec-card card-michael">
-    <div class="card-name">Michael</div>
-    <div class="card-ev">{ev['michael']:,}</div>
-    <div class="card-label">{vote_label}</div>
-    <div class="card-pct">{m_pct:.1f}%</div>
-    {winner_badge('michael')}
-  </div>
-  <div class="ec-card card-sarah">
-    <div class="card-name">Sarah</div>
-    <div class="card-ev">{ev['sarah']:,}</div>
-    <div class="card-label">{vote_label}</div>
-    <div class="card-pct">{s_pct:.1f}%</div>
-    {winner_badge('sarah')}
-  </div>
-  <div class="ec-card card-tied">
-    <div class="card-name">Tied</div>
-    <div class="card-ev">{ev['tied']:,}</div>
-    <div class="card-label">{vote_label}</div>
-    <div class="card-pct">{ti_pct:.1f}%</div>
-  </div>
-  <div class="ec-card card-third">
-    <div class="card-name">Not Played</div>
-    <div class="card-ev">{ev['third']:,}</div>
-    <div class="card-label">{vote_label}</div>
-    <div class="card-pct">{th_pct:.1f}%</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Map
+# Timelapse controls
 # ──────────────────────────────────────────────────────────────────────────────
-fig = go.Figure()
+df_json = filtered_data.to_json(orient='split', date_format='iso')
+frames = build_timelapse_frames(df_json, score_mode, is_tg_college)
 
-for winner_key, color in WIN_COLORS.items():
-    subset = state_results[state_results['Winner'] == winner_key]
-    if subset.empty:
-        continue
-
-    hover_texts = []
-    for _, row in subset.iterrows():
-        mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
-        ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
-        votes_val = int(row['Votes'])
-        ev_val    = int(row['EV'])
-
-        if winner_key == 'third':
-            detail = "Not yet played"
-        elif winner_key == 'tied':
-            detail = f"Tied — Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
-        elif winner_key == 'michael':
-            detail = f"Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
-        else:
-            detail = f"Sarah: {ss:,} pts ({sr} rounds) · Michael: {ms:,} pts ({mr} rounds)"
-
-        vote_line = (f"Rounds (votes): <b>{votes_val:,}</b>" if is_tg_college
-                     else f"Electoral Votes: <b>{ev_val}</b>")
-
-        hover_texts.append(
-            f"<b>{row['State']}</b><br>"
-            f"{vote_line}<br>"
-            f"Winner: <b>{row['winner_label']}</b><br>"
-            f"{detail}"
-            f"<extra></extra>"
-        )
-
-    fig.add_trace(go.Choropleth(
-        locations=subset['abbrev'],
-        z=[1] * len(subset),
-        locationmode='USA-states',
-        colorscale=[[0, color], [1, color]],
-        zmin=0, zmax=1,
-        showscale=False,
-        marker_line_color='white',
-        marker_line_width=1.8,
-        hovertemplate=hover_texts,
-        name=WIN_LABELS[winner_key],
-        showlegend=False,
-    ))
-
-lats, lons, labels = [], [], []
-for _, row in state_results.iterrows():
-    abbr = row['abbrev']
-    if abbr and abbr in STATE_CENTROIDS:
-        lat, lon = STATE_CENTROIDS[abbr]
-        lats.append(lat)
-        lons.append(lon)
-        labels.append(str(int(row['Votes'])))
-
-fig.add_trace(go.Scattergeo(
-    lat=lats, lon=lons,
-    mode='text',
-    text=labels,
-    textfont=dict(size=8.5, color='white', family='Arial Bold'),
-    hoverinfo='skip',
-    showlegend=False,
-))
-
-fig.update_layout(
-    geo=dict(
-        scope='usa',
-        showframe=False,
-        showcoastlines=False,
-        showland=True,  landcolor='#f0ede8',
-        showlakes=True, lakecolor='#dde8f0',
-        bgcolor='rgba(0,0,0,0)',
-        projection_type='albers usa',
-    ),
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    margin=dict(t=0, b=0, l=0, r=0),
-    height=500,
-    hoverlabel=dict(bgcolor='white', font_size=13, bordercolor='#d9d7cc'),
-    showlegend=False,
+_tl_sidebar = st.sidebar
+_tl_sidebar.markdown("---")
+tl_active = _tl_sidebar.toggle(
+    "Timelapse", value=False, key="tl_toggle", disabled=len(frames) < 2,
+    help="On: replay how the map got here. Off: the current standings.",
 )
 
-st.plotly_chart(fig, use_container_width=True)
+# ──────────────────────────────────────────────────────────────────────────────
+# Timelapse playback — a self-contained client-side player. Nothing on the
+# Streamlit side reruns while it plays, and each frame only recolors the states
+# that changed hands, so the map no longer blinks.
+# ──────────────────────────────────────────────────────────────────────────────
+if tl_active and len(frames) >= 2:
+    render_timelapse_player(build_timelapse_payload(frames, is_tg_college))
+    st.stop()
 
-# ── Legend ────────────────────────────────────────────────────────────────────
-tied_label = f"Tied (no {vote_label_s} awarded)"
-st.markdown(f"""
-<div class="ec-legend">
-  <span class="ec-legend-item">
-    <span class="ec-swatch" style="background:#221e8f;"></span>Michael wins
-  </span>
-  <span class="ec-legend-item">
-    <span class="ec-swatch" style="background:#8a005c;"></span>Sarah wins
-  </span>
-  <span class="ec-legend-item">
-    <span class="ec-swatch" style="background:#a09587;"></span>{tied_label}
-  </span>
-  <span class="ec-legend-item">
-    <span class="ec-swatch" style="background:#ddd9d4;border-color:#c8c3bc;"></span>Not yet played
-  </span>
-</div>
-""", unsafe_allow_html=True)
+# ──────────────────────────────────────────────────────────────────────────────
+# Live view (up to date)
+# ──────────────────────────────────────────────────────────────────────────────
+ev, TOTAL_VOTES, threshold, overall_winner = render_ev_scoreboard(
+    state_results, is_tg_college, vote_label, vote_label_s, show_popular=True
+)
+st.plotly_chart(build_ev_map(state_results, is_tg_college),
+                use_container_width=True, key="ec_map")
+render_ev_legend(vote_label_s)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EV Timeline
