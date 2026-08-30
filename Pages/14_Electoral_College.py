@@ -113,6 +113,8 @@ st.markdown("""
     .ec-card .card-label { font-size: 0.68rem; opacity: 0.72;
                            text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.1rem; }
     .ec-card .card-pct   { font-size: 0.92rem; font-weight: 600; margin-top: 0.25rem; opacity: 0.88; }
+    .ec-card .card-states { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em;
+                            text-transform: uppercase; opacity: 0.72; margin-top: 0.1rem; }
 
     .card-michael { background: linear-gradient(135deg,#221e8f,#3d37d4); color: white; }
     .card-sarah   { background: linear-gradient(135deg,#8a005c,#c2006f); color: white; }
@@ -365,6 +367,12 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
         if ss > ms: return 'sarah'
         return 'tied'
 
+    def count_states():
+        c = {'michael': 0, 'sarah': 0, 'tied': 0, 'third': 0}
+        for state in ELECTORAL_VOTES:
+            c[state_winner.get(state, 'third')] += 1
+        return c
+
     def tally(is_tg_mode):
         ev = {'michael': 0, 'sarah': 0, 'tied': 0, 'third': 0}
         if is_tg_mode:
@@ -427,11 +435,15 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
             current_threshold = 270
 
         if current_ev != prev_ev:
-            rows.append({'Date': date, **current_ev, 'threshold': current_threshold, 'round_num': total_rounds})
+            _sc = count_states()
+            rows.append({'Date': date, **current_ev, 'threshold': current_threshold, 'round_num': total_rounds,
+                         'm_states': _sc['michael'], 's_states': _sc['sarah'],
+                         'tied_states': _sc['tied'], 'third_states': _sc['third']})
             prev_ev = current_ev.copy()
 
     if not rows:
-        return pd.DataFrame(columns=['Date', 'michael', 'sarah', 'tied', 'third', 'threshold', 'round_num'])
+        return pd.DataFrame(columns=['Date', 'michael', 'sarah', 'tied', 'third', 'threshold', 'round_num',
+                                     'm_states', 's_states', 'tied_states', 'third_states'])
 
     timeline = pd.DataFrame(rows)
     last = timeline.iloc[-1].copy()
@@ -596,7 +608,7 @@ def build_ev_map(state_results, is_tg_college):
             showlegend=False,
         ))
 
-    lats, lons, labels = [], [], []
+    lats, lons, labels, label_colors = [], [], [], []
     for _, row in state_results.iterrows():
         abbr = row['abbrev']
         if abbr and abbr in STATE_CENTROIDS:
@@ -604,12 +616,15 @@ def build_ev_map(state_results, is_tg_college):
             lats.append(lat)
             lons.append(lon)
             labels.append(str(int(row['Votes'])))
+            # Match the timelapse: white on the filled (won/tied) states,
+            # dark grey on the pale "not played" states so the number stays legible.
+            label_colors.append('#5a5651' if row['Winner'] == 'third' else '#ffffff')
 
     fig.add_trace(go.Scattergeo(
         lat=lats, lon=lons,
         mode='text',
         text=labels,
-        textfont=dict(size=8.5, color='white', family='Arial Bold'),
+        textfont=dict(size=8.5, color=label_colors, family='Arial Black'),
         hoverinfo='skip',
         showlegend=False,
     ))
@@ -709,6 +724,11 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
     ti_pct = ev['tied']    / bar_total * 100
     th_pct = ev['third']   / bar_total * 100
 
+    nst = {k: int((state_results['Winner'] == k).sum()) for k in WIN_COLORS}
+    def states_line(k):
+        n = nst[k]
+        return f'<div class="card-states">{n} {"state" if n == 1 else "states"}</div>'
+
     html.append(f"""
 <div class="ec-scoreboard">
   <div class="ec-card card-michael">
@@ -716,6 +736,7 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
     <div class="card-ev">{ev['michael']:,}</div>
     <div class="card-label">{vote_label}</div>
     <div class="card-pct">{m_pct:.1f}%</div>
+    {states_line('michael')}
     {winner_badge('michael')}
   </div>
   <div class="ec-card card-sarah">
@@ -723,6 +744,7 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
     <div class="card-ev">{ev['sarah']:,}</div>
     <div class="card-label">{vote_label}</div>
     <div class="card-pct">{s_pct:.1f}%</div>
+    {states_line('sarah')}
     {winner_badge('sarah')}
   </div>
   <div class="ec-card card-tied">
@@ -730,12 +752,14 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
     <div class="card-ev">{ev['tied']:,}</div>
     <div class="card-label">{vote_label}</div>
     <div class="card-pct">{ti_pct:.1f}%</div>
+    {states_line('tied')}
   </div>
   <div class="ec-card card-third">
     <div class="card-name">Not Played</div>
     <div class="card-ev">{ev['third']:,}</div>
     <div class="card-label">{vote_label}</div>
     <div class="card-pct">{th_pct:.1f}%</div>
+    {states_line('third')}
   </div>
 </div>
 """)
@@ -811,6 +835,7 @@ def build_timelapse_payload(frames, is_tg_college):
                  for j, w in enumerate(winners)]
         labels = [str(int(v)) for v in sr['Votes']]
         ev = {k: int(sr.loc[sr['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
+        nst = {k: int((sr['Winner'] == k).sum()) for k in WIN_COLORS}
         total = int(sr['Votes'].sum())
         out.append({
             'date':      pd.Timestamp(fr['Date']).strftime('%B %d, %Y'),
@@ -819,6 +844,7 @@ def build_timelapse_payload(frames, is_tg_college):
             'labels':    labels,
             'names':     list(sr['State']),
             'ev':        [ev['michael'], ev['sarah'], ev['tied'], ev['third']],
+            'nstates':   [nst['michael'], nst['sarah'], nst['tied'], nst['third']],
             'total':     total,
             'threshold': total // 2 + 1,
             'pv':        [int(sr['Michael_Score'].sum()), int(sr['Sarah_Score'].sum())],
@@ -854,34 +880,47 @@ def render_timelapse_player(payload):
 
     html = """
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
   :root { color-scheme: light; }
-  body { margin:0; background:transparent; font-family:"Source Sans Pro",-apple-system,BlinkMacSystemFont,sans-serif; }
-  #tl { color:#696761; }
+  body { margin:0; background:transparent;
+         font-family:'Poppins','Source Sans Pro',-apple-system,BlinkMacSystemFont,sans-serif; }
+  #tl { color:#696761; font-family:'Poppins','Source Sans Pro',sans-serif; }
   #tl .tl-head { display:flex; justify-content:space-between; align-items:baseline; margin:0 0 4px; font-size:0.9rem; }
   #tl .tl-head b { color:#4a4844; }
-  /* EV bar shares the popular-vote bar's styling */
-  #tl .ev-wrap, #tl .pvbar { width:100%; height:14px; background:#e8e5e0; border-radius:7px; overflow:hidden;
-                             display:flex; box-shadow:inset 0 1px 3px rgba(0,0,0,0.10); }
-  #tl .ev-wrap { margin:0 0 12px; }
-  #tl .pvbar   { margin:0 0 2px; }
-  #tl .ev-wrap > div, #tl .pvbar > div { height:100%; transition:width .4s ease; }
-  #tl .thresh { text-align:center; font-size:0.76rem; margin:2px 0 4px; font-weight:500; }
-  #tl .cards { display:flex; gap:12px; margin:10px 0 4px; }
-  #tl .card { flex:1; border-radius:12px; padding:12px 10px; text-align:center; color:#fff;
+  /* Bars — match the static view: EV bar 20px/10px, popular-vote bar 16px/8px */
+  #tl .ev-wrap, #tl .pvbar { width:100%; background:#e8e5e0; overflow:hidden; display:flex;
+                             box-shadow:inset 0 1px 3px rgba(0,0,0,0.10); }
+  #tl .ev-wrap { height:20px; border-radius:10px; margin:0.5rem 0 0.6rem; }
+  #tl .pvbar   { height:16px; border-radius:8px; margin:0 0 0.3rem; }
+  #tl .ev-wrap > div { height:100%; transition:width .5s ease; }
+  #tl .pvbar   > div { height:100%; transition:width .4s ease; }
+  #tl .thresh { text-align:center; font-size:0.76rem; color:#696761; font-weight:500;
+                letter-spacing:0.02em; margin:2px 0 0.9rem; }
+  #tl .cards { display:flex; gap:1rem; margin:1rem 0 0.6rem; align-items:stretch; }
+  #tl .card { flex:1; border-radius:12px; padding:1.1rem 1.4rem; text-align:center; color:#fff;
               box-shadow:0 2px 12px rgba(0,0,0,0.10); }
-  #tl .card .n  { font-size:0.78rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
-  #tl .card .v  { font-size:2.4rem; font-weight:700; line-height:1.1; }
-  #tl .card .l  { font-size:0.62rem; opacity:.8; text-transform:uppercase; letter-spacing:.05em; }
-  #tl .card .p  { font-size:0.85rem; font-weight:600; opacity:.9; }
+  #tl .card .n  { font-size:0.82rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase;
+                  margin-bottom:0.15rem; }
+  #tl .card .v  { font-size:3rem; font-weight:700; line-height:1.05; }
+  #tl .card .l  { font-size:0.68rem; opacity:0.72; text-transform:uppercase; letter-spacing:0.06em;
+                  margin-top:0.1rem; }
+  #tl .card .p  { font-size:0.92rem; font-weight:600; margin-top:0.25rem; opacity:0.88; }
+  #tl .card .st { font-size:0.7rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase;
+                  opacity:0.72; margin-top:0.1rem; }
   #tl .c0 { background:linear-gradient(135deg,#221e8f,#3d37d4); }
   #tl .c1 { background:linear-gradient(135deg,#8a005c,#c2006f); }
   #tl .c2 { background:linear-gradient(135deg,#857b73,#a09587); }
   #tl .c3 { background:linear-gradient(135deg,#d9d7cc,#eeebe5); color:#696761; }
-  #tl .pv { display:flex; justify-content:space-between; font-size:0.72rem; margin:3px 0 2px; font-weight:600; }
-  #tl .pv .m { color:#221e8f; } #tl .pv .s { color:#8a005c; }
+  #tl .pv { display:flex; justify-content:space-between; align-items:baseline;
+            font-size:0.72rem; margin:0 0 0.3rem; font-weight:600; }
+  #tl .pv .m { color:#221e8f; font-size:0.75rem; letter-spacing:0.04em; text-transform:uppercase; }
+  #tl .pv .s { color:#8a005c; font-size:0.75rem; letter-spacing:0.04em; text-transform:uppercase; }
+  #tl .pv > span:nth-child(2) { color:#696761; font-weight:500; letter-spacing:0.03em; text-transform:none; }
+  #tl .pv b { font-size:0.88rem; font-weight:700; }
+  #tl .pv i { font-style:normal; font-weight:400; opacity:0.7; letter-spacing:0; }
   #tl .barcap { text-align:center; font-size:0.7rem; font-weight:600; letter-spacing:.04em;
                 text-transform:uppercase; color:#8f8a83; margin:0 0 2px; }
-  #tl #map { width:100%; height:470px; }
+  #tl #map { width:100%; height:490px; }
   #tl .tl-foot { margin-top:8px; }
   #tl .ctl { display:flex; align-items:center; gap:12px; }
   #tl button { font:inherit; font-size:0.85rem; font-weight:600; padding:6px 16px; border-radius:8px;
@@ -925,15 +964,15 @@ def render_timelapse_player(payload):
 <div id="tl">
   <div class="barcap" id="tl-barcap">Electoral Votes</div>
   <div class="ev-wrap" id="tl-evwrap"></div>
-  <div class="pvbar"><div id="pvm-bar" style="background:linear-gradient(90deg,#221e8f,#3d37d4);height:100%;transition:width .4s ease;"></div><div id="pvs-bar" style="background:linear-gradient(90deg,#c2006f,#8a005c);height:100%;transition:width .4s ease;"></div></div>
-  <div class="pv"><span class="m" id="pvm">Michael</span><span>Popular Vote</span><span class="s" id="pvs">Sarah</span></div>
   <div class="thresh" id="tl-thresh">—</div>
+  <div class="pv"><span class="m" id="pvm">Michael</span><span>Popular Vote</span><span class="s" id="pvs">Sarah</span></div>
+  <div class="pvbar"><div id="pvm-bar" style="background:linear-gradient(90deg,#221e8f,#3d37d4);height:100%;transition:width .4s ease;"></div><div id="pvs-bar" style="background:linear-gradient(90deg,#c2006f,#8a005c);height:100%;transition:width .4s ease;"></div></div>
 
   <div class="cards">
-    <div class="card c0"><div class="n">Michael</div><div class="v" id="ev0">0</div><div class="l" id="lbl0"></div><div class="p" id="pct0"></div></div>
-    <div class="card c1"><div class="n">Sarah</div><div class="v" id="ev1">0</div><div class="l" id="lbl1"></div><div class="p" id="pct1"></div></div>
-    <div class="card c2"><div class="n">Tied</div><div class="v" id="ev2">0</div><div class="l" id="lbl2"></div><div class="p" id="pct2"></div></div>
-    <div class="card c3"><div class="n">Not Played</div><div class="v" id="ev3">0</div><div class="l" id="lbl3"></div><div class="p" id="pct3"></div></div>
+    <div class="card c0"><div class="n">Michael</div><div class="v" id="ev0">0</div><div class="l" id="lbl0"></div><div class="p" id="pct0"></div><div class="st" id="st0"></div></div>
+    <div class="card c1"><div class="n">Sarah</div><div class="v" id="ev1">0</div><div class="l" id="lbl1"></div><div class="p" id="pct1"></div><div class="st" id="st1"></div></div>
+    <div class="card c2"><div class="n">Tied</div><div class="v" id="ev2">0</div><div class="l" id="lbl2"></div><div class="p" id="pct2"></div><div class="st" id="st2"></div></div>
+    <div class="card c3"><div class="n">Not Played</div><div class="v" id="ev3">0</div><div class="l" id="lbl3"></div><div class="p" id="pct3"></div><div class="st" id="st3"></div></div>
   </div>
 
   <div id="map"></div>
@@ -1055,10 +1094,15 @@ function paintHud(f, k){
     $('ev'+j).textContent = fmt(f.ev[j]);
     $('lbl'+j).textContent = VL;
     $('pct'+j).textContent = (f.ev[j]/tot*100).toFixed(1) + '%';
+    const ns = f.nstates ? f.nstates[j] : 0;
+    $('st'+j).textContent = ns + (ns === 1 ? ' state' : ' states');
   }
   const pm = f.pv[0], ps = f.pv[1], pt = (pm+ps)||1;
-  $('pvm').innerHTML = 'Michael <b>' + fmt(pm) + '</b> (' + (pm/pt*100).toFixed(1) + '%)';
-  $('pvs').innerHTML = '<b>' + fmt(ps) + '</b> (' + (ps/pt*100).toFixed(1) + '%) Sarah';
+  const pw = pm > ps ? 'm' : (ps > pm ? 's' : '');
+  $('pvm').innerHTML = (pw === 'm' ? '▶ ' : '') + 'Michael <b>' + fmt(pm) +
+                       '</b><i> pts (' + (pm/pt*100).toFixed(1) + '%)</i>';
+  $('pvs').innerHTML = '<b>' + fmt(ps) + '</b><i> pts (' + (ps/pt*100).toFixed(1) + '%)</i> ' +
+                       (pw === 's' ? '◀ ' : '') + 'Sarah';
   $('pvm-bar').style.width = (pm/pt*100).toFixed(2) + '%';
   $('pvs-bar').style.width = (ps/pt*100).toFixed(2) + '%';
 }
@@ -1096,7 +1140,7 @@ tick();
     # Inject data first (small, trusted template), then the Plotly bundle last
     # so nothing inside the bundle can collide with a placeholder.
     html = html.replace("__DATA__", data_json).replace("__PLOTLY_JS__", plotly_js)
-    components.html(html, height=880, scrolling=False)
+    components.html(html, height=940, scrolling=False)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Sidebar
@@ -1270,7 +1314,7 @@ if not timeline.empty and len(timeline) > 1:
         x=tl['round_num'], y=tl['michael'],
         customdata=tl['Date'],
         mode='lines',
-        line=dict(color=COLORS['michael'], width=2.5),
+        line=dict(color=COLORS['michael'], width=2.5, shape='hv'),
         fill='tozeroy', fillcolor='rgba(34,30,143,0.10)',
         name='Michael',
         hovertemplate='<b>Michael</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
@@ -1280,10 +1324,28 @@ if not timeline.empty and len(timeline) > 1:
         x=tl['round_num'], y=tl['sarah'],
         customdata=tl['Date'],
         mode='lines',
-        line=dict(color=COLORS['sarah'], width=2.5),
+        line=dict(color=COLORS['sarah'], width=2.5, shape='hv'),
         fill='tozeroy', fillcolor='rgba(138,0,92,0.10)',
         name='Sarah',
         hovertemplate='<b>Sarah</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
+    ))
+
+    fig_tl.add_trace(go.Scatter(
+        x=tl['round_num'], y=tl['tied'],
+        customdata=tl['Date'],
+        mode='lines',
+        line=dict(color='#a09587', width=1.8, shape='hv'),
+        name='Tied',
+        hovertemplate='<b>Tied</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
+    ))
+
+    fig_tl.add_trace(go.Scatter(
+        x=tl['round_num'], y=tl['third'],
+        customdata=tl['Date'],
+        mode='lines',
+        line=dict(color='#a49d92', width=1.8, shape='hv', dash='dot'),
+        name='Not Played',
+        hovertemplate='<b>Not Played</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
     ))
 
     # Threshold line
@@ -1292,7 +1354,7 @@ if not timeline.empty and len(timeline) > 1:
             x=tl['round_num'], y=pd.to_numeric(tl['threshold']),
             customdata=tl['Date'],
             mode='lines',
-            line=dict(color='#696761', width=1.5, dash='dot'),
+            line=dict(color='#696761', width=1.5, dash='dot', shape='hv'),
             name='Threshold',
             hovertemplate='<b>Threshold</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
         ))
@@ -1310,7 +1372,8 @@ if not timeline.empty and len(timeline) > 1:
         )
 
     last_row = tl.iloc[-1]
-    for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14)]:
+    for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14),
+                                ('tied', '#8f8579', 0), ('third', '#9c968c', 0)]:
         fig_tl.add_annotation(
             x=int(last_row['round_num']), y=float(last_row[player]),
             text=f"  {int(last_row[player]):,}",
@@ -1332,16 +1395,17 @@ if not timeline.empty and len(timeline) > 1:
 
     fig_tl.update_layout(
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=20, b=40, l=50, r=80), height=320,
+        margin=dict(t=20, b=40, l=70, r=80), height=320,
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0, font=dict(size=12)),
         xaxis=dict(
             tickvals=tick_rounds, ticktext=tick_labels,
             showgrid=False, showline=True, linecolor='#d9d7cc',
-            tickfont=dict(color='#696761', size=11), title=None,
+            tickfont=dict(color='#696761', size=11), title=None, automargin=False,
+            range=[int(tl['round_num'].iloc[0]), int(tl['round_num'].iloc[-1])],
         ),
         yaxis=dict(
             showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
-            tickfont=dict(color='#696761', size=11),
+            tickfont=dict(color='#696761', size=11), automargin=False,
             title=dict(text=vote_label, font=dict(color='#696761', size=11)),
             rangemode='tozero',
         ),
@@ -1350,102 +1414,111 @@ if not timeline.empty and len(timeline) > 1:
     )
 
     st.plotly_chart(fig_tl, use_container_width=True)
+
+    # ── Control bars ────────────────────────────────────────────────────────
+    # Two static echoes of the timelapse scrubber track — hard-edged strips
+    # under the chart, aligned to its data area by matching the fixed pixel
+    # margins (l=70, r=80). Top strip: who held the electoral college (solid
+    # team colour = clinched, near-grey tint = merely leading). Bottom strip:
+    # who controlled more states, always in solid colour.
+    _GREY, _MICH, _SAR = (217, 215, 204), (34, 30, 143), (138, 0, 92)
+
+    def _tint(base, target, t):
+        return "rgb(%d,%d,%d)" % tuple(round(b + (tg - b) * t) for b, tg in zip(base, target))
+
+    def _ev_color(r):
+        m, s = float(r['michael']), float(r['sarah'])
+        thr = float(pd.to_numeric(r['threshold']))
+        if m >= thr:  return '#221e8f'
+        if s >= thr:  return '#8a005c'
+        if m > s:     return _tint(_GREY, _MICH, 0.16)
+        if s > m:     return _tint(_GREY, _SAR, 0.16)
+        return 'rgb(217,215,204)'
+
+    def _states_color(r):
+        m, s = int(float(r['m_states'])), int(float(r['s_states']))
+        if m > s:  return '#221e8f'
+        if s > m:  return '#8a005c'
+        return '#a09587'
+
+    _rows = tl.reset_index(drop=True)
+    _x0 = int(_rows['round_num'].iloc[0])
+    _x1 = int(_rows['round_num'].iloc[-1])
+    _span = max(_x1 - _x0, 1)
+    _MIN_LAST = 1.6  # guarantee the final (ongoing) state a visible sliver
+
+    def _gradient(color_fn):
+        segs = []
+        for _i in range(len(_rows)):
+            c = color_fn(_rows.iloc[_i])
+            if segs and segs[-1][0] == c:
+                continue
+            segs.append([c, (int(_rows['round_num'].iloc[_i]) - _x0) / _span * 100])
+        if len(segs) >= 2 and segs[-1][1] > 100 - _MIN_LAST:
+            segs[-1][1] = 100 - _MIN_LAST
+        stops = []
+        for k, (c, p0) in enumerate(segs):
+            p1 = segs[k + 1][1] if k + 1 < len(segs) else 100.0
+            stops += [f"{c} {p0:.2f}%", f"{c} {p1:.2f}%"]
+        return "linear-gradient(to right, " + ", ".join(stops) + ")"
+
+    _grad_ev = _gradient(_ev_color)
+    _grad_st = _gradient(_states_color)
+    _bar = ('height:12px;border-radius:6px;'
+            'box-shadow:inset 0 1px 3px rgba(0,0,0,0.28);')
     st.markdown(
-        f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:-0.5rem;">'
+        f'<div style="margin:-0.35rem 80px 0 70px;">'
+        f'<div style="{_bar}background:{_grad_ev};"></div>'
+        f'<div style="{_bar}background:{_grad_st};margin-top:4px;"></div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:0.35rem;">'
         f'X-axis spacing proportional to rounds played · tick labels show calendar month · '
-        f'dashed lines mark lead changes</p>', unsafe_allow_html=True
-    )
-
-    # ── Rounds as President ──────────────────────────────────────────────
-    st.markdown('<div class="section-header">Time in Office</div>', unsafe_allow_html=True)
-
-    pres_x, michael_pres, sarah_pres = [0], [0], [0]
-    m_total_pres = s_total_pres = 0
-
-    for i in range(len(tl)):
-        r_i = int(tl.loc[i, 'round_num'])
-        pres_x.append(r_i)
-        michael_pres.append(m_total_pres)
-        sarah_pres.append(s_total_pres)
-
-        if i < len(tl) - 1:
-            r_next = int(tl.loc[i + 1, 'round_num'])
-            span = r_next - r_i
-            thresh = float(pd.to_numeric(tl.loc[i, 'threshold']))
-            if float(tl.loc[i, 'michael']) >= thresh:
-                m_total_pres += span
-            if float(tl.loc[i, 'sarah']) >= thresh:
-                s_total_pres += span
-
-    total_pres_rounds = max(pres_x) if pres_x else 1
-    m_pres_pct = m_total_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
-    s_pres_pct = s_total_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
-    neither_pres = total_pres_rounds - m_total_pres - s_total_pres
-    neither_pct = neither_pres / total_pres_rounds * 100 if total_pres_rounds > 0 else 0
-
-    st.markdown(f"""
-    <div style="display:flex;gap:1.2rem;margin:0.4rem 0 0.8rem 0;">
-      <span style="font-size:0.82rem;font-weight:600;color:{COLORS['michael']};">
-        Michael: {m_total_pres:,} days ({m_pres_pct:.1f}%)
-      </span>
-      <span style="font-size:0.82rem;color:#c8c3bc;">·</span>
-      <span style="font-size:0.82rem;font-weight:600;color:{COLORS['sarah']};">
-        Sarah: {s_total_pres:,} days ({s_pres_pct:.1f}%)
-      </span>
-      <span style="font-size:0.82rem;color:#c8c3bc;">·</span>
-      <span style="font-size:0.82rem;color:#a09587;">
-        No president: {neither_pres:,} days ({neither_pct:.1f}%)
-      </span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    fig_pres = go.Figure()
-
-    fig_pres.add_trace(go.Scatter(
-        x=pres_x, y=michael_pres,
-        mode='lines', line=dict(color=COLORS['michael'], width=2.5),
-        fill='tozeroy', fillcolor='rgba(34,30,143,0.10)',
-        name='Michael',
-        hovertemplate='<b>Michael</b>: %{y:,} days as president<br>After day %{x:,}<extra></extra>',
-    ))
-    fig_pres.add_trace(go.Scatter(
-        x=pres_x, y=sarah_pres,
-        mode='lines', line=dict(color=COLORS['sarah'], width=2.5),
-        fill='tozeroy', fillcolor='rgba(138,0,92,0.10)',
-        name='Sarah',
-        hovertemplate='<b>Sarah</b>: %{y:,} days as president<br>After day %{x:,}<extra></extra>',
-    ))
-    fig_pres.add_trace(go.Scatter(
-        x=[0, total_pres_rounds], y=[0, total_pres_rounds],
-        mode='lines', line=dict(color='#d9d7cc', width=1, dash='dot'),
-        name='Max possible', hoverinfo='skip',
-    ))
-
-    fig_pres.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=20, b=40, l=50, r=80), height=260,
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0, font=dict(size=12)),
-        xaxis=dict(
-            tickvals=tick_rounds, ticktext=tick_labels,
-            showgrid=False, showline=True, linecolor='#d9d7cc',
-            tickfont=dict(color='#696761', size=11), title=None,
-        ),
-        yaxis=dict(
-            showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
-            tickfont=dict(color='#696761', size=11),
-            title=dict(text='Cumulative days', font=dict(color='#696761', size=11)),
-            rangemode='tozero',
-        ),
-        hoverlabel=dict(bgcolor='white', font_size=12, bordercolor='#d9d7cc'),
-        hovermode='x unified',
-    )
-
-    st.plotly_chart(fig_pres, use_container_width=True)
-    st.markdown(
-        '<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:-0.5rem;">'
-        'A player is president when their votes ≥ threshold · '
-        'dotted diagonal = every day spent as president</p>',
+        f'dashed lines mark lead changes · top bar: who held the electoral college '
+        f'(solid = clinched, faint = leading) · bottom bar: who controlled more states</p>',
         unsafe_allow_html=True
+    )
+
+    # ── Time in office ──────────────────────────────────────────────────────
+    # Per span between timeline points: whoever had clinched the EC is
+    # "president"; if neither had, whoever controls more states is "interim";
+    # if neither clinched and the state counts are level, there's no president.
+    _office = {'m': 0, 's': 0, 'mi': 0, 'si': 0, 'none': 0}
+    for i in range(len(tl) - 1):
+        span = int(tl.loc[i + 1, 'round_num']) - int(tl.loc[i, 'round_num'])
+        thresh = float(pd.to_numeric(tl.loc[i, 'threshold']))
+        m, s = float(tl.loc[i, 'michael']), float(tl.loc[i, 'sarah'])
+        mst, sst = int(float(tl.loc[i, 'm_states'])), int(float(tl.loc[i, 's_states']))
+        if m >= thresh:
+            _office['m'] += span
+        elif s >= thresh:
+            _office['s'] += span
+        elif mst > sst:
+            _office['mi'] += span
+        elif sst > mst:
+            _office['si'] += span
+        else:
+            _office['none'] += span
+
+    _tot_office = sum(_office.values()) or 1
+
+    def _oi(key, label, color, weight=600):
+        d = _office[key]
+        return (f'<span style="color:{color};font-weight:{weight};">'
+                f'{label} {d:,} days ({d / _tot_office * 100:.1f}%)</span>')
+
+    _dot = '<span style="color:#c8c3bc;">·</span>'
+    st.markdown(
+        '<div style="display:flex;flex-wrap:wrap;gap:0.9rem;margin:0.5rem 0 0.4rem 0;font-size:0.82rem;">'
+        '<span style="color:#696761;font-weight:600;">Time in office:</span>'
+        + _oi('m',  'Michael',          COLORS['michael']) + _dot
+        + _oi('mi', 'Interim Michael',  COLORS['michael'], 400) + _dot
+        + _oi('si', 'Interim Sarah',    COLORS['sarah'], 400) + _dot
+        + _oi('s',  'Sarah',            COLORS['sarah']) + _dot
+        + _oi('none', 'No president',   '#a09587', 400)
+        + '</div>',
+        unsafe_allow_html=True,
     )
 
 else:
