@@ -277,10 +277,33 @@ load_css()
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
-    
-    .stRadio [role=radiogroup] { align-items: start; justify-content: start; }
+
     div[data-testid="stMetric"] { background-color: #f0f2f6; padding: 10px; border-radius: 5px; }
     .main .block-container { max-width: 98%; padding-left: 1rem; padding-right: 1rem; }
+
+    /* Sidebar controls (pill segmented style, matches Comparison page) */
+    div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
+    div[data-testid="stSidebar"] button[kind="primary"] {
+        background-color: #3a3935 !important;
+        color: #eae8dc !important;
+        border-color: #3a3935 !important;
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+    div[data-testid="stSidebar"] button[kind="secondary"] {
+        background-color: #d9d7cc !important;
+        color: #696761 !important;
+        border-color: #d9d7cc !important;
+        border-radius: 20px !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+    div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background-color: #c8c6bb !important;
+        color: #3a3935 !important;
+        border-color: #8f8d85 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -895,13 +918,50 @@ def create_styled_table(df):
 # --- Sidebar ---
 tbd_display_list = []
 
-with st.sidebar:
-    st.header("Map Settings")
+_HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">'
 
-    map_metric = st.radio("Metric:", ["Count", "Comparison", "Michael", "Sarah"])
-    score_mode = st.radio("Score Type:", ["Total Score", "Geography Score", "Time Score"]) if map_metric != "Count" else "Total Score"
-    view_mode = st.radio("View Level:", ["Countries", "UN Regions", "Continents", "Languages"])
-    
+
+def _pill_group(state_key, default, options, key_prefix, per_row=2):
+    """Segmented pill-button control (matches Comparison / Electoral College).
+    `options` is a list of (button_label, stored_value). Returns the selected value."""
+    cur = st.session_state.get(state_key, default)
+    cols = []
+    for _ in range(0, len(options), per_row):
+        cols.extend(st.columns(per_row))
+    for col, (label, value) in zip(cols, options):
+        with col:
+            if st.button(label, key=f"{key_prefix}_{value}", use_container_width=True,
+                         type="primary" if cur == value else "secondary"):
+                st.session_state[state_key] = value
+                st.rerun()
+    return cur
+
+
+with st.sidebar:
+    st.markdown("<h2 style='text-align:center;'>Map Settings</h2>", unsafe_allow_html=True)
+
+    map_metric = _pill_group(
+        'loc_map_metric', 'Count',
+        [("Count", "Count"), ("Compare", "Comparison"), ("Michael", "Michael"), ("Sarah", "Sarah")],
+        'loc_mm')
+
+    if map_metric != "Count":
+        st.markdown(_HR, unsafe_allow_html=True)
+        score_mode = _pill_group(
+            'loc_score_mode', 'Total Score',
+            [("Total", "Total Score"), ("Geo", "Geography Score"), ("Time", "Time Score")],
+            'loc_sm', per_row=3)
+    else:
+        score_mode = "Total Score"
+
+    st.markdown(_HR, unsafe_allow_html=True)
+    view_mode = _pill_group(
+        'loc_view_mode', 'Countries',
+        [("Countries", "Countries"), ("Regions", "UN Regions"),
+         ("Continents", "Continents"), ("Languages", "Languages")],
+        'loc_vm')
+
+    st.markdown(_HR, unsafe_allow_html=True)
     sel_splits = st.multiselect("Split Countries:", sorted(split_options.keys()), default=[])
     
     if "Date" in data.columns:
@@ -944,7 +1004,8 @@ with st.sidebar:
 
     # Main Calculation
     stats = calculate_stats(filtered_data, active_splits_frozen, view_mode, map_metric, score_mode)
-    
+
+    st.markdown(_HR, unsafe_allow_html=True)
     max_games = int(stats['Total_Active'].max()) if not stats.empty else 0
     min_count = st.slider("Min Games:", 0, max_games, 0)
     
