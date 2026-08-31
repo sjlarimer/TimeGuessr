@@ -83,12 +83,20 @@ WIN_COLORS = {
     'tied':    '#a09587',
     'third':   '#ddd9d4',
 }
+# "leaning" tints — a state is drawn in these until its margin is safe by more
+# than a single round's worth of scoring
+LIGHT_COLORS = {'michael': '#9b9acd', 'sarah': '#ca8cb6', 'tied': '#cbc5bd'}
 WIN_LABELS = {
     'michael': 'Michael',
     'sarah':   'Sarah',
     'tied':    'Tied',
     'third':   'Not Played',
 }
+
+
+def one_round_swing(score_mode):
+    """Most a single round can move a state's margin: 10k total, 5k geo/time."""
+    return 10000.0 if score_mode == "Total Score" else 5000.0
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CSS & Styles
@@ -557,68 +565,73 @@ def frame_to_state_results(frame, is_tg_college):
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared renderers (used by both the live view and the timelapse)
 # ──────────────────────────────────────────────────────────────────────────────
-def build_ev_map(state_results, is_tg_college):
+def build_ev_map(state_results, is_tg_college, score_mode="Total Score"):
     fig = go.Figure()
 
-    # Always emit one Choropleth trace per outcome, in a fixed order, even when
-    # empty. Keeping the trace list stable lets Plotly patch the map in place
-    # between timelapse frames instead of tearing it down and remounting (which
-    # reads as a blink).
-    for winner_key, color in WIN_COLORS.items():
-        subset = state_results[state_results['Winner'] == winner_key]
+    # A state is "solid" once its all-time margin is safe by more than a single
+    # round's scoring; otherwise it's drawn in the lighter "leaning" tint —
+    # the same close/settled read the timelapse uses.
+    per_round = one_round_swing(score_mode)
+    sr_all = state_results.copy()
+    sr_all['_solid'] = (sr_all['Michael_Score'] - sr_all['Sarah_Score']).abs() > per_round
 
-        hover_texts = []
-        for _, row in subset.iterrows():
-            mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
-            ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
-            votes_val = int(row['Votes'])
-            ev_val    = int(row['EV'])
+    def hover_for(row, winner_key):
+        mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
+        ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
+        votes_val = int(row['Votes'])
+        ev_val    = int(row['EV'])
+        if winner_key == 'third':
+            detail = "Not yet played"
+        elif winner_key == 'tied':
+            detail = f"Tied — Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
+        elif winner_key == 'michael':
+            detail = f"Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
+        else:
+            detail = f"Sarah: {ss:,} pts ({sr} rounds) · Michael: {ms:,} pts ({mr} rounds)"
+        vote_line = (f"Rounds (votes): <b>{votes_val:,}</b>" if is_tg_college
+                     else f"Electoral Votes: <b>{ev_val}</b>")
+        close = ""
+        if winner_key in ('michael', 'sarah'):
+            close = "<br>Solid — margin beyond one round" if row['_solid'] else "<br>Leaning — margin within one round"
+        return (f"<b>{row['State']}</b><br>{vote_line}<br>"
+                f"Winner: <b>{row['winner_label']}</b><br>{detail}{close}<extra></extra>")
 
-            if winner_key == 'third':
-                detail = "Not yet played"
-            elif winner_key == 'tied':
-                detail = f"Tied — Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
-            elif winner_key == 'michael':
-                detail = f"Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
-            else:
-                detail = f"Sarah: {ss:,} pts ({sr} rounds) · Michael: {ms:,} pts ({mr} rounds)"
-
-            vote_line = (f"Rounds (votes): <b>{votes_val:,}</b>" if is_tg_college
-                         else f"Electoral Votes: <b>{ev_val}</b>")
-
-            hover_texts.append(
-                f"<b>{row['State']}</b><br>"
-                f"{vote_line}<br>"
-                f"Winner: <b>{row['winner_label']}</b><br>"
-                f"{detail}"
-                f"<extra></extra>"
-            )
-
+    def emit(subset, fill_color, key):
         fig.add_trace(go.Choropleth(
             locations=list(subset['abbrev']),
             z=[1] * len(subset),
             locationmode='USA-states',
-            colorscale=[[0, color], [1, color]],
+            colorscale=[[0, fill_color], [1, fill_color]],
             zmin=0, zmax=1,
             showscale=False,
             marker_line_color='white',
             marker_line_width=1.8,
-            hovertemplate=hover_texts if hover_texts else None,
-            name=WIN_LABELS[winner_key],
+            hovertemplate=[hover_for(r, key) for _, r in subset.iterrows()] or None,
+            name=WIN_LABELS[key],
             showlegend=False,
         ))
 
+    # Fixed trace order (michael solid/light, sarah solid/light, tied, third)
+    # so Plotly patches the map in place rather than remounting it.
+    for key in ('michael', 'sarah'):
+        base_subset = sr_all[sr_all['Winner'] == key]
+        emit(base_subset[base_subset['_solid']], WIN_COLORS[key], key)
+        emit(base_subset[~base_subset['_solid']], LIGHT_COLORS[key], key)
+    emit(sr_all[sr_all['Winner'] == 'tied'], LIGHT_COLORS['tied'], 'tied')
+    emit(sr_all[sr_all['Winner'] == 'third'], WIN_COLORS['third'], 'third')
+
     lats, lons, labels, label_colors = [], [], [], []
-    for _, row in state_results.iterrows():
+    for _, row in sr_all.iterrows():
         abbr = row['abbrev']
         if abbr and abbr in STATE_CENTROIDS:
             lat, lon = STATE_CENTROIDS[abbr]
             lats.append(lat)
             lons.append(lon)
             labels.append(str(int(row['Votes'])))
-            # Match the timelapse: white on the filled (won/tied) states,
-            # dark grey on the pale "not played" states so the number stays legible.
-            label_colors.append('#5a5651' if row['Winner'] == 'third' else '#ffffff')
+            # White numeral only on the dark "solid" fills; dark grey on every
+            # lighter tint (leaning / tied / not played) so it stays legible.
+            solid_fill = row['Winner'] in ('michael', 'sarah') and row['_solid']
+            label_colors.append('#ffffff' if solid_fill else '#5a5651')
 
     fig.add_trace(go.Scattergeo(
         lat=lats, lon=lons,
@@ -652,7 +665,8 @@ def build_ev_map(state_results, is_tg_college):
     return fig
 
 
-def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s, show_popular=True):
+def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
+                         show_popular=True, score_mode="Total Score"):
     TOTAL_VOTES = int(state_results['Votes'].sum())
     ev = {k: int(state_results.loc[state_results['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
     threshold = TOTAL_VOTES // 2 + 1
@@ -665,11 +679,23 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
                       f"270 electoral votes needed to win · {TOTAL_VOTES:,} total")
 
     bar_total = TOTAL_VOTES if TOTAL_VOTES > 0 else 1
+    # Split each player's EV into "solid" (margin safe by > one round) and
+    # "leaning"; solids hug the edges, leaning EV sits toward the middle.
+    per_round = one_round_swing(score_mode)
+    _solid = (state_results['Michael_Score'] - state_results['Sarah_Score']).abs() > per_round
+    def _split(key):
+        won = state_results['Winner'] == key
+        s = int(state_results.loc[won & _solid, 'Votes'].sum())
+        return s, ev[key] - s
+    m_solid, m_lean = _split('michael')
+    s_solid, s_lean = _split('sarah')
     segs = [
-        (ev['michael'], WIN_COLORS['michael']),
-        (ev['tied'],    WIN_COLORS['tied']),
-        (ev['third'],   WIN_COLORS['third']),
-        (ev['sarah'],   WIN_COLORS['sarah']),
+        (m_solid,     WIN_COLORS['michael']),
+        (m_lean,      LIGHT_COLORS['michael']),
+        (ev['tied'],  WIN_COLORS['tied']),
+        (ev['third'], WIN_COLORS['third']),
+        (s_lean,      LIGHT_COLORS['sarah']),
+        (s_solid,     WIN_COLORS['sarah']),
     ]
     bar_inner = "".join(
         f'<div class="ev-seg" style="width:{v/bar_total*100:.2f}%;background:{c};"></div>'
@@ -780,10 +806,18 @@ def render_ev_legend(vote_label_s):
     <span class="ec-swatch" style="background:#8a005c;"></span>Sarah wins
   </span>
   <span class="ec-legend-item">
-    <span class="ec-swatch" style="background:#a09587;"></span>{tied_label}
+    <span class="ec-swatch" style="background:#cbc5bd;"></span>{tied_label}
   </span>
   <span class="ec-legend-item">
     <span class="ec-swatch" style="background:#ddd9d4;border-color:#c8c3bc;"></span>Not yet played
+  </span>
+</div>
+<div class="ec-legend" style="margin-top:-0.5rem;font-size:0.72rem;">
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#221e8f;"></span>Solid &mdash; margin beyond one round
+  </span>
+  <span class="ec-legend-item">
+    <span class="ec-swatch" style="background:#9b9acd;"></span>Light &mdash; margin within one round
   </span>
 </div>
 """, unsafe_allow_html=True)
@@ -795,47 +829,50 @@ def _plotly_js_bundle():
     return get_plotlyjs()
 
 
-def build_timelapse_payload(frames, is_tg_college):
+def build_timelapse_payload(frames, is_tg_college, score_mode):
     """Flatten the frame snapshots into a compact JSON payload the browser-side
     player consumes: one map + scoreboard that it updates in place per frame.
 
-    State colour codes: 0/1 Michael faded/solid, 2/3 Sarah faded/solid,
-    4/5 tied faded/solid, 6 not played. A state stays faded while it can still
-    change hands; from the last frame its winner changes onward it is shown
-    solid ("locked in").
+    State colour codes: 0/1 Michael close/solid, 2/3 Sarah close/solid,
+    4/5 tied close/solid, 6 not played. A state is drawn "solid" when the
+    current margin can't be overturned in a single round (>10k for total score,
+    >5k for geo/time) — a snapshot of how close the state is right now.
     """
     abbrevs = [STATE_ABBREV[s] for s in ELECTORAL_VOTES]
     lats = [STATE_CENTROIDS[a][0] for a in abbrevs]
     lons = [STATE_CENTROIDS[a][1] for a in abbrevs]
     state_order = list(ELECTORAL_VOTES)
 
-    # Last frame at which each state's winner changed → settled from then on.
-    last_flip = {s: 0 for s in state_order}
-    prev = {s: 'third' for s in state_order}
-    for i, fr in enumerate(frames):
-        snap = fr['states']
-        for s in state_order:
-            w = snap[s][0]
-            if w != prev[s]:
-                last_flip[s] = i
-            prev[s] = w
+    per_round = one_round_swing(score_mode)
+
+    def is_solid(tup):
+        w, ms, ss, mr, sr = tup
+        if w in ('third', 'tied'):
+            return False
+        return abs(ms - ss) > per_round
 
     base = {'michael': 0, 'sarah': 2, 'tied': 4}
 
-    def cc(winner, settled):
+    def cc(winner, solid):
         if winner == 'third':
             return 6
-        return base[winner] + (1 if settled else 0)
+        return base[winner] + (1 if solid else 0)
 
     out = []
     for i, fr in enumerate(frames):
         sr = frame_to_state_results(fr, is_tg_college)
         winners = list(sr['Winner'])
-        codes = [cc(w, i >= last_flip[state_order[j]])
-                 for j, w in enumerate(winners)]
+        solid_flags = [is_solid(fr['states'][state_order[j]]) for j in range(len(state_order))]
+        codes = [cc(winners[j], solid_flags[j]) for j in range(len(state_order))]
         labels = [str(int(v)) for v in sr['Votes']]
         ev = {k: int(sr.loc[sr['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
         nst = {k: int((sr['Winner'] == k).sum()) for k in WIN_COLORS}
+        # EV split into "solid" vs "close" for the top bar
+        ev_safe = {'michael': 0.0, 'sarah': 0.0}
+        for j, s in enumerate(state_order):
+            w = winners[j]
+            if w in ev_safe and solid_flags[j]:
+                ev_safe[w] += float(sr.iloc[j]['Votes'])
         total = int(sr['Votes'].sum())
         out.append({
             'date':      pd.Timestamp(fr['Date']).strftime('%B %d, %Y'),
@@ -844,13 +881,14 @@ def build_timelapse_payload(frames, is_tg_college):
             'labels':    labels,
             'names':     list(sr['State']),
             'ev':        [ev['michael'], ev['sarah'], ev['tied'], ev['third']],
+            'ev_safe':   [int(ev_safe['michael']), int(ev_safe['sarah'])],
             'nstates':   [nst['michael'], nst['sarah'], nst['tied'], nst['third']],
             'total':     total,
             'threshold': total // 2 + 1,
             'pv':        [int(sr['Michael_Score'].sum()), int(sr['Sarah_Score'].sum())],
         })
 
-    light = {'michael': '#9b9acd', 'sarah': '#ca8cb6', 'tied': '#cbc5bd'}
+    light = LIGHT_COLORS
     colors = [light['michael'], WIN_COLORS['michael'],
               light['sarah'],   WIN_COLORS['sarah'],
               light['tied'],    WIN_COLORS['tied'],
@@ -862,6 +900,7 @@ def build_timelapse_payload(frames, is_tg_college):
         'lons':      lons,
         'frames':    out,
         'colors':    colors,
+        'lean':      [light['michael'], light['sarah']],
         'is_tg':     bool(is_tg_college),
         'vote_label': "Rounds" if is_tg_college else "Electoral Votes",
         'frame_ms':  450,
@@ -926,25 +965,20 @@ def render_timelapse_player(payload):
   #tl button { font:inherit; font-size:0.85rem; font-weight:600; padding:6px 16px; border-radius:8px;
                border:1px solid #c8c3bc; background:#fff; color:#4a4844; cursor:pointer; }
   #tl button:hover { background:#f3f0ec; }
-  /* Timeline scrubber: light-grey track, coloured (from JS) only over spans of
-     time when someone had clinched the EC; portion past the current frame is
-     washed out. */
+  /* Timeline scrubber: the full control-colour gradient at even strength the
+     whole way across (only the thumb marks the current frame). */
   #tl input[type=range] {
     flex:1; -webkit-appearance:none; appearance:none;
-    height:16px; background:transparent; cursor:pointer; margin:0; --tl-pos:0%;
+    height:16px; background:transparent; cursor:pointer; margin:0;
   }
   #tl input[type=range]::-webkit-slider-runnable-track {
     height:12px; border-radius:6px;
-    background:
-      linear-gradient(to right, rgba(0,0,0,0) var(--tl-pos), rgba(240,237,232,0.6) var(--tl-pos)),
-      var(--tl-grad, #d9d7cc);
+    background: var(--tl-grad, #d9d7cc);
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.28);
   }
   #tl input[type=range]::-moz-range-track {
     height:12px; border-radius:6px;
-    background:
-      linear-gradient(to right, rgba(0,0,0,0) var(--tl-pos), rgba(240,237,232,0.6) var(--tl-pos)),
-      var(--tl-grad, #d9d7cc);
+    background: var(--tl-grad, #d9d7cc);
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.28);
   }
   #tl input[type=range]::-webkit-slider-thumb {
@@ -984,8 +1018,8 @@ def render_timelapse_player(payload):
     <span><span class="sw" style="background:#ddd9d4;border-color:#c8c3bc"></span>Not played</span>
   </div>
   <div class="legend legend-sub">
-    <span><span class="sw" style="background:#cbc6be"></span>Faded &mdash; still changing hands</span>
-    <span><span class="sw" style="background:#5c5952"></span>Solid &mdash; settled, never flips again</span>
+    <span><span class="sw" style="background:#cbc6be"></span>Light &mdash; margin within one round</span>
+    <span><span class="sw" style="background:#5c5952"></span>Solid &mdash; margin beyond one round</span>
   </div>
 
   <div class="tl-foot">
@@ -995,7 +1029,7 @@ def render_timelapse_player(payload):
     </div>
     <div class="ctl">
       <button id="tl-play">⏸ Pause</button>
-      <button id="tl-restart">↺ Restart</button>
+      <button id="tl-speed">⏩ 1&times;</button>
       <input type="range" id="tl-scrub" min="0" value="0" step="1">
     </div>
   </div>
@@ -1013,16 +1047,16 @@ function scale(colors){
   return s;
 }
 const WHO  = ['Michael','Michael','Sarah','Sarah','Tied','Tied','Not yet played'];
-const SAFE = c => (c === 1 || c === 3 || c === 5);
+const SOLID = c => (c === 1 || c === 3 || c === 5);
 
 function hoverText(f){
   return f.codes.map((c,i) => {
-    const tag = SAFE(c) ? ' · settled' : (c === 6 ? '' : ' · still changing');
+    const tag = SOLID(c) ? ' · clear' : (c === 6 ? '' : ' · in reach');
     return '<b>' + f.names[i] + '</b><br>' + VL + ': ' + f.labels[i] + '<br>' + WHO[c] + tag;
   });
 }
 function labelColors(f){
-  return f.codes.map(c => SAFE(c) ? '#ffffff' : '#5a5651');
+  return f.codes.map(c => SOLID(c) ? '#ffffff' : '#5a5651');
 }
 
 const choro = {
@@ -1050,8 +1084,10 @@ Plotly.newPlot('map', [choro, labels], layout,
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString('en-US');
 
-// Scoreboard / EV-bar colours are always the solid palette (michael, sarah, tied, third).
-const BAR = ['#221e8f', '#8a005c', '#a09587', '#ddd9d4'];
+// EV bar: solid palette (michael, sarah, tied, third) plus the "leaning" tints
+// used for not-yet-safe michael / sarah EV.
+const BAR  = ['#221e8f', '#8a005c', '#a09587', '#ddd9d4'];
+const LEAN = D.lean || ['#9b9acd', '#ca8cb6'];
 $('tl-barcap').textContent = VL;
 
 // Scrubber track (hard-edged, no blend): a near-grey tinted toward whoever
@@ -1064,8 +1100,8 @@ function _tint(base, target, t){
 function segColor(f){
   if (f.ev[0] >= f.threshold) return '#221e8f';
   if (f.ev[1] >= f.threshold) return '#8a005c';
-  if (f.ev[0] > f.ev[1]) return _tint(_GREY, _MICH, 0.16);
-  if (f.ev[1] > f.ev[0]) return _tint(_GREY, _SAR,  0.16);
+  if (f.ev[0] > f.ev[1]) return _tint(_GREY, _MICH, 0.32);
+  if (f.ev[1] > f.ev[0]) return _tint(_GREY, _SAR,  0.32);
   return 'rgb(217,215,204)';
 }
 (function(){
@@ -1082,10 +1118,12 @@ function paintHud(f, k){
   $('tl-date').textContent = '⏳ ' + f.date;
   $('tl-frame').textContent = 'Round ' + fmt(f.round) + ' · ' + (k+1) + ' / ' + N;
   $('tl-scrub').value = k;
-  $('tl-scrub').style.setProperty('--tl-pos', (k / (N - 1) * 100).toFixed(2) + '%');
 
   const tot = f.total || 1;
-  const seg = [[f.ev[0],BAR[0]],[f.ev[2],BAR[2]],[f.ev[3],BAR[3]],[f.ev[1],BAR[1]]];
+  // Solid colours hug the edges; the "leaning" (not-yet-safe) EV sits inward.
+  const msafe = (f.ev_safe && f.ev_safe[0]) || 0, mlean = Math.max(0, f.ev[0] - msafe);
+  const ssafe = (f.ev_safe && f.ev_safe[1]) || 0, slean = Math.max(0, f.ev[1] - ssafe);
+  const seg = [[msafe,BAR[0]],[mlean,LEAN[0]],[f.ev[2],BAR[2]],[f.ev[3],BAR[3]],[slean,LEAN[1]],[ssafe,BAR[1]]];
   $('tl-evwrap').innerHTML = seg.filter(s=>s[0]>0)
      .map(s => '<div style="width:'+(s[0]/tot*100).toFixed(2)+'%;background:'+s[1]+'"></div>').join('');
   $('tl-thresh').textContent = fmt(f.threshold) + ' ' + VL.toLowerCase() + ' to win · ' + fmt(f.total) + ' total';
@@ -1108,6 +1146,8 @@ function paintHud(f, k){
 }
 
 let i = 0, playing = true, timer = null;
+const SPEEDS = [1, 2, 3, 4, 5];
+let spIdx = 0;
 
 function render(k){
   i = k;
@@ -1120,7 +1160,7 @@ function tick(){
   if (!playing) return;
   if (i >= N-1){ playing = false; syncBtn(); return; }
   render(i+1);
-  timer = setTimeout(tick, D.frame_ms);
+  timer = setTimeout(tick, D.frame_ms / SPEEDS[spIdx]);
 }
 function syncBtn(){ $('tl-play').textContent = playing ? '⏸ Pause' : '▶ Play'; }
 
@@ -1129,7 +1169,11 @@ $('tl-play').onclick = () => {
   if (playing){ if (i >= N-1) i = 0; render(i); tick(); }
   syncBtn();
 };
-$('tl-restart').onclick = () => { playing = true; render(0); syncBtn(); clearTimeout(timer); tick(); };
+$('tl-speed').onclick = () => {
+  spIdx = (spIdx + 1) % SPEEDS.length;
+  $('tl-speed').innerHTML = '⏩ ' + SPEEDS[spIdx] + '&times;';
+  if (playing){ clearTimeout(timer); timer = setTimeout(tick, D.frame_ms / SPEEDS[spIdx]); }
+};
 $('tl-scrub').max = N-1;
 $('tl-scrub').oninput = e => { playing = false; clearTimeout(timer); syncBtn(); render(+e.target.value); };
 
@@ -1267,16 +1311,16 @@ tl_active = _tl_on
 # that changed hands, so the map no longer blinks.
 # ──────────────────────────────────────────────────────────────────────────────
 if tl_active and len(frames) >= 2:
-    render_timelapse_player(build_timelapse_payload(frames, is_tg_college))
+    render_timelapse_player(build_timelapse_payload(frames, is_tg_college, score_mode))
     st.stop()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Live view (up to date)
 # ──────────────────────────────────────────────────────────────────────────────
 ev, TOTAL_VOTES, threshold, overall_winner = render_ev_scoreboard(
-    state_results, is_tg_college, vote_label, vote_label_s, show_popular=True
+    state_results, is_tg_college, vote_label, vote_label_s, show_popular=True, score_mode=score_mode
 )
-st.plotly_chart(build_ev_map(state_results, is_tg_college),
+st.plotly_chart(build_ev_map(state_results, is_tg_college, score_mode),
                 use_container_width=True, key="ec_map")
 render_ev_legend(vote_label_s)
 
@@ -1416,30 +1460,48 @@ if not timeline.empty and len(timeline) > 1:
     st.plotly_chart(fig_tl, use_container_width=True)
 
     # ── Control bars ────────────────────────────────────────────────────────
-    # Two static echoes of the timelapse scrubber track — hard-edged strips
+    # Three static echoes of the timelapse scrubber track — hard-edged strips
     # under the chart, aligned to its data area by matching the fixed pixel
-    # margins (l=70, r=80). Top strip: who held the electoral college (solid
-    # team colour = clinched, near-grey tint = merely leading). Bottom strip:
-    # who controlled more states, always in solid colour.
+    # margins (l=70, r=80):
+    #   • Electoral College — solid = clinched, tint = merely leading the count
+    #   • States Controlled — who holds more states (always solid)
+    #   • Presidency        — clinched ⇒ president (solid); else the state-count
+    #                         leader is "interim" (tint); level ⇒ no president
     _GREY, _MICH, _SAR = (217, 215, 204), (34, 30, 143), (138, 0, 92)
+    _LEAD = 0.32  # how far a "leading only" tint blends from grey toward the team colour
 
     def _tint(base, target, t):
         return "rgb(%d,%d,%d)" % tuple(round(b + (tg - b) * t) for b, tg in zip(base, target))
 
-    def _ev_color(r):
-        m, s = float(r['michael']), float(r['sarah'])
+    _MICH_TINT, _SAR_TINT, _LEVEL = _tint(_GREY, _MICH, _LEAD), _tint(_GREY, _SAR, _LEAD), '#a09587'
+
+    def _clinched(r):
         thr = float(pd.to_numeric(r['threshold']))
-        if m >= thr:  return '#221e8f'
-        if s >= thr:  return '#8a005c'
-        if m > s:     return _tint(_GREY, _MICH, 0.16)
-        if s > m:     return _tint(_GREY, _SAR, 0.16)
+        if float(r['michael']) >= thr: return 'michael'
+        if float(r['sarah']) >= thr:   return 'sarah'
+        return None
+
+    def _state_lead(r):
+        m, s = int(float(r['m_states'])), int(float(r['s_states']))
+        return 'michael' if m > s else ('sarah' if s > m else None)
+
+    def _ev_color(r):
+        c = _clinched(r)
+        if c: return '#221e8f' if c == 'michael' else '#8a005c'
+        m, s = float(r['michael']), float(r['sarah'])
+        if m > s: return _MICH_TINT
+        if s > m: return _SAR_TINT
         return 'rgb(217,215,204)'
 
     def _states_color(r):
-        m, s = int(float(r['m_states'])), int(float(r['s_states']))
-        if m > s:  return '#221e8f'
-        if s > m:  return '#8a005c'
-        return '#a09587'
+        w = _state_lead(r)
+        return '#221e8f' if w == 'michael' else ('#8a005c' if w == 'sarah' else _LEVEL)
+
+    def _pres_color(r):
+        c = _clinched(r)
+        if c: return '#221e8f' if c == 'michael' else '#8a005c'
+        w = _state_lead(r)
+        return _MICH_TINT if w == 'michael' else (_SAR_TINT if w == 'sarah' else _LEVEL)
 
     _rows = tl.reset_index(drop=True)
     _x0 = int(_rows['round_num'].iloc[0])
@@ -1462,21 +1524,29 @@ if not timeline.empty and len(timeline) > 1:
             stops += [f"{c} {p0:.2f}%", f"{c} {p1:.2f}%"]
         return "linear-gradient(to right, " + ", ".join(stops) + ")"
 
-    _grad_ev = _gradient(_ev_color)
-    _grad_st = _gradient(_states_color)
-    _bar = ('height:12px;border-radius:6px;'
-            'box-shadow:inset 0 1px 3px rgba(0,0,0,0.28);')
+    def _bar_row(label, grad):
+        return (
+            f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;'
+            f'text-transform:uppercase;color:#8f8a83;margin:7px 0 2px 70px;">{label}</div>'
+            f'<div style="margin:0 80px 0 70px;height:13px;border-radius:6px;'
+            f'background:{grad};box-shadow:inset 0 1px 3px rgba(0,0,0,0.28);"></div>'
+        )
+
     st.markdown(
-        f'<div style="margin:-0.35rem 80px 0 70px;">'
-        f'<div style="{_bar}background:{_grad_ev};"></div>'
-        f'<div style="{_bar}background:{_grad_st};margin-top:4px;"></div></div>',
+        '<div style="margin-top:-0.35rem;">'
+        + _bar_row('Electoral College', _gradient(_ev_color))
+        + _bar_row('States Controlled', _gradient(_states_color))
+        + _bar_row('Presidency', _gradient(_pres_color))
+        + '</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
-        f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:0.35rem;">'
+        f'<p style="color:#9c9790;font-size:0.71rem;text-align:center;margin-top:0.5rem;">'
         f'X-axis spacing proportional to rounds played · tick labels show calendar month · '
-        f'dashed lines mark lead changes · top bar: who held the electoral college '
-        f'(solid = clinched, faint = leading) · bottom bar: who controlled more states</p>',
+        f'dashed lines mark lead changes · '
+        f'<b style="color:#221e8f;">solid</b> = won outright · '
+        f'<span style="color:#8a8391;">faint</span> = leading only · '
+        f'<span style="color:#9a9186;">grey</span> = level</p>',
         unsafe_allow_html=True
     )
 
@@ -1487,19 +1557,13 @@ if not timeline.empty and len(timeline) > 1:
     _office = {'m': 0, 's': 0, 'mi': 0, 'si': 0, 'none': 0}
     for i in range(len(tl) - 1):
         span = int(tl.loc[i + 1, 'round_num']) - int(tl.loc[i, 'round_num'])
-        thresh = float(pd.to_numeric(tl.loc[i, 'threshold']))
-        m, s = float(tl.loc[i, 'michael']), float(tl.loc[i, 'sarah'])
-        mst, sst = int(float(tl.loc[i, 'm_states'])), int(float(tl.loc[i, 's_states']))
-        if m >= thresh:
-            _office['m'] += span
-        elif s >= thresh:
-            _office['s'] += span
-        elif mst > sst:
-            _office['mi'] += span
-        elif sst > mst:
-            _office['si'] += span
+        r = tl.loc[i]
+        c = _clinched(r)
+        if c:
+            _office['m' if c == 'michael' else 's'] += span
         else:
-            _office['none'] += span
+            w = _state_lead(r)
+            _office['mi' if w == 'michael' else 'si' if w == 'sarah' else 'none'] += span
 
     _tot_office = sum(_office.values()) or 1
 
