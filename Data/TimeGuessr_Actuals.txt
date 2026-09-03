@@ -1292,3 +1292,24 @@ TimeGuessr #1187
 3. Detroit (Michigan), United States, 1916
 4. Helsinki (Helsinki-Uusimaa), Finland, 1971
 5. Sydney (New South Wales), Australia, 1933
+
+TimeGuessr #1188
+1. Singapore, Singapore, 2018
+2. Miskolc (Northern Hungary), Hungary, 1980
+3. Rome (Lazio), Italy, 1947
+4. Cairo, Egypt, 1962
+5. Homestead (Florida), United States, 1992
+
+TimeGuessr #1189
+1. Ottawa (Ontario), Canada, 2015
+2. Old Delhi (Delhi), India, 1961
+3. Paris (Ile-de-France), France, 1955
+4. Tbilisi, Georgia, 1931
+5. Berlin (Berlin), Germany, 1989
+
+TimeGuessr #1190
+1. Patong (Southern Thailand), Thailand, 2004
+2. Seattle (Washington), United States, 1919
+3. Helsinki (Helsinki-Uusimaa), Finland, 1955
+4. Kranj, Slovenia, 1931
+5. Buenos Aires, Argentina, 1999
