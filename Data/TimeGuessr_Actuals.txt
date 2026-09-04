@@ -1313,3 +1313,10 @@ TimeGuessr #1190
 3. Helsinki (Helsinki-Uusimaa), Finland, 1955
 4. Kranj, Slovenia, 1931
 5. Buenos Aires, Argentina, 1999
+
+TimeGuessr #1191
+1. Tokyo (Kanto), Japan, 1945
+2. Ulaanbaatar, Mongolia, 1964
+3. Flensburg (Schleswig-Holstein), Germany, 1920
+4. Copenhagen (Capital Region), Denmark, 1959
+5. Chicago (Illinois), United States, 1970
