@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import datetime
 import country_converter as coco
+from streamlit.components.v1 import html as components_html
 
 # --- Configuration ---
 st.set_page_config(page_title="The Daily Guessr", layout="wide")
@@ -24,22 +25,27 @@ NEWS_STYLES = """
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800;900&display=swap');
         
         html { scroll-behavior: smooth; }
-        .news-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .news-container { width: 100%; margin: 0 auto; padding: 40px 20px; box-sizing: border-box; }
         
         .back-to-top { position: fixed; bottom: 30px; right: 30px; background-color: #333; color: white !important; width: 50px; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; text-decoration: none !important; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; transition: transform 0.2s, background-color 0.2s; }
         .back-to-top:hover { transform: scale(1.1); background-color: #000; color: white !important; }
 
-        .page-header { text-align: center; margin-bottom: 40px; border-bottom: 4px double #ccc; padding-bottom: 30px; }
-        .page-title { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #111; letter-spacing: -1px; margin: 0; text-transform: uppercase; }
-        .page-subtitle { font-family: 'Inter', sans-serif; color: #666; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-top: 12px; }
+        .page-title { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #111; letter-spacing: -1px; margin: 0; text-transform: uppercase; text-align: center; }
         
         /* FORECAST SECTION */
-        .forecast-container { max-width: 1000px; margin: 0 auto 60px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+        .forecast-container { width: 100%; margin: 0 auto 60px auto; box-sizing: border-box; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
         .forecast-card { background-color: #fff; border-radius: 12px; padding: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #f0f0f0; overflow: hidden; display: flex; flex-direction: column; }
         .fc-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
         .fc-icon { font-size: 20px; }
         .fc-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; color: #333; }
-        
+
+        /* Per-round M/S/C bars, embedded inside a forecast card */
+        .hbar-group { padding: 14px 20px; border-bottom: 1px solid #eee; }
+        .hbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .hbar-row:last-child { margin-bottom: 0; }
+        .hbar-lbl { width: 16px; flex-shrink: 0; font-weight: 700; font-size: 0.8rem; text-align: center; }
+        .hbar-track { flex: 1; min-width: 0; height: 16px; background-color: #b0afaa; border-radius: 5px; overflow: hidden; display: flex; flex-direction: row; }
+
         .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #eee; }
         .fc-mom-box { padding: 15px; text-align: center; border-right: 1px solid #eee; }
         .fc-mom-box:last-child { border-right: none; }
@@ -63,6 +69,7 @@ NEWS_STYLES = """
         /* DAILY FEED / CATEGORY CARDS */
         .daily-card { background: #fff; border: 1px solid #ddd; border-top: 4px solid #333; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); scroll-margin-top: 50px; overflow: hidden; }
         .daily-header { background-color: #fcfcfc; padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .daily-header-end { justify-content: flex-end; }
         .daily-date { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 18px; color: #111; text-transform: uppercase; }
         .daily-badge { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; background: #eee; color: #555; padding: 4px 10px; border: 1px solid #ccc; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
         
@@ -198,6 +205,78 @@ NEWS_STYLES = """
         .rb-was { display: block; font-size: 9px; color: #8a8a8a; font-weight: 600; font-style: italic; margin-top: 1px; }
         .rb-na { color: #ccc; }
 
+        /* EDITION DATE SELECTOR: doubles as the page title. The real date_input
+           is kept for click/keyboard behavior but made invisible; a prominent
+           overlay (".page-title"-styled) showing the formatted date is stacked
+           on top of it via CSS grid so the two occupy the same box (clicking
+           the text opens the native calendar). */
+        .st-key-edition_date_stack {
+            display: grid;
+            width: max-content;
+            max-width: 95%;
+            margin: 0 auto 40px auto;
+            padding-bottom: 22px;
+            border-bottom: 4px double #ccc;
+        }
+        .st-key-edition_date_stack > div {
+            grid-area: 1 / 1;
+            height: 100%;
+        }
+        .st-key-edition_date_stack div[data-testid="stDateInput"] {
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+        .st-key-edition_date_stack div[data-testid="stDateInput"] > label {
+            display: none;
+        }
+        .st-key-edition_date_stack div[data-testid="stDateInput"] > div {
+            height: 100%;
+            width: 100%;
+        }
+        .st-key-edition_date_stack div[data-testid="stDateInput"] > div,
+        .st-key-edition_date_stack div[data-baseweb="input"],
+        .st-key-edition_date_stack div[data-baseweb="base-input"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            min-height: auto !important;
+        }
+        .st-key-edition_date_stack div[data-baseweb="input"],
+        .st-key-edition_date_stack div[data-baseweb="base-input"] {
+            display: flex !important;
+            align-items: center !important;
+            height: 100% !important;
+            width: 100% !important;
+        }
+        .st-key-edition_date_stack input[data-testid="stDateInputField"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 0 !important;
+            width: 100%;
+            height: 100%;
+            color: transparent !important;
+            caret-color: transparent !important;
+            cursor: pointer !important;
+            text-align: center;
+        }
+        .st-key-edition_date_stack .edition-date-overlay {
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            user-select: none;
+            transition: color 0.15s;
+        }
+        .st-key-edition_date_stack:hover .edition-date-overlay {
+            color: #b23931;
+        }
+
         @media (max-width: 900px) {
             .forecast-container { grid-template-columns: 1fr; }
             .events-list { column-count: 1; padding: 16px; }
@@ -250,6 +329,284 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -
         return data
     except Exception as e:
         st.error(f"Error loading data: {e}"); return pd.DataFrame()
+
+# --- Daily Snapshot (Score Submission-style day view) ---
+GEOGRAPHY_RANGES = {
+    "OOO": (5000, 5000), "OO%": (4750, 4999), "OOX": (4500, 4749),
+    "O%X": (4250, 4499), "OXX": (3500, 4249), "%XX": (2500, 3499), "XXX": (12, 2499)
+}
+
+TIME_RANGES = {
+    "OOO": (5000, 5000), "OO%": (4800, 4950), "OOX": (4300, 4600),
+    "O%X": (3400, 3900), "OXX": (2000, 2500), "%XX": (1000, 1000), "XXX": (0, 0)
+}
+
+def geography_score(x):
+    if x <= 50: return 5000
+    elif x <= 1000: return 5000 - (x * 0.02)
+    elif x <= 5000: return 4980 - (x * 0.016)
+    elif x <= 100000: return 4900 - (x * 0.004)
+    elif x <= 1000000: return 4500 - (x * 0.001)
+    elif x <= 2000000: return 3500 - (x * 0.0005)
+    elif x <= 3000000: return 2500 - (x * 0.0003333)
+    elif x <= 6000000: return 1500 - (x * 0.0002)
+    else: return 12
+
+def calculate_time_score(year_guessed, actual_year):
+    if actual_year is None: return None
+    years_off = abs(int(year_guessed) - actual_year)
+    if years_off == 0: return 5000
+    elif years_off == 1: return 4950
+    elif years_off == 2: return 4800
+    elif years_off == 3: return 4600
+    elif years_off == 4: return 4300
+    elif years_off == 5: return 3900
+    elif years_off in [6, 7]: return 3400
+    elif years_off in [8, 9, 10]: return 2500
+    elif 10 < years_off < 16: return 2000
+    elif 15 < years_off < 21: return 1000
+    else: return 0
+
+def half_bar_html(score, pattern=None, range_dict=GEOGRAPHY_RANGES):
+    total = 5000
+    if score is not None and not pd.isna(score):
+        pct = min(max(float(score) / total * 100.0, 0.0), 100.0)
+        return f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#db5049;"></div></div>'
+    elif pattern and pattern in range_dict:
+        min_val, max_val = range_dict[pattern]
+        min_pct = min_val / total * 100
+        max_pct = max_val / total * 100
+        return f'''<div class="tg-bar-bg" style="position:relative;"><div style="position:absolute; left:0; width:{min_pct:.2f}%; height:100%; background:#db5049;"></div><div style="position:absolute; left:{min_pct:.2f}%; width:{max_pct - min_pct:.2f}%; height:100%; background:#d1d647;"></div><div style="position:absolute; left:{max_pct:.2f}%; width:{100 - max_pct:.2f}%; height:100%; background:#b0afaa;"></div></div>'''
+    return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
+
+def generate_player_html(player_name, date_rows, players, highlight=False):
+    if len(date_rows) == 0: return ""
+    row_0 = date_rows.iloc[0]
+    total_score = row_0.get(f"{player_name} Total Score")
+    all_rounds = date_rows[date_rows["Timeguessr Round"].between(1, 5)]
+
+    geo_sum, time_sum = 0, 0
+    for _, r in all_rounds.iterrows():
+        gs = r.get(f"{player_name} Geography Score")
+        gp = r.get(f"{player_name} Geography")
+        ts = r.get(f"{player_name} Time Score")
+        tp = r.get(f"{player_name} Time")
+
+        if pd.notna(gs): geo_sum += gs
+        elif gp in GEOGRAPHY_RANGES: geo_sum += sum(GEOGRAPHY_RANGES[gp])/2
+
+        if pd.notna(ts): time_sum += ts
+        elif tp in TIME_RANGES: time_sum += sum(TIME_RANGES[tp])/2
+
+    total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
+    is_michael = player_name == "Michael"
+    bg = "#dde5eb" if is_michael else "#edd3df"
+    header = "#221e8f" if is_michael else "#8a005c"
+    border = "border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);" if highlight else ""
+
+    html = [f'<div class="tg-container" style="background-color: {bg}; {border}"><div class="tg-header" style="color: {header};">{player_name}</div><div class="tg-total">{total_text}</div>']
+
+    if geo_sum == 0 and time_sum == 0:
+        html.append('<div class="tg-sub">🌎 Geo: <b>???</b>/25,000</div><div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
+    else:
+        html.append(f'<div class="tg-sub">🌎 Geo: <b>{int(geo_sum):,}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
+
+    html.append('<div class="tg-rounds-wrapper">')
+
+    today_ts = pd.Timestamp(datetime.date.today())
+    for r_num in range(1, 6):
+        r_data = date_rows[date_rows["Timeguessr Round"] == r_num]
+        geo_score = time_score = geo_pattern = time_pattern = country_name = None
+        if len(r_data) > 0:
+            row = r_data.iloc[0]
+            geo_score = row.get(f"{player_name} Geography Score")
+            time_score = row.get(f"{player_name} Time Score")
+            geo_pattern = row.get(f"{player_name} Geography")
+            time_pattern = row.get(f"{player_name} Time")
+            country_name = row.get("Country")
+
+        round_revealed = True
+        if len(r_data) > 0:
+            game_date = row_0["Date"]
+            if game_date >= today_ts:
+                for p in players:
+                    if pd.isna(r_data.iloc[0].get(f"{p} Geography Score")):
+                        round_revealed = False; break
+        else: round_revealed = False
+
+        flag = get_flag_html(country_name) if round_revealed else get_flag_html("United Nations")
+
+        g_txt = f"{int(geo_score):,}/5k" if pd.notna(geo_score) else ("???/5k" if geo_pattern not in GEOGRAPHY_RANGES else f"{GEOGRAPHY_RANGES[geo_pattern][0]:,}-{GEOGRAPHY_RANGES[geo_pattern][1]:,}/5k")
+        t_txt = f"{int(time_score):,}/5k" if pd.notna(time_score) else ("???/5k" if time_pattern not in TIME_RANGES else f"{TIME_RANGES[time_pattern][0]:,}-{TIME_RANGES[time_pattern][1]:,}/5k")
+
+        html.append(f'<div class="tg-round"><div class="tg-row"><div class="tg-half"><div class="tg-score-note">{flag} <small>{g_txt}</small></div>{half_bar_html(geo_score, geo_pattern, GEOGRAPHY_RANGES)}</div><div class="tg-half"><div class="tg-score-note">📅 <small>{t_txt}</small></div>{half_bar_html(time_score, time_pattern, TIME_RANGES)}</div></div></div>')
+
+    html.append('</div></div>')
+    return "\n".join(html)
+
+def generate_community_html(date_rows):
+    if len(date_rows) == 0: return ""
+    row_0 = date_rows.iloc[0]
+    total_score = row_0.get("Community Average")
+    total_text = "???" if pd.isna(total_score) else f"{int(total_score):,}/50,000"
+
+    geo_sum_est, time_sum_est = 0, 0
+    have_geo_est, have_time_est = False, False
+    round_scores = []
+
+    for r_num in range(1, 6):
+        r_data = date_rows[date_rows["Timeguessr Round"] == r_num]
+        row_r = r_data.iloc[0] if len(r_data) > 0 else None
+        round_scores.append(row_r.get("Community Round Score") if row_r is not None else None)
+
+        time_off = row_r.get("Community Time Distance") if row_r is not None else None
+        if pd.notna(time_off):
+            t_est = calculate_time_score(float(time_off), 0)
+            if t_est is not None:
+                time_sum_est += t_est
+                have_time_est = True
+
+        dist_m = row_r.get("Community Geography Distance") if row_r is not None else None
+        if pd.notna(dist_m):
+            geo_sum_est += geography_score(float(dist_m))
+            have_geo_est = True
+
+    html = [f'<div class="tg-container" style="background-color: #e9ecef;"><div class="tg-header" style="color: #495057;">Community</div><div class="tg-total">{total_text}</div>']
+
+    geo_txt = f'"{int(geo_sum_est):,}"' if have_geo_est else '"???"'
+    time_txt = f'"{int(time_sum_est):,}"' if have_time_est else '"???"'
+    html.append(f'<div class="tg-sub">🌎 Geo: <b>{geo_txt}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{time_txt}</b>/25,000</div>')
+
+    html.append('<div class="tg-rounds-wrapper">')
+
+    for r_num, round_score in zip(range(1, 6), round_scores):
+        r_txt = f"{int(round_score):,}/10k" if pd.notna(round_score) else "???/10k"
+        pct = min(max(float(round_score) / 10000 * 100.0, 0.0), 100.0) if pd.notna(round_score) else 0
+        bar_html = f'<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:{pct:.2f}%; background:#6c757d;"></div></div>'
+
+        html.append(f'<div class="tg-round"><div class="tg-score-note">🏆 <small>{r_txt}</small></div>{bar_html}</div>')
+
+    html.append('</div></div>')
+    return "\n".join(html)
+
+def get_bar_segments(scores, opponent_scores, max_score):
+    bar_html = ""
+    bright_palette = ["#db5049", "#fd7e14", "#fcc419", "#40c057", "#228be6"]
+    pale_palette = ["#eba5a2", "#fecba6", "#ffe7a3", "#a7e0b0", "#9ccbf2"]
+    for i, score in enumerate(scores):
+        pct = (score / max_score) * 100
+        if pct > 0:
+            color = bright_palette[i] if score >= opponent_scores[i] else pale_palette[i]
+            bar_html += f'<div style="width:{pct}%; height:100%; background-color:{color}; box-sizing: border-box;" title="Round {i+1}: {int(score)}"></div>'
+    return bar_html
+
+def get_community_bar_segments(c_scores, m_scores, s_scores, max_score):
+    """Same per-round hues as the M/S bars, but shaded by how many opponents
+    the community beat that round: neither = lightest, one = regular (the
+    normal bright hue), both = darkest."""
+    light_palette = ["#eba5a2", "#fecba6", "#ffe7a3", "#a7e0b0", "#9ccbf2"]
+    regular_palette = ["#db5049", "#fd7e14", "#fcc419", "#40c057", "#228be6"]
+    dark_palette = ["#a13228", "#c25a00", "#b8860b", "#2b8a3e", "#1864ab"]
+    bar_html = ""
+    for i, score in enumerate(c_scores):
+        pct = (score / max_score) * 100
+        if pct > 0:
+            beat_count = int(score > m_scores[i]) + int(score > s_scores[i])
+            palette = dark_palette if beat_count == 2 else (regular_palette if beat_count == 1 else light_palette)
+            color = palette[i]
+            bar_html += f'<div style="width:{pct}%; height:100%; background-color:{color}; box-sizing: border-box;" title="Round {i+1}: {int(score)}"></div>'
+    return bar_html
+
+def render_score_bars(date_rows):
+    m_total_scores, s_total_scores, c_total_scores = [], [], []
+    m_geo_scores, s_geo_scores, c_geo_scores = [], [], []
+    m_time_scores, s_time_scores, c_time_scores = [], [], []
+
+    for r in range(1, 6):
+        r_data = date_rows[date_rows["Timeguessr Round"] == r]
+        mg, mt, sg, s_time = 0, 0, 0, 0
+        c_total, c_geo, c_time = 0, 0, 0
+        if len(r_data) > 0:
+            row = r_data.iloc[0]
+            mg_val = row.get("Michael Geography Score", 0)
+            mt_val = row.get("Michael Time Score", 0)
+            sg_val = row.get("Sarah Geography Score", 0)
+            st_val = row.get("Sarah Time Score", 0)
+
+            if pd.notna(mg_val): mg = mg_val
+            if pd.notna(mt_val): mt = mt_val
+            if pd.notna(sg_val): sg = sg_val
+            if pd.notna(st_val): s_time = st_val
+
+            # Community: total uses the actual recorded round score, but geo/time
+            # are only "estimated" (derived from the average distance/years-off),
+            # same as the community score box above.
+            c_round_val = row.get("Community Round Score")
+            if pd.notna(c_round_val): c_total = c_round_val
+
+            c_time_off = row.get("Community Time Distance")
+            if pd.notna(c_time_off):
+                est = calculate_time_score(float(c_time_off), 0)
+                if est is not None: c_time = est
+
+            c_dist_m = row.get("Community Geography Distance")
+            if pd.notna(c_dist_m):
+                c_geo = geography_score(float(c_dist_m))
+
+        m_total_scores.append(mg + mt)
+        s_total_scores.append(sg + s_time)
+        c_total_scores.append(c_total)
+        m_geo_scores.append(mg)
+        s_geo_scores.append(sg)
+        c_geo_scores.append(c_geo)
+        m_time_scores.append(mt)
+        s_time_scores.append(s_time)
+        c_time_scores.append(c_time)
+
+    m_tot_seg = get_bar_segments(m_total_scores, s_total_scores, 50000)
+    s_tot_seg = get_bar_segments(s_total_scores, m_total_scores, 50000)
+    c_tot_seg = get_community_bar_segments(c_total_scores, m_total_scores, s_total_scores, 50000)
+    m_geo_seg = get_bar_segments(m_geo_scores, s_geo_scores, 25000)
+    s_geo_seg = get_bar_segments(s_geo_scores, m_geo_scores, 25000)
+    c_geo_seg = get_community_bar_segments(c_geo_scores, m_geo_scores, s_geo_scores, 25000)
+    m_time_seg = get_bar_segments(m_time_scores, s_time_scores, 25000)
+    s_time_seg = get_bar_segments(s_time_scores, m_time_scores, 25000)
+    c_time_seg = get_community_bar_segments(c_time_scores, m_time_scores, s_time_scores, 25000)
+
+    def hbar_row(label, color, seg_html):
+        return f'<div class="hbar-row"><span class="hbar-lbl" style="color:{color};">{label}</span><div class="hbar-track">{seg_html}</div></div>'
+
+    def hbar_group(m_seg, s_seg, c_seg):
+        return f"""<div class="hbar-group">
+            {hbar_row("M", "#221e8f", m_seg)}
+            {hbar_row("S", "#8a005c", s_seg)}
+            {hbar_row("C", "#6c757d", c_seg)}
+        </div>"""
+
+    return {
+        "Total Score": hbar_group(m_tot_seg, s_tot_seg, c_tot_seg),
+        "Geography Score": hbar_group(m_geo_seg, s_geo_seg, c_geo_seg),
+        "Time Score": hbar_group(m_time_seg, s_time_seg, c_time_seg),
+    }
+
+DAILY_SNAPSHOT_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+.tg-container { position: relative; padding: 10px 12px; box-sizing: border-box; width: 100%; border-radius: 12px; margin-bottom: 0; }
+.tg-header { font-weight:700; font-size:30px; margin:0 0 5px 0; line-height:1.1; }
+.tg-total { color:#222; font-size:24px; font-weight:600; margin:0 0 7px 0; line-height:1.1; }
+.tg-sub { font-size:20px; margin:0 0 7px 0; line-height:1.1; color:#333; }
+.tg-rounds-wrapper { margin-top:7px; }
+.tg-round { margin:7px 0; }
+.tg-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; }
+.tg-half { width: 50%; flex: 1; }
+.tg-bar-bg { background:#b0afaa; border-radius:10px; height:10px; overflow:hidden; width: 100%; position: relative; }
+.tg-bar-fill { height:10px; border-radius:10px; background:#db5049; }
+.tg-score-note { font-size:18px; margin:0 0 7px 0; white-space: nowrap; }
+.tg-score-note small { color:#444; }
+</style>
+"""
 
 def prepare_total_margins_data(df):
     d = df.groupby("Date")[["Michael Total Score", "Sarah Total Score"]].first().reset_index()
@@ -1504,7 +1861,7 @@ def get_full_category_forecast(df, cat):
     if len(df) < 5: return None
     r5 = df["Score Diff"].rolling(window=5).mean().iloc[-1]
     r10 = df["Score Diff"].rolling(window=10).mean().iloc[-1] if len(df) >= 10 else None
-    
+
     if pd.notna(r5):
         l5 = get_leader_state(r5)
         b5 = -df.tail(4)["Score Diff"].sum()
@@ -1520,7 +1877,7 @@ def get_full_category_forecast(df, cat):
         elif l10 == "Sarah": m10 = f"Michael flips with win of <span class='target-hl'>{b10:,.0f}+</span>" if b10 > 0 else f"Michael flips with anything better than a loss of <span class='target-hl'>{abs(b10):,.0f}</span>"
         else: m10 = "Next winner takes the lead."
     else: l10, m10 = "N/A", "Not enough data"
-    
+
     ms, sw, cs = {"Michael": 0, "Sarah": 0}, None, 0
     for _, r in df.iterrows():
         d = r["Score Diff"]
@@ -1571,15 +1928,17 @@ def get_full_category_forecast(df, cat):
         if acts: sh += f"""<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ccc;"><div style="font-size:10px; font-weight:700; color:#999; margin-bottom:5px; text-transform:uppercase;">Active Score Runs</div>{''.join(acts)}</div>"""
     return {"category": cat, "l5": l5, "m5": m5, "l10": l10, "m10": m10, "streaks_html": sh}
 
-def render_forecast_section(fs_list):
+def render_forecast_section(fs_list, bars_by_cat=None):
+    bars_by_cat = bars_by_cat or {}
     html = '<div class="forecast-container">'
     icons = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
     borders = {"Total Score": "border-total", "Time Score": "border-time", "Geography Score": "border-geo"}
     for f in fs_list:
         if not f: continue
         cat, ic, bc = f['category'], icons.get(f['category'], "📊"), borders.get(f['category'], "")
+        bars_html = bars_by_cat.get(cat, "")
         def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
-        html += f"""<div class="forecast-card {bc}"><div class="fc-header"><span class="fc-icon">{ic}</span><span class="fc-title">{cat}</span></div><div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Active Streaks</div>{f['streaks_html'] if f['streaks_html'] else '<div style="font-size:11px; color:#999; font-style:italic;">No active streaks.</div>'}</div></div>"""
+        html += f"""<div class="forecast-card {bc}"><div class="fc-header"><span class="fc-icon">{ic}</span><span class="fc-title">{cat}</span></div>{bars_html}<div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Active Streaks</div>{f['streaks_html'] if f['streaks_html'] else '<div style="font-size:11px; color:#999; font-style:italic;">No active streaks.</div>'}</div></div>"""
     return html + '</div>'
 
 FEED_CATEGORIES = {
@@ -1704,7 +2063,7 @@ def render_round_strip(rounds):
             f'<tbody>{body}</tbody></table></div></div>')
 
 def render_daily_news(dt, evs, round_list=None):
-    ds, ec, rh = dt.strftime("%A, %B %d, %Y"), len(evs), ""
+    ec, rh = len(evs), ""
     day_id = f"day-{dt.strftime('%Y-%m-%d')}"
     
     def get_ordinal(n):
@@ -2262,9 +2621,15 @@ def render_daily_news(dt, evs, round_list=None):
             
         rh += '</div>'
     strip_html = render_round_strip(round_list or [])
-    badge = f"{ec} Updates" if ec else "Round Recap"
     body = f'<div class="events-list">{rh}</div>' if rh else ""
-    return f"""<div class="daily-card" id="{day_id}"><div class="daily-header"><span class="daily-date">{ds}</span><span class="daily-badge">{badge}</span></div>{strip_html}{body}</div>"""
+
+    round_card = f"""<div class="daily-card" id="{day_id}"><div class="daily-header daily-header-end"><span class="daily-badge">Round Recap</span></div>{strip_html}</div>"""
+
+    updates_badge = f"{ec} Updates" if ec else "No Updates"
+    updates_body = body if body else '<div style="text-align:center; padding:40px; color:#999; font-size: 14px;">No news events for this date.</div>'
+    updates_card = f"""<div class="daily-card" id="{day_id}-updates"><div class="daily-header"><span class="daily-date">Daily Updates</span><span class="daily-badge">{updates_badge}</span></div>{updates_body}</div>"""
+
+    return round_card, updates_card
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 raw_data = load_data(mtime=stats_mtime)
@@ -2302,11 +2667,6 @@ if not raw_data.empty:
         st.header("Feed Settings")
         sf = st.multiselect("Filter Categories:", options=list(FEED_CATEGORIES.keys()), default=list(FEED_CATEGORIES.keys()))
 
-    st.markdown('<div id="top"></div>', unsafe_allow_html=True)
-    st.markdown("""<div class="page-header"><h1 class="page-title">The Daily Guessr</h1><div class="page-subtitle">Tracking Momentum & Leaderboard Shifts</div></div>""", unsafe_allow_html=True)
-    st.markdown(render_forecast_section([get_full_category_forecast(df_t, "Total Score"), get_full_category_forecast(df_tm, "Time Score"), get_full_category_forecast(df_g, "Geography Score")]), unsafe_allow_html=True)
-    st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
-    
     # Collect requested event types based on sidebar selection
     active_types = set()
     for cat_name in sf:
@@ -2319,18 +2679,65 @@ if not raw_data.empty:
         d = pd.Timestamp(e['date'])
         ev_d.setdefault(d, []).append(e)
 
-    # Render an edition for every day that actually has round data, plus any
+    # An "edition" exists for every day that actually has round data, plus any
     # day that has matching events. Round strip always shows (it is the recap).
     scored_days = {d for d, rl in round_updates.items() if any(rr["m_round"] is not None for rr in rl)}
     sd = sorted(set(ev_d.keys()) | scored_days, reverse=True)
+    sd_set = set(sd)
 
-    if not sd:
-        st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No news events detected matching your filters.</div></div>', unsafe_allow_html=True)
+    # --- HEADER: the Edition Date IS the title now, and stays clickable ---
+    st.markdown('<div id="top"></div>', unsafe_allow_html=True)
+
+    with st.container(key="edition_date_stack"):
+        selected_date = st.date_input(
+            "Edition Date",
+            value=sd[0].date() if sd else datetime.date.today(),
+            max_value=datetime.date.today(),
+            label_visibility="collapsed",
+        )
+        display_str = pd.Timestamp(selected_date).strftime("%A, %B %d, %Y")
+        st.markdown(f'<div class="page-title edition-date-overlay">{display_str}</div>', unsafe_allow_html=True)
+
+    sel_ts = pd.Timestamp(selected_date)
+    date_rows = raw_data[raw_data["Date"] == sel_ts]
+
+    # --- Score Boxes (Score Submission-style day snapshot) ---
+    michael_col, sarah_col, community_col = st.columns([1, 1, 1])
+    bars_by_cat = {}
+    if not date_rows.empty:
+        players = ["Michael", "Sarah"]
+        row_0 = date_rows.iloc[0]
+        m_total = row_0.get("Michael Total Score", 0)
+        s_total = row_0.get("Sarah Total Score", 0)
+        m_val = 0 if pd.isna(m_total) else m_total
+        s_val = 0 if pd.isna(s_total) else s_total
+
+        p1_html = generate_player_html(players[0], date_rows, players, highlight=(m_val > s_val))
+        p2_html = generate_player_html(players[1], date_rows, players, highlight=(s_val > m_val))
+
+        with michael_col:
+            components_html(f'{DAILY_SNAPSHOT_CSS}{p1_html}', height=450, scrolling=True)
+        with sarah_col:
+            components_html(f'{DAILY_SNAPSHOT_CSS}{p2_html}', height=450, scrolling=True)
+        with community_col:
+            community_html = generate_community_html(date_rows)
+            components_html(f'{DAILY_SNAPSHOT_CSS}{community_html}', height=450, scrolling=True)
+
+        bars_by_cat = render_score_bars(date_rows)
     else:
-        feed_html = '<div class="news-container">\n'
-        for d in sd:
-            feed_html += render_daily_news(d, ev_d.get(d, []), round_updates.get(d, [])) + '\n'
-        feed_html += '</div>'
+        st.info("No data found for this date.")
+
+    st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
+
+    # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
+    st.markdown(render_forecast_section([get_full_category_forecast(df_t, "Total Score"), get_full_category_forecast(df_tm, "Time Score"), get_full_category_forecast(df_g, "Geography Score")], bars_by_cat), unsafe_allow_html=True)
+
+    # --- BOTTOM: Round-by-round recap, then Updates (separate boxes) for the selected date ---
+    if sel_ts in sd_set:
+        round_card, updates_card = render_daily_news(sel_ts, ev_d.get(sel_ts, []), round_updates.get(sel_ts, []))
+        feed_html = f'<div class="news-container">\n{round_card}\n{updates_card}\n</div>'
         st.markdown(feed_html, unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No news events for this date.</div></div>', unsafe_allow_html=True)
 
 else: st.warning("Please ensure 'Timeguessr_Stats.csv' is in the 'Data' folder.")
