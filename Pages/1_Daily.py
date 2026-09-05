@@ -245,8 +245,8 @@ NEWS_STYLES = """
             display: grid;
             width: max-content;
             max-width: 95%;
-            margin: 0 auto 40px auto;
-            padding-bottom: 22px;
+            margin: 0 auto 8px auto;
+            padding-bottom: 10px;
             border-bottom: 4px double #ccc;
         }
         .st-key-edition_date_stack > div {
@@ -370,7 +370,7 @@ st.markdown(SUBMISSION_STYLES, unsafe_allow_html=True)
 
 # --- Data Loading ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0, require_both: bool = True) -> pd.DataFrame:
     try:
         data = pd.read_csv(filepath)
         data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
@@ -401,11 +401,14 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -
                 data[f"{p} Total Score"] = data.groupby("Date")[f"{p} Geography Score"].transform('sum') + \
                                            data.groupby("Date")[f"{p} Time Score"].transform('sum')
 
-        m_dates = data[data['Michael Total Score'].notna()]['Date'].dt.date.unique()
-        s_dates = data[data['Sarah Total Score'].notna()]['Date'].dt.date.unique()
-        shared = set(m_dates).intersection(set(s_dates))
-        data = data[data['Date'].dt.date.isin(shared)].copy()
-        
+        if require_both:
+            # Used for historical momentum/streak/record tracking, which is only
+            # meaningful for days both players actually completed.
+            m_dates = data[data['Michael Total Score'].notna()]['Date'].dt.date.unique()
+            s_dates = data[data['Sarah Total Score'].notna()]['Date'].dt.date.unique()
+            shared = set(m_dates).intersection(set(s_dates))
+            data = data[data['Date'].dt.date.isin(shared)].copy()
+
         if "Year" in data.columns:
             data["Year"] = pd.to_numeric(data["Year"], errors='coerce')
 
@@ -2882,7 +2885,12 @@ def render_daily_news(dt, evs, round_list=None):
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 raw_data = load_data(mtime=stats_mtime)
-if not raw_data.empty:
+# Momentum/streak/record tracking (df_t/df_tm/df_g/all_evs below) needs both
+# players' data to mean anything, so it keeps using the both-required `raw_data`.
+# Per-day rendering (score boxes, Actuals, bars) needs to work even when only
+# one player has submitted, so it uses this unfiltered version instead.
+raw_data_all = load_data(mtime=stats_mtime, require_both=False)
+if not raw_data_all.empty:
     df_t, df_tm, df_g = prepare_total_margins_data(raw_data), prepare_time_margins_data(raw_data), prepare_geography_margins_data(raw_data)
     all_evs = []
     all_evs.extend(generate_news_events(df_t, "Total Score", 5))
@@ -2950,15 +2958,12 @@ if not raw_data.empty:
         st.markdown(f'<div class="page-title edition-date-overlay">{display_str}</div>', unsafe_allow_html=True)
 
     sel_ts = pd.Timestamp(selected_date)
-    date_rows = raw_data[raw_data["Date"] == sel_ts]
+    date_rows = raw_data_all[raw_data_all["Date"] == sel_ts]
 
-    # --- Score-type momentum bar data (used by the forecast cards below) ---
+    # Comparison bars (Round Scores / Percentile) inherently compare Michael vs
+    # Sarah — if only one of them played, there is nothing meaningful to show,
+    # so this is filled in below only once both are confirmed present.
     bars_by_cat = {}
-    if not date_rows.empty:
-        bars_by_cat = render_score_bars(date_rows)
-        pct_by_cat = render_percentile_bars(date_rows)
-        for _cat in bars_by_cat:
-            bars_by_cat[_cat] += pct_by_cat.get(_cat, "")
 
     # --- Score Submission (Actuals + Michael / Sarah / Community, merged from
     #     the old Score Submission page) ---
@@ -3046,6 +3051,17 @@ if not raw_data.empty:
                 'input': {}, 'comp_tot': 0, 'edit': False,
             }
 
+        is_today = selected_date == datetime.date.today()
+        both_played = p_state["Michael"]['has_g'] and p_state["Sarah"]['has_g']
+
+        # Round Scores / Percentile comparison bars inherently compare Michael vs
+        # Sarah — only meaningful once both have actually played.
+        if not date_rows.empty and both_played:
+            bars_by_cat = render_score_bars(date_rows)
+            pct_by_cat = render_percentile_bars(date_rows)
+            for _cat in bars_by_cat:
+                bars_by_cat[_cat] += pct_by_cat.get(_cat, "")
+
         # --- Single shared Edit toggle for the whole page (Actuals + Michael +
         # Sarah + Community), rendered at the top of the sidebar Settings panel
         # as a View/Edit segmented button pair, matching the Comparison page's
@@ -3072,13 +3088,17 @@ if not raw_data.empty:
         edit_community = edit_page
 
         # --- ACTUALS (full-width section on top) ---
-        # Once submitted and not editing, the consolidated box below carries its
-        # own "Rounds" title, matching the score boxes — this title would be
-        # redundant then, so it's only shown while editing/unsubmitted.
-        if not (act_exists and not edit_act):
-            st.markdown('<div class="section-title" style="color:#db5049;">Actuals</div>', unsafe_allow_html=True)
-        if act_hidden and not edit_act:
-            st.caption("🔒 Hidden until both play")
+        # On the current day, if the two haven't both played yet, the actual
+        # answers would spoil the round — skip the whole section rather than
+        # showing a placeholder box (view mode only; editing still needs it).
+        skip_actuals_section = act_hidden and not edit_act
+
+        if not skip_actuals_section:
+            # Once submitted and not editing, the consolidated box below carries its
+            # own "Rounds" title, matching the score boxes — this title would be
+            # redundant then, so it's only shown while editing/unsubmitted.
+            if not (act_exists and not edit_act):
+                st.markdown('<div class="section-title" style="color:#db5049;">Actuals</div>', unsafe_allow_html=True)
 
         # --- ACTUAL ANSWERS ROUNDS ---
         actual_rounds_data = {}
@@ -3086,27 +3106,22 @@ if not raw_data.empty:
         save_rows_act = []
         actuals_box_html = None  # submitted & not editing: rendered below the M/S/C boxes instead of here
 
-        if act_exists and not edit_act:
-            # Submitted & not editing: one consolidated box listing all 5 rounds,
-            # instead of 5 separate cards.
-            row_blocks = []
-            for r in range(1, 6):
-                row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
-                y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
-                c_def_raw = row.get('Country', '')
-                s_def = row.get('Subdivision', '')
-                c_val = row.get('City', '')
+        if not skip_actuals_section:
+            if act_exists and not edit_act:
+                # Submitted & not editing: one consolidated box listing all 5 rounds,
+                # instead of 5 separate cards.
+                row_blocks = []
+                for r in range(1, 6):
+                    row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
+                    y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
+                    c_def_raw = row.get('Country', '')
+                    s_def = row.get('Subdivision', '')
+                    c_val = row.get('City', '')
 
-                valid_y = y_val.isdigit() and len(y_val) == 4 and 1900 <= int(y_val) <= selected_date.year
-                actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
+                    valid_y = y_val.isdigit() and len(y_val) == 4 and 1900 <= int(y_val) <= selected_date.year
+                    actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
 
-                border = "" if r == 5 else "border-bottom:1px solid rgba(219,80,73,0.15);"
-                if act_hidden:
-                    row_blocks.append(f'''<div style="display:flex; align-items:center; gap:14px; padding:10px 4px; {border}">
-        <span style="font-weight:800; color:#db5049; font-size:0.75em; width:22px; flex-shrink:0;">R{r}</span>
-        <span style="color:#999; font-style:italic; font-size:0.9em;">Hidden until both play</span>
-    </div>''')
-                else:
+                    border = "" if r == 5 else "border-bottom:1px solid rgba(219,80,73,0.15);"
                     flag_html = get_flag_emoji(c_def_raw) if c_def_raw else get_flag_emoji("United Nations")
                     sub_country = c_def_raw or "—"
                     if pd.notna(s_def) and str(s_def).strip(): sub_country = f"{s_def}, {sub_country}"
@@ -3118,94 +3133,94 @@ if not raw_data.empty:
         <span style="color:#555; font-size:0.85em; white-space:nowrap;">📅 {y_val or "—"}</span>
     </div>''')
 
-            actuals_box_html = f'''<div style="background:linear-gradient(135deg,#fff5f5,#ffe8e8); border-radius:12px; padding:6px 16px; border-left:4px solid #db5049; box-shadow:0 2px 8px rgba(219,80,73,0.12);">
+                actuals_box_html = f'''<div style="background:linear-gradient(135deg,#fff5f5,#ffe8e8); border-radius:12px; padding:6px 16px; border-left:4px solid #db5049; box-shadow:0 2px 8px rgba(219,80,73,0.12);">
     <div style="font-weight:700; font-size:30px; color:#db5049; margin:6px 0 5px 0; line-height:1.1;">Rounds</div>
     {"".join(row_blocks)}
     </div>'''
-        else:
-            act_cols = st.columns(5)
-            for r in range(1, 6):
-                with act_cols[r - 1]:
-                    st.markdown(f'<p style="text-align:center; font-weight:700;">Round {r}</p>', unsafe_allow_html=True)
-                    row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
+            else:
+                act_cols = st.columns(5)
+                for r in range(1, 6):
+                    with act_cols[r - 1]:
+                        st.markdown(f'<p style="text-align:center; font-weight:700;">Round {r}</p>', unsafe_allow_html=True)
+                        row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if act_exists and len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
 
-                    y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
-                    c_def_raw = row.get('Country', '')
-                    s_def = row.get('Subdivision', '')
-                    c_val = row.get('City', '')
+                        y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
+                        c_def_raw = row.get('Country', '')
+                        s_def = row.get('Subdivision', '')
+                        c_val = row.get('City', '')
 
-                    y = st.text_input("Year", value=y_val, key=f"ay_{r}_{selected_date}", disabled=not edit_act)
-                    cit = st.text_input("City", value=c_val, key=f"acity_{r}_{selected_date}", disabled=not edit_act)
+                        y = st.text_input("Year", value=y_val, key=f"ay_{r}_{selected_date}", disabled=not edit_act)
+                        cit = st.text_input("City", value=c_val, key=f"acity_{r}_{selected_date}", disabled=not edit_act)
 
-                    # Build country list from config; float countries matching typed city to top
-                    all_countries = list(config.get('countries', {}).keys())
-                    typed_city_for_country = (cit or "").strip().lower()
-                    matching_countries = []
-                    if typed_city_for_country and not act_df.empty and 'City' in act_df.columns and 'Country' in act_df.columns:
-                        hit_countries = act_df[
-                            act_df['City'].str.lower() == typed_city_for_country
-                        ]['Country'].dropna().unique().tolist()
-                        matching_countries = [c for c in all_countries if c in hit_countries]
+                        # Build country list from config; float countries matching typed city to top
+                        all_countries = list(config.get('countries', {}).keys())
+                        typed_city_for_country = (cit or "").strip().lower()
+                        matching_countries = []
+                        if typed_city_for_country and not act_df.empty and 'City' in act_df.columns and 'Country' in act_df.columns:
+                            hit_countries = act_df[
+                                act_df['City'].str.lower() == typed_city_for_country
+                            ]['Country'].dropna().unique().tolist()
+                            matching_countries = [c for c in all_countries if c in hit_countries]
 
-                    other_countries = [c for c in all_countries if c not in matching_countries]
-                    opts = [""] + matching_countries + other_countries
-                    matching_country_set = set(matching_countries)
+                        other_countries = [c for c in all_countries if c not in matching_countries]
+                        opts = [""] + matching_countries + other_countries
+                        matching_country_set = set(matching_countries)
 
-                    c_def = c_def_raw if c_def_raw in opts else opts[0]
-                    c_idx = opts.index(c_def) if c_def in opts else 0
-                    cou = st.selectbox(
-                        "Country", opts, index=c_idx,
-                        format_func=lambda c, ms=matching_country_set: ("★ " + c if c in ms else c),
-                        key=f"ac_{r}_{selected_date}", disabled=not edit_act
-                    )
-
-                    # Build subdivision list from map data; float subs matching typed city to top
-                    iso3 = country_to_iso3(cou) if cou else None
-                    subs_raw = map_subdivs.get(iso3, []) if iso3 else []
-
-                    typed_city = (cit or "").strip().lower()
-                    matching_subs = []
-                    if subs_raw and typed_city and not act_df.empty and 'City' in act_df.columns and 'Subdivision' in act_df.columns:
-                        hit_subs = act_df[
-                            (act_df['Country'] == cou) &
-                            (act_df['City'].str.lower() == typed_city)
-                        ]['Subdivision'].dropna().unique().tolist()
-                        matching_subs = [s for s in subs_raw if s in hit_subs]
-
-                    if subs_raw:
-                        other_subs = [s for s in subs_raw if s not in matching_subs]
-                        subs_ordered = [""] + matching_subs + other_subs
-                        matching_set = set(matching_subs)
-
-                        if s_def in subs_ordered: s_idx = subs_ordered.index(s_def)
-                        else: s_idx = 0
-
-                        sub = st.selectbox(
-                            "Sub", subs_ordered, index=s_idx,
-                            format_func=lambda s, ms=matching_set: ("★ " + s if s in ms else s),
-                            key=f"as_{r}_{selected_date}", disabled=not edit_act
+                        c_def = c_def_raw if c_def_raw in opts else opts[0]
+                        c_idx = opts.index(c_def) if c_def in opts else 0
+                        cou = st.selectbox(
+                            "Country", opts, index=c_idx,
+                            format_func=lambda c, ms=matching_country_set: ("★ " + c if c in ms else c),
+                            key=f"ac_{r}_{selected_date}", disabled=not edit_act
                         )
-                    else:
-                        sub = ""
 
-                    valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=selected_date.year
-                    actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
+                        # Build subdivision list from map data; float subs matching typed city to top
+                        iso3 = country_to_iso3(cou) if cou else None
+                        subs_raw = map_subdivs.get(iso3, []) if iso3 else []
 
-                    if edit_act:
-                        if not (y and cou and cit and valid_y): all_valid_act = False
-                        save_rows_act.append({
-                            "Timeguessr Day": timeguessr_day,
-                            "Timeguessr Round": r,
-                            "City": cit,
-                            "Subdivision": sub,
-                            "Country": cou,
-                            "Year": int(y) if valid_y else 0
-                        })
+                        typed_city = (cit or "").strip().lower()
+                        matching_subs = []
+                        if subs_raw and typed_city and not act_df.empty and 'City' in act_df.columns and 'Subdivision' in act_df.columns:
+                            hit_subs = act_df[
+                                (act_df['Country'] == cou) &
+                                (act_df['City'].str.lower() == typed_city)
+                            ]['Subdivision'].dropna().unique().tolist()
+                            matching_subs = [s for s in subs_raw if s in hit_subs]
 
-        # Actuals save logic is invoked from the single shared Submit button below
-        # (see submit_actuals()), rather than its own button here.
+                        if subs_raw:
+                            other_subs = [s for s in subs_raw if s not in matching_subs]
+                            subs_ordered = [""] + matching_subs + other_subs
+                            matching_set = set(matching_subs)
 
-        st.divider()
+                            if s_def in subs_ordered: s_idx = subs_ordered.index(s_def)
+                            else: s_idx = 0
+
+                            sub = st.selectbox(
+                                "Sub", subs_ordered, index=s_idx,
+                                format_func=lambda s, ms=matching_set: ("★ " + s if s in ms else s),
+                                key=f"as_{r}_{selected_date}", disabled=not edit_act
+                            )
+                        else:
+                            sub = ""
+
+                        valid_y = y.isdigit() and len(y)==4 and 1900<=int(y)<=selected_date.year
+                        actual_rounds_data[r] = {'year': y if valid_y else None, 'year_valid': valid_y}
+
+                        if edit_act:
+                            if not (y and cou and cit and valid_y): all_valid_act = False
+                            save_rows_act.append({
+                                "Timeguessr Day": timeguessr_day,
+                                "Timeguessr Round": r,
+                                "City": cit,
+                                "Subdivision": sub,
+                                "Country": cou,
+                                "Year": int(y) if valid_y else 0
+                            })
+
+            # Actuals save logic is invoked from the single shared Submit button below
+            # (see submit_actuals()), rather than its own button here.
+
+            st.divider()
 
         # --- MICHAEL / SARAH / COMMUNITY (3 columns, kept in lock-step via min-height slots
         #     that grow instead of scrolling if content needs more room) ---
@@ -3222,14 +3237,22 @@ if not raw_data.empty:
 
         # Once submitted and not editing, the consolidated score box below already
         # names the player/community right at its top — a section title above it
-        # would just be redundant, so skip it in that state.
-        community_fields_disabled = has_community and not edit_community
+        # would just be redundant, so skip it in that state. View mode always
+        # shows the consolidated box (generate_community_html falls back to
+        # "???" placeholders on its own if Community hasn't submitted yet),
+        # matching the player boxes — this keeps a submit button available
+        # whenever these fields are actually shown as editable.
+        community_fields_disabled = not edit_community and not date_rows.empty
 
         for col, p_name in [(michael_col, "Michael"), (sarah_col, "Sarah")]:
             with col, st.container(key=f"hdr_box_{p_name}_{selected_date}", border=False):
                 st_state = p_state[p_name]
-                submitted_and_visible = st_state['has_g'] and not st_state['edit'] and not st_state['is_hid']
-                if not submitted_and_visible:
+                # View mode (not editing, not hidden) always shows the consolidated
+                # box now — generate_player_html falls back to "???" placeholders
+                # on its own for whatever this player hasn't submitted, whether
+                # that's a few rounds or the whole day.
+                show_consolidated_box = not st_state['edit'] and not st_state['is_hid'] and not date_rows.empty
+                if not show_consolidated_box:
                     p_color = "#221e8f" if p_name == "Michael" else "#8a005c"
                     st.markdown(f'<div class="section-title" style="color:{p_color};">{p_name}</div>', unsafe_allow_html=True)
                 if st_state['is_hid'] and not st_state['edit']:
@@ -3245,8 +3268,8 @@ if not raw_data.empty:
         for col, p_name in [(michael_col, "Michael"), (sarah_col, "Sarah")]:
             with col:
                 st_state = p_state[p_name]
-                submitted_and_visible = st_state['has_g'] and not st_state['edit'] and not st_state['is_hid']
-                if submitted_and_visible:
+                show_consolidated_box = not st_state['edit'] and not st_state['is_hid'] and not date_rows.empty
+                if show_consolidated_box:
                     other = "Sarah" if p_name == "Michael" else "Michael"
                     my_total = row_for_stats.get(f"{p_name} Total Score") if row_for_stats is not None else None
                     other_total = row_for_stats.get(f"{other} Total Score") if row_for_stats is not None else None
@@ -3457,10 +3480,13 @@ if not raw_data.empty:
                 st_state = p_state[p_name]
                 masked_footer = st_state['is_hid'] and not st_state['edit']
                 fields_disabled = st_state['has_g'] and not st_state['edit']
-                # Once fully submitted and visible, the consolidated score box above already
-                # shows everything — the Computed Total / Total Score / Percentile boxes here
-                # would just be redundant, so skip them entirely.
-                hide_footer_boxes = fields_disabled and not masked_footer
+                # Once the consolidated score box above is shown (view mode, not
+                # hidden), it already covers everything — the Computed Total /
+                # Total Score / Percentile boxes here would just be redundant
+                # (and, for a player who never played, would otherwise show up
+                # as stray editable inputs), so skip them entirely in that case.
+                show_consolidated_box = not st_state['edit'] and not st_state['is_hid'] and not date_rows.empty
+                hide_footer_boxes = show_consolidated_box
                 if not hide_footer_boxes:
                     st.markdown("---")
                 with st.container():
@@ -3711,9 +3737,16 @@ if not raw_data.empty:
                 st.error(f"Community: Save failed: {e}")
                 return False
 
+        # Eligible to submit only if this player actually went through the
+        # editable round-input path: either the global toggle is in Edit mode
+        # (always re-enterable there), or — the rare case where nothing exists
+        # for this day at all — they were shown input fields by default. A
+        # player just viewed as a "???" placeholder box (missing data on a day
+        # someone else already completed) has no populated round inputs to
+        # submit, and must switch to Edit to fill them in.
         submit_players = [
             p for p in ["Michael", "Sarah"]
-            if not p_state[p]['has_g'] or (p_state[p]['has_g'] and p_state[p]['edit'])
+            if p_state[p]['edit'] or (date_rows.empty and not p_state[p]['has_g'])
         ]
 
         if edit_act or submit_players or edit_community:
@@ -3737,7 +3770,14 @@ if not raw_data.empty:
     st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
 
     # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
-    st.markdown(render_forecast_section([get_full_category_forecast(df_t, "Total Score"), get_full_category_forecast(df_tm, "Time Score"), get_full_category_forecast(df_g, "Geography Score")], bars_by_cat), unsafe_allow_html=True)
+    # Averages/streaks/score-runs reflect the state as of the selected date —
+    # if that date hasn't been completed (no row for it yet, since df_t/df_tm/df_g
+    # only contain days both players have submitted), this naturally falls back
+    # to the most recent completed date before it.
+    df_t_asof = df_t[df_t["Date"] <= sel_ts]
+    df_tm_asof = df_tm[df_tm["Date"] <= sel_ts]
+    df_g_asof = df_g[df_g["Date"] <= sel_ts]
+    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], bars_by_cat), unsafe_allow_html=True)
 
     # --- BOTTOM: Round-by-round recap, then Updates (separate boxes) for the selected date ---
     if sel_ts in sd_set:
