@@ -454,9 +454,18 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
                                      'm_states', 's_states', 'tied_states', 'third_states'])
 
     timeline = pd.DataFrame(rows)
+
+    # Make sure the line always reaches the true latest round played — not just
+    # the last round that actually changed the standings. In Electoral College
+    # mode especially, several rounds in a row can pass without flipping any
+    # state, so `rows` stops advancing early; without this, the plotted line
+    # ends short of "now" instead of continuing flat (horizontal) to the
+    # current round. `date` here is the most recent date holding any US round,
+    # left over from the last iteration of the groupby loop above.
     last = timeline.iloc[-1].copy()
-    last['Date'] = pd.Timestamp.now().normalize()
-    if last['Date'] > timeline['Date'].iloc[-1]:
+    if total_rounds > last['round_num']:
+        last['round_num'] = total_rounds
+        last['Date'] = date
         timeline = pd.concat([timeline, last.to_frame().T], ignore_index=True)
 
     return timeline
