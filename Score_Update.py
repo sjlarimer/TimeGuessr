@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from aggregation import parse_averages, AVERAGES_TXT
+from aggregation import AVERAGES_PARSED_CSV
 
 def score_update():
     michael_csv = "Data/Timeguessr_Michael_Parsed.csv"
@@ -14,14 +14,15 @@ def score_update():
     df_all = pd.merge(df_michael, df_sarah, on=["Timeguessr Day", "Timeguessr Round"], how="outer")
     df_all = pd.merge(df_all, df_actuals, on=["Timeguessr Day", "Timeguessr Round"], how="left")
 
-    if os.path.exists(AVERAGES_TXT):
-        with open(AVERAGES_TXT, "r", encoding="utf-8") as f:
-            averages_lines = [line.strip() for line in f if line.strip()]
+    # Community/percentile averages now live directly in this CSV (kept current
+    # by update_averages_csv_entry / update_community_averages_csv_entry) —
+    # already shaped one row per Timeguessr Day + Round, so a single merge
+    # covers both the daily-level and round-level average fields.
+    if os.path.exists(AVERAGES_PARSED_CSV):
+        df_avg = pd.read_csv(AVERAGES_PARSED_CSV)
     else:
-        averages_lines = []
-    df_avg_daily, df_avg_rounds = parse_averages(averages_lines)
-    df_all = pd.merge(df_all, df_avg_daily, on="Timeguessr Day", how="left")
-    df_all = pd.merge(df_all, df_avg_rounds, on=["Timeguessr Day", "Timeguessr Round"], how="left")
+        df_avg = pd.DataFrame(columns=["Timeguessr Day", "Timeguessr Round"])
+    df_all = pd.merge(df_all, df_avg, on=["Timeguessr Day", "Timeguessr Round"], how="left")
 
     if "Michael Time Distance" in df_all.columns and "Michael Time Guessed" in df_all.columns:
         mask = df_all["Michael Time Distance"].isna() & df_all["Michael Time Guessed"].notna() & df_all["Year"].notna()

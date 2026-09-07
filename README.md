@@ -10,7 +10,7 @@ Each TimeGuessr session consists of 5 rounds. Each round awards up to 10,000 poi
 
 Maximum daily score: **50,000 points** across 5 rounds.
 
-The dashboard tracks two players — **Michael** and **Sarah** — from their game history stored as raw text exports, and reconstructs full per-round statistics even when exact numeric scores are missing (using emoji pattern inference).
+The dashboard tracks two players — **Michael** and **Sarah** — from their game history, entered directly through the Daily page's submission form and stored in per-player CSVs.
 
 ---
 
@@ -52,13 +52,11 @@ TimeGuessr/
 │   ├── 13_Fun.py               # Easter eggs and curiosities
 │   └── 14_Electoral_College.py # US electoral map based on location guesses
 └── Data/
-    ├── TimeGuessr_Michael.txt      # Raw game exports (Michael)
-    ├── TimeGuessr_Sarah.txt        # Raw game exports (Sarah)
-    ├── TimeGuessr_Actuals.txt      # Correct answers per round
-    ├── Timeguessr_Michael_Parsed.csv
-    ├── Timeguessr_Sarah_Parsed.csv
-    ├── Timeguessr_Actuals_Parsed.csv
-    ├── Timeguessr_Stats.csv        # Final merged dataset (source of truth)
+    ├── Timeguessr_Michael_Parsed.csv    # Michael's per-round results (source of truth)
+    ├── Timeguessr_Sarah_Parsed.csv      # Sarah's per-round results (source of truth)
+    ├── Timeguessr_Actuals_Parsed.csv    # Correct answers per round (source of truth)
+    ├── Timeguessr_Averages_Parsed.csv   # Community averages + per-round data (source of truth)
+    ├── Timeguessr_Stats.csv        # Final merged dataset (rebuilt from the CSVs above)
     └── Custom_World_Map_New.json   # GeoJSON for location heatmap
 ```
 
@@ -66,20 +64,13 @@ TimeGuessr/
 
 ## Data Pipeline
 
-### 1. Raw Input
+### 1. Input — the Daily page
 
-Players paste their TimeGuessr share text into `Data/TimeGuessr_Michael.txt` and `Data/TimeGuessr_Sarah.txt`. The parser handles three export formats (emoji keycaps, detailed with numeric scores, and simplified). Correct answers are stored in `Data/TimeGuessr_Actuals.txt` in the format:
+Players enter each round's guessed year and distance (plus the correct answer, and optional community stats) directly through the Daily page's submission form. Saving writes straight to the per-entity CSVs below — there's no raw-text export/paste step and no intermediate parsing.
 
-```
-1. City (Subdivision), Country, Year
-```
+### 2. Score Formulas — `aggregation.py`
 
-### 2. Parsing — `aggregation.py`
-
-`run_aggregation()` reads all three TXT files and extracts per-round data:
-- Geography and time emoji patterns (e.g., `OOX` = two greens + a red)
-- Distances and guessed years (when present in the export)
-- Reconstructed scores using the formulas below
+`aggregation.py` holds the shared parsing helpers (kept for historical/offline use) and the scoring formulas used to reconstruct a score from a distance or years-off value:
 
 **Geography scoring formula** (piecewise linear by distance):**
 
@@ -106,20 +97,19 @@ Players paste their TimeGuessr share text into `Data/TimeGuessr_Michael.txt` and
 | ... | decreasing |
 | 20+ | 0 |
 
-When only emoji patterns are available (no numeric distances), scores are estimated as a Min–Max range based on pattern category, with the mean used for charting.
-
-Outputs: `Timeguessr_Michael_Parsed.csv`, `Timeguessr_Sarah_Parsed.csv`, `Timeguessr_Actuals_Parsed.csv`
+Some historical rounds (imported before this scoring logic existed) only have an emoji accuracy pattern rather than an exact distance; for those, `aggregation.py` still estimates a Min–Max score range from the pattern category, with the mean used for charting.
 
 ### 3. Enrichment — `Score_Update.py`
 
-`score_update()` merges the three parsed CSVs on (Day, Round) and produces `Data/Timeguessr_Stats.csv` with columns including:
+`score_update()` merges `Timeguessr_Michael_Parsed.csv`, `Timeguessr_Sarah_Parsed.csv`, `Timeguessr_Actuals_Parsed.csv`, and `Timeguessr_Averages_Parsed.csv` on (Day, Round) and rebuilds `Data/Timeguessr_Stats.csv` with columns including:
 
 - **Temporal**: Date, Timeguessr Day, Timeguessr Round (1–5)
 - **Location**: City, Subdivision, Country, Year
 - **Per-player**: Total score, Round score, Time score/distance/guessed year, Geography score/distance/pattern
+- **Community**: Round score, time/geography distance, and daily averages
 - **Derived**: Min/Max/Mean estimated scores for uncertain rounds
 
-This file is the single source of truth for all dashboard pages.
+`Timeguessr_Stats.csv` is rebuilt from the four CSVs above on every page load — those CSVs (not Stats.csv) are the actual source of truth, kept current directly by the Daily page's submission form.
 
 ---
 
@@ -130,8 +120,8 @@ This file is the single source of truth for all dashboard pages.
 - Score reference charts: interactive Plotly charts showing the geography score curve (log-scale) and time score step function, both color-coded by emoji accuracy tier
 - Recent Activity Log: scrollable table of the last 100 rounds with date, location (city + subdivision + country), year, and per-player scores
 
-### Score Submission (`1_Score_Submission.py`)
-Daily input form. Players enter their share text or manual scores; the page validates emoji patterns, calculates estimated scores, and appends to the raw TXT files.
+### Daily
+Combined daily news/recap feed and score submission form. Players enter each round's guessed year and distance (plus the correct answer and optional community stats); the page computes scores live and writes straight to the per-entity CSVs — no raw text export/paste step.
 
 ### Scores (`2_Scores.py`)
 Time-series charts for total, time, and geography scores. Includes rolling average (configurable window), cumulative average, KDE density estimation, percentile bands, and per-player statistics tables with streak analysis.

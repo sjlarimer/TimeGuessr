@@ -1,4 +1,3 @@
-import math
 import os
 import re
 import numpy as np
@@ -8,24 +7,6 @@ try:
     pd.set_option("future.infer_string", False)
 except Exception:
     pass
-
-MICHAEL_TXT   = "Data/TimeGuessr_Michael.txt"
-SARAH_TXT     = "Data/TimeGuessr_Sarah.txt"
-ACTUALS_TXT   = "Data/TimeGuessr_Actuals.txt"
-AVERAGES_TXT  = "Data/TimeGuessr_Averages.txt"
-STATS_CSV     = "Data/Timeguessr_Stats.csv"
-
-
-def _needs_update():
-    if not os.path.exists(STATS_CSV):
-        return True
-    stats_mtime = os.path.getmtime(STATS_CSV)
-    return any(
-        os.path.getmtime(p) > stats_mtime
-        for p in (MICHAEL_TXT, SARAH_TXT, ACTUALS_TXT, AVERAGES_TXT)
-        if os.path.exists(p)
-    )
-
 
 def _parse_distance_to_meters(value):
     if value is None:
@@ -403,289 +384,95 @@ def parse_averages(lines):
     return df_daily, df_rounds
 
 
-_AVERAGES_BLOCK_LABELS = (
-    ["Average", "Years Average", "Location Average",
-     "Michael Percentile", "Michael Years", "Michael Location",
-     "Sarah Percentile", "Sarah Years", "Sarah Location"]
-    + [f"{r}{suffix}" for r in range(1, 6) for suffix in ("", " Time", " Geo")]
+# ──────────────────────────────────────────────────────────────────────────────
+# CSV-native averages persistence (current data-collection path). Writes
+# straight to Data/Timeguessr_Averages_Parsed.csv, one row per Timeguessr Day +
+# Round. The old TimeGuessr_*.txt files and their txt-parsing/writing helpers
+# have been retired — this CSV (plus the Michael/Sarah/Actuals Parsed CSVs) is
+# now the sole source of truth.
+# ──────────────────────────────────────────────────────────────────────────────
+AVERAGES_PARSED_CSV = "Data/Timeguessr_Averages_Parsed.csv"
+
+_AVERAGES_CSV_COLS = (
+    ["Timeguessr Day", "Timeguessr Round"]
+    + [c for c in _ROUND_COLS if c not in ("Timeguessr Day", "Timeguessr Round")]
+    + [c for c in _DAILY_COLS if c != "Timeguessr Day"]
 )
 
 
-def _update_averages_block(day, updates):
-    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
-    setting each `label -> value` in `updates` while leaving every other
-    line in the block untouched."""
-    if not updates:
+def _load_averages_csv():
+    if os.path.exists(AVERAGES_PARSED_CSV):
+        df = pd.read_csv(AVERAGES_PARSED_CSV)
+        for c in _AVERAGES_CSV_COLS:
+            if c not in df.columns:
+                df[c] = np.nan
+        return df[_AVERAGES_CSV_COLS]
+    return pd.DataFrame(columns=_AVERAGES_CSV_COLS)
+
+
+def _save_averages_csv(df):
+    df = df.sort_values(["Timeguessr Day", "Timeguessr Round"]).reset_index(drop=True)
+    df.to_csv(AVERAGES_PARSED_CSV, index=False)
+
+
+def _ensure_averages_day_rows(df, day):
+    """Return (df, mask) where df has all 5 round rows for `day` (adding any
+    that are missing) and mask selects exactly those 5 rows."""
+    mask = df["Timeguessr Day"] == day
+    existing_rounds = set(df.loc[mask, "Timeguessr Round"])
+    missing = [r for r in range(1, 6) if r not in existing_rounds]
+    if missing:
+        new_rows = pd.DataFrame([
+            {**{c: np.nan for c in _AVERAGES_CSV_COLS}, "Timeguessr Day": day, "Timeguessr Round": r}
+            for r in missing
+        ])
+        df = pd.concat([df, new_rows], ignore_index=True)
+        mask = df["Timeguessr Day"] == day
+    return df, mask
+
+
+def update_averages_csv_entry(day, player, percentile=None, years=None, location=None):
+    """Upserts `{player} Percentile/Years/Location` for every round row of
+    `day` in Timeguessr_Averages_Parsed.csv. `percentile` is on a 0-100 scale
+    (matching the UI), stored as a 0-1 fraction to match the existing column
+    convention."""
+    if percentile is None and years is None and location is None:
         return
-
-    if os.path.exists(AVERAGES_TXT):
-        with open(AVERAGES_TXT, "r", encoding="utf-8") as f:
-            raw_lines = f.read().splitlines()
-    else:
-        raw_lines = []
-
-    header = f"TimeGuessr #{day}"
-    start = next((idx for idx, line in enumerate(raw_lines) if line.strip() == header), None)
-
-    if start is None:
-        block = [header] + [f"{label} - " for label in _AVERAGES_BLOCK_LABELS]
-        for idx, label in enumerate(_AVERAGES_BLOCK_LABELS, start=1):
-            if label in updates:
-                block[idx] = f"{label} - {updates[label]}"
-        if raw_lines and raw_lines[-1].strip() != "":
-            raw_lines.append("")
-        raw_lines.extend(block)
-        raw_lines.append("")
-    else:
-        end = next(
-            (idx for idx in range(start + 1, len(raw_lines)) if re.match(r"^TimeGuessr #\d+$", raw_lines[idx].strip())),
-            len(raw_lines),
-        )
-        for label, val in updates.items():
-            for idx in range(start + 1, end):
-                if re.match(rf"^{re.escape(label)}\s*-", raw_lines[idx]):
-                    raw_lines[idx] = f"{label} - {val}"
-                    break
-            else:
-                raw_lines.insert(end, f"{label} - {val}")
-                end += 1
-
-    with open(AVERAGES_TXT, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw_lines).rstrip("\n") + "\n")
-
-
-def update_averages_entry(day, player, percentile=None, years=None, location=None):
-    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
-    setting `{player} Percentile/Years/Location` while leaving every other
-    line in the block untouched."""
-    updates = {}
+    df = _load_averages_csv()
+    df, mask = _ensure_averages_day_rows(df, day)
     if percentile is not None:
-        updates[f"{player} Percentile"] = f"{percentile:g}%"
+        df.loc[mask, f"{player} Percentile"] = percentile / 100.0
     if years is not None:
-        updates[f"{player} Years"] = f"{years:g}"
+        df.loc[mask, f"{player} Years"] = years
     if location is not None:
-        updates[f"{player} Location"] = f"{location:g}"
-    _update_averages_block(day, updates)
+        df.loc[mask, f"{player} Location"] = location
+    _save_averages_csv(df)
 
 
-def update_community_averages_entry(day, average=None, years_average=None, location_average=None, rounds=None):
-    """Update (or create) the Data/TimeGuessr_Averages.txt block for `day`,
-    setting the community `Average`/`Years Average`/`Location Average` and/or
-    per-round `N`/`N Time`/`N Geo` lines. `rounds` is a dict of
-    {round_num: {'score': float|None, 'time': float|None, 'geo_text': str|None}}.
-    `geo_text` is written verbatim (e.g. "710.3 mi")."""
-    updates = {}
-    if average is not None:
-        updates["Average"] = f"{average:g}"
-    if years_average is not None:
-        updates["Years Average"] = f"{years_average:g}"
-    if location_average is not None:
-        updates["Location Average"] = f"{location_average:g}"
-    for r, vals in (rounds or {}).items():
-        if vals.get("score") is not None:
-            updates[f"{r}"] = f"{vals['score']:g}"
-        if vals.get("time") is not None:
-            updates[f"{r} Time"] = f"{vals['time']:g}"
-        if vals.get("geo_text"):
-            updates[f"{r} Geo"] = vals["geo_text"]
-    _update_averages_block(day, updates)
-
-
-def _replace_txt_block(path, day, new_block_lines, header_regex):
-    """Replace (or append) the block for `day` in a TimeGuessr raw-text `path`
-    file, where blocks are delimited by lines matching `header_regex` (must
-    capture the day number in group 1) and end at the next blank line or the
-    next header line."""
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            raw_lines = f.read().splitlines()
-    else:
-        raw_lines = []
-
-    start = None
-    for idx, line in enumerate(raw_lines):
-        m = re.match(header_regex, line.strip())
-        if m and int(m.group(1)) == day:
-            start = idx
-            break
-
-    if start is None:
-        if raw_lines and raw_lines[-1].strip() != "":
-            raw_lines.append("")
-        raw_lines.extend(new_block_lines)
-        raw_lines.append("")
-    else:
-        end = start + 1
-        while end < len(raw_lines) and raw_lines[end].strip() != "" and not re.match(header_regex, raw_lines[end].strip()):
-            end += 1
-        raw_lines[start:end] = new_block_lines
-
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw_lines).rstrip("\n") + "\n")
-
-
-def update_actuals_txt_entry(day, rounds):
-    """Replace (or create) the Data/TimeGuessr_Actuals.txt block for `day`.
-    `rounds` is a dict of {round_num(1-5): {'city', 'subdivision', 'country', 'year'}}."""
-    block = [f"TimeGuessr #{day}"]
-    for r in range(1, 6):
-        v = rounds.get(r, {})
-        city = v.get("city") or ""
-        sub = v.get("subdivision") or ""
-        country = v.get("country") or ""
-        year = v.get("year")
-        city_part = f"{city} ({sub})" if sub else city
-        block.append(f"{r}. {city_part}, {country}, {year}")
-    _replace_txt_block(ACTUALS_TXT, day, block, header_regex=r"^TimeGuessr #(\d+)")
-
-
-def update_player_txt_entry(player, day, total_score, rounds):
-    """Replace (or create) the Data/TimeGuessr_{player}.txt block for `day`,
-    using the numeric round format aggregation's parser understands (exact
-    year-guessed + exact distance per round). Scores are always re-derivable
-    from these plus the actual answer once merged, so nothing is lost even
-    though the actual may not be known yet at submission time.
-    `rounds` is a dict of {round_num(1-5): {'geo_emoji', 'time_emoji', 'year', 'dist_value', 'unit'}}."""
-    path = MICHAEL_TXT if player == "Michael" else SARAH_TXT
-    block = [f"TimeGuessr #{day} {total_score:,}/50,000"]
-    for r in range(1, 6):
-        v = rounds.get(r, {})
-        block.append(f"🌎{v.get('geo_emoji', '')} 📅{v.get('time_emoji', '')} {v.get('year')}, {v.get('dist_value'):g} {v.get('unit')}")
-    _replace_txt_block(path, day, block, header_regex=r"^TimeGuessr #(\d+)")
-
-
-def run_aggregation():
-    if not _needs_update():
+def update_community_averages_csv_entry(day, average=None, years_average=None, location_average=None, rounds=None):
+    """Upserts the community averages/round data for `day`. `rounds` is
+    a dict of {round_num: {'score': float|None, 'time': float|None,
+    'geo_m': float|None}} — geo_m is the geography distance in meters (the
+    unit Timeguessr_Averages_Parsed.csv's Community Geography Distance column
+    already uses)."""
+    if average is None and years_average is None and location_average is None and not rounds:
         return
-
-    with open(MICHAEL_TXT, "r", encoding="utf-8") as f:
-        michael_lines = [line.strip() for line in f if line.strip()]
-    with open(SARAH_TXT, "r", encoding="utf-8") as f:
-        sarah_lines = [line.strip() for line in f if line.strip()]
-    with open(ACTUALS_TXT, "r", encoding="utf-8") as f:
-        actuals_lines = [line.strip() for line in f if line.strip()]
-    if os.path.exists(AVERAGES_TXT):
-        with open(AVERAGES_TXT, "r", encoding="utf-8") as f:
-            averages_lines = [line.strip() for line in f if line.strip()]
-    else:
-        averages_lines = []
-
-    df_michael = parse_user_blocks(michael_lines, "Michael")
-    df_michael.to_csv("Data/Timeguessr_Michael_Parsed.csv", index=False)
-
-    df_sarah = parse_user_blocks(sarah_lines, "Sarah")
-    df_sarah.to_csv("Data/Timeguessr_Sarah_Parsed.csv", index=False)
-
-    df_actuals = parse_actuals(actuals_lines)
-    df_actuals.to_csv("Data/Timeguessr_Actuals_Parsed.csv", index=False)
-
-    df_avg_daily, df_avg_rounds = parse_averages(averages_lines)
-    df_avg_parsed = pd.merge(df_avg_rounds, df_avg_daily, on="Timeguessr Day", how="left")
-    df_avg_parsed = df_avg_parsed.sort_values(["Timeguessr Day", "Timeguessr Round"]).reset_index(drop=True)
-    df_avg_parsed.to_csv("Data/Timeguessr_Averages_Parsed.csv", index=False)
-
-    df_all = pd.merge(df_michael, df_sarah, on=["Timeguessr Day", "Timeguessr Round"], how="outer")
-    df_all = pd.merge(df_all, df_actuals, on=["Timeguessr Day", "Timeguessr Round"], how="left")
-    df_all = pd.merge(df_all, df_avg_daily, on="Timeguessr Day", how="left")
-    df_all = pd.merge(df_all, df_avg_rounds, on=["Timeguessr Day", "Timeguessr Round"], how="left")
-
-    if "Michael Time Distance" in df_all.columns and "Michael Time Guessed" in df_all.columns:
-        mask = df_all["Michael Time Distance"].isna() & df_all["Michael Time Guessed"].notna() & df_all["Year"].notna()
-        df_all.loc[mask, "Michael Time Distance"] = abs(df_all.loc[mask, "Year"] - df_all.loc[mask, "Michael Time Guessed"])
-
-    if "Sarah Time Distance" in df_all.columns and "Sarah Time Guessed" in df_all.columns:
-        mask = df_all["Sarah Time Distance"].isna() & df_all["Sarah Time Guessed"].notna() & df_all["Year"].notna()
-        df_all.loc[mask, "Sarah Time Distance"] = abs(df_all.loc[mask, "Year"] - df_all.loc[mask, "Sarah Time Guessed"])
-
-    start_date = pd.Timestamp("2025-03-20")
-    df_all["Date"] = start_date + pd.to_timedelta(df_all["Timeguessr Day"] - df_all["Timeguessr Day"].min(), unit="D")
-
-    cols = (
-        ["Date", "Timeguessr Day", "Timeguessr Round", "City", "Subdivision", "Country", "Year"]
-        + [c for c in df_all.columns if c not in ["Date", "Timeguessr Day", "Timeguessr Round", "City", "Subdivision", "Country", "Year"]]
-    )
-    df_all = df_all[cols]
-    df_all = df_all.sort_values(["Timeguessr Day", "Timeguessr Round"]).reset_index(drop=True)
-
-    def calc_time_score(years_off):
-        if years_off is None:
-            return None
-        try:
-            if math.isnan(years_off):
-                return None
-        except (TypeError, ValueError):
-            pass
-        y = float(years_off)
-        if y == 0:   return 5000
-        if y == 1:   return 4950
-        if y == 2:   return 4800
-        if y == 3:   return 4600
-        if y == 4:   return 4300
-        if y == 5:   return 3900
-        if y <= 7:   return 3400
-        if y <= 10:  return 2500
-        if y < 16:   return 2000
-        if y < 21:   return 1000
-        return 0
-
-    for player in ["Michael", "Sarah"]:
-        time_col       = f"{player} Time"
-        time_score_col = f"{player} Time Score"
-        time_dist_col  = f"{player} Time Distance"
-
-        mask = df_all[time_score_col].isna() & (df_all[time_col] == "OOO")
-        df_all.loc[mask, time_score_col] = 5000
-        mask = df_all[time_score_col].isna() & (df_all[time_col] == "%XX")
-        df_all.loc[mask, time_score_col] = 1000
-        mask = df_all[time_score_col].isna() & (df_all[time_col] == "XXX")
-        df_all.loc[mask, time_score_col] = 0
-
-        mask = df_all[time_score_col].isna()
-        _dist_vals = df_all.loc[mask, time_dist_col]
-        df_all.loc[mask, time_score_col] = pd.Series(
-            [calc_time_score(v) for v in list(_dist_vals)],
-            index=_dist_vals.index,
-        )
-
-    for player in ["Michael", "Sarah"]:
-        time_score_col = f"{player} Time Score"
-        time_col       = f"{player} Time"
-        time_min_col   = f"{player} Time Score (Min)"
-        time_max_col   = f"{player} Time Score (Max)"
-
-        if time_score_col in df_all.columns:
-            df_all[time_min_col] = np.nan
-            df_all[time_max_col] = np.nan
-
-            mask = df_all[time_score_col].notna()
-            df_all.loc[mask, time_min_col] = df_all.loc[mask, time_score_col]
-            df_all.loc[mask, time_max_col] = df_all.loc[mask, time_score_col]
-
-            if time_col in df_all.columns:
-                for pattern, lo, hi in [
-                    ("OO%", 4800, 4950),
-                    ("OOX", 4300, 4600),
-                    ("O%X", 3400, 3900),
-                    ("OXX", 2000, 2500),
-                ]:
-                    mask = df_all[time_score_col].isna() & (df_all[time_col] == pattern)
-                    df_all.loc[mask, time_min_col] = lo
-                    df_all.loc[mask, time_max_col] = hi
-
-    for player in ["Michael", "Sarah"]:
-        time_col  = f"{player} Time Score"
-        geo_col   = f"{player} Geography Score"
-        round_col = f"{player} Round Score"
-        if all(c in df_all.columns for c in [time_col, geo_col, round_col]):
-            mask = df_all[round_col].isna() & df_all[time_col].notna() & df_all[geo_col].notna()
-            df_all.loc[mask, round_col] = df_all.loc[mask, time_col] + df_all.loc[mask, geo_col]
-
-    for player in ["Michael", "Sarah"]:
-        for component in ["Time", "Geography"]:
-            min_col  = f"{player} {component} Score (Min)"
-            max_col  = f"{player} {component} Score (Max)"
-            mean_col = f"{player} {component} Score (Mean)"
-            if min_col in df_all.columns and max_col in df_all.columns:
-                df_all[mean_col] = (df_all[min_col] + df_all[max_col]) / 2
-
-    df_all.to_csv(STATS_CSV, index=False)
+    df = _load_averages_csv()
+    df, mask = _ensure_averages_day_rows(df, day)
+    if average is not None:
+        df.loc[mask, "Community Average"] = average
+    if years_average is not None:
+        df.loc[mask, "Community Years Average"] = years_average
+    if location_average is not None:
+        df.loc[mask, "Community Location Average"] = location_average
+    for r, vals in (rounds or {}).items():
+        rmask = mask & (df["Timeguessr Round"] == r)
+        if not rmask.any():
+            continue
+        if vals.get("score") is not None:
+            df.loc[rmask, "Community Round Score"] = vals["score"]
+        if vals.get("time") is not None:
+            df.loc[rmask, "Community Time Distance"] = vals["time"]
+        if vals.get("geo_m") is not None:
+            df.loc[rmask, "Community Geography Distance"] = vals["geo_m"]
+    _save_averages_csv(df)

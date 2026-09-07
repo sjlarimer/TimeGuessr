@@ -28,15 +28,10 @@ except ImportError:
     def score_update(): pass
 
 try:
-    from aggregation import (
-        update_averages_entry, update_community_averages_entry,
-        update_actuals_txt_entry, update_player_txt_entry,
-    )
+    from aggregation import update_averages_csv_entry, update_community_averages_csv_entry
 except ImportError:
-    def update_averages_entry(*args, **kwargs): pass
-    def update_community_averages_entry(*args, **kwargs): pass
-    def update_actuals_txt_entry(*args, **kwargs): pass
-    def update_player_txt_entry(*args, **kwargs): pass
+    def update_averages_csv_entry(*args, **kwargs): pass
+    def update_community_averages_csv_entry(*args, **kwargs): pass
 
 try:
     with open("config.json", encoding="utf-8") as f:
@@ -2100,13 +2095,14 @@ def get_full_category_forecast(df, cat):
     for _, r in df.iterrows():
         d = r["Score Diff"]
         w = "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
-        if w == "Tie": continue
-        if w == sw: cs += 1
-        else: sw, cs = w, 1
-        if cs > ms[w]: ms[w] = cs
-    
+        # A tie is not a win for either side, so it breaks an active streak
+        # instead of being skipped over (which let a streak survive across it).
+        if w == sw and w != "Tie": cs += 1
+        else: sw, cs = w, (1 if w != "Tie" else 0)
+        if w != "Tie" and cs > ms[w]: ms[w] = cs
+
     sh = ""
-    if sw:
+    if sw and sw != "Tie" and cs > 0:
         opp = "Sarah" if sw == "Michael" else "Michael"
         rec = ms[sw]
         if cs == rec: t_str = f"<span style='color:#27ae60; font-weight:700;'>Record Streak!</span>"
@@ -3619,12 +3615,6 @@ if not raw_data_all.empty:
                 f_df = act_df[act_df['Timeguessr Day'] != timeguessr_day]
                 f_df = pd.concat([f_df, pd.DataFrame(save_rows_act)], ignore_index=True)
                 f_df.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(act_path, index=False)
-
-                rounds_for_txt = {row["Timeguessr Round"]: row for row in save_rows_act}
-                update_actuals_txt_entry(timeguessr_day, {
-                    r: {'city': v['City'], 'subdivision': v['Subdivision'], 'country': v['Country'], 'year': v['Year']}
-                    for r, v in rounds_for_txt.items()
-                })
                 return True
             except Exception as e:
                 st.error(f"Actuals: Save failed: {e}")
@@ -3642,7 +3632,6 @@ if not raw_data_all.empty:
                 return False
 
             new_rows = []
-            rounds_for_txt = {}
             for r in range(1, 6):
                 d = st_state['input'][r]
                 if not d['dist_raw'] or not d['year']:
@@ -3667,10 +3656,6 @@ if not raw_data_all.empty:
                 if pd.notna(t_score) and pd.notna(d['g_score']):
                     r_score = t_score + d['g_score']
 
-                rounds_for_txt[r] = {
-                    'year': d['year_int'], 'dist_value': d['dist_value'], 'unit': d['unit'],
-                }
-
                 new_rows.append({
                     "Timeguessr Day": int(timeguessr_day),
                     "Timeguessr Round": int(r),
@@ -3692,13 +3677,12 @@ if not raw_data_all.empty:
                 df_out = pd.concat([df_out, pd.DataFrame(new_rows)], ignore_index=True)
                 df_out.sort_values(['Timeguessr Day', 'Timeguessr Round']).to_csv(st_state['csv'], index=False)
 
-                update_averages_entry(
+                update_averages_csv_entry(
                     timeguessr_day, p_name,
                     percentile=_to_float_generic(st_state['pct_in']),
                     years=_to_float_generic(st_state['yrs_in']),
                     location=_to_float_generic(st_state['loc_in']),
                 )
-                update_player_txt_entry(p_name, timeguessr_day, ts_val, rounds_for_txt)
                 return True
             except Exception as e:
                 st.error(f"{p_name}: Save failed: {e}")
@@ -3708,12 +3692,12 @@ if not raw_data_all.empty:
             rounds_payload = {}
             for r in range(1, 6):
                 ci = community_round_input.get(r, {})
-                _, dunit = parse_distance_input(ci.get('dist', ''))
-                geo_text = ci.get('dist', '').strip() if dunit is not None else None
+                dval, dunit = parse_distance_input(ci.get('dist', ''))
+                geo_m = distance_to_meters(dval, dunit) if (dval is not None and dunit is not None) else None
                 rounds_payload[r] = {
                     'score': _to_float_c(ci.get('score')),
                     'time': _to_float_c(ci.get('time')),
-                    'geo_text': geo_text,
+                    'geo_m': geo_m,
                 }
 
             avg_val = _to_float_c(community_stats_input['avg'])
@@ -3725,7 +3709,7 @@ if not raw_data_all.empty:
                 return False
 
             try:
-                update_community_averages_entry(
+                update_community_averages_csv_entry(
                     timeguessr_day,
                     average=avg_val,
                     years_average=_to_float_c(community_stats_input['yrs']),
