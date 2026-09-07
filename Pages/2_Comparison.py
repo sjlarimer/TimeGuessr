@@ -1281,7 +1281,7 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
 
     return fig
 
-def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False) -> go.Figure:
+def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False, label: str = "Score") -> go.Figure:
     """Overlapping step histogram: for every integer threshold X in [x_start, ceiling],
     how many days had a score >= X (or <= X when reverse=True), where x_start is the
     nearest multiple of 5,000 at or below the combined minimum score across all series.
@@ -1328,7 +1328,7 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
                 fill='tozeroy',
                 fillcolor=hex_to_rgba(color, 0.4),
                 customdata=percentile,
-                hovertemplate=f'Score {op_symbol} ' + '%{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
+                hovertemplate=f'{label} {op_symbol} ' + '%{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
             ))
 
             median_val = scores.median()
@@ -1339,8 +1339,8 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
             )
 
     fig.update_layout(
-        xaxis_title='Score Threshold (X)',
-        yaxis_title=f'Days with Score {op_symbol} X',
+        xaxis_title=f'{label} Threshold (X)',
+        yaxis_title=f'Days with {label} {op_symbol} X',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
@@ -1383,7 +1383,7 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
 
     return fig
 
-def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = False) -> go.Figure:
+def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = False, label: str = "Score") -> go.Figure:
     """Companion plot to create_cumulative_histogram: for every integer threshold X,
     what's the longest streak of consecutive days (in sequence order) with score >= X
     (or <= X when reverse=True).
@@ -1445,11 +1445,11 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
             line=dict(color=color, width=3),
             fill='tozeroy',
             fillcolor=hex_to_rgba(color, 0.4),
-            hovertemplate=f'Score {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days<extra></extra>'
+            hovertemplate=f'{label} {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days<extra></extra>'
         ))
 
     fig.update_layout(
-        xaxis_title='Score Threshold (X)',
+        xaxis_title=f'{label} Threshold (X)',
         yaxis_title=f'Longest Streak {op_symbol} X (days)',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
@@ -1707,18 +1707,20 @@ def calculate_win_streaks(df: pd.DataFrame) -> List[Dict]:
         elif row["Score Diff"] < 0:
             winner = "Sarah"
         else:
-            continue
-        if winner == current_winner:
+            winner = "Tie"
+        # A tie is not a win for either side, so it breaks an active streak
+        # instead of being skipped over (which let a streak survive across it).
+        if winner == current_winner and winner != "Tie":
             current_streak += 1
         else:
-            if current_winner is not None and current_streak > 0:
+            if current_winner is not None and current_winner != "Tie" and current_streak > 0:
                 streaks.append({'winner': current_winner, 'length': current_streak,
                                 'start_date': streak_start, 'end_date': df.iloc[idx-1]["Date"]})
             current_winner = winner
-            current_streak = 1
+            current_streak = 1 if winner != "Tie" else 0
             streak_start = row["Date"]
 
-    if current_winner is not None and current_streak > 0:
+    if current_winner is not None and current_winner != "Tie" and current_streak > 0:
         streaks.append({'winner': current_winner, 'length': current_streak,
                         'start_date': streak_start, 'end_date': df.iloc[-1]["Date"]})
     return streaks
@@ -2689,6 +2691,48 @@ if comp_type == 'Cross':
 
         margin_original = margin_mask[margin_mask["Date"].dt.time == pd.Timestamp("00:00:00").time()].copy().reset_index(drop=True)
         st.markdown(create_momentum_timeline(margin_original, window_length), unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("Statistics Summary")
+
+        # Each player's winning margin on the days they actually won (mirrors the
+        # raw per-player score series used by the Scores tab's histograms above).
+        # Used for the cumulative histogram, where only the count of qualifying
+        # days matters, not their order.
+        michael_margins = margin_original.loc[margin_original["Score Diff"] > 0, "Score Diff"]
+        sarah_margins = -margin_original.loc[margin_original["Score Diff"] < 0, "Score Diff"]
+
+        # The streak histogram needs actual day-to-day adjacency, so it can't use
+        # the win-only series above (that silently skips every day the OTHER
+        # player won, which would let a streak jump across a loss). Instead, walk
+        # every played day in order and give a non-winning day a margin of 0 —
+        # below any positive threshold — so it correctly breaks the streak.
+        # -1 (not 0) for a non-winning day: a threshold of X=0 would otherwise count
+        # as "margin >= 0" for every non-winning day too (losses and ties alike),
+        # inflating the streak with days that were never wins at all.
+        _score_diff = margin_original["Score Diff"]
+        michael_streak_margins = _score_diff.where(_score_diff > 0, -1)
+        sarah_streak_margins = (-_score_diff).where(_score_diff < 0, -1)
+        streak_dates = margin_original["Date"]
+
+        # Margins run far smaller than the full score ceiling, so scale the x-axis
+        # to the data itself — the nearest 5,000 at or above the largest margin —
+        # instead of stretching it out to the score ceiling.
+        max_margin = pd.concat([michael_margins, sarah_margins]).max() if (len(michael_margins) or len(sarah_margins)) else 0
+        margin_ceiling = int(np.ceil(max(max_margin, 1) / 5000) * 5000)
+
+        mcol1, mcol2 = st.columns(2)
+        with mcol1:
+            st.plotly_chart(create_cumulative_histogram(
+                [(michael_margins, 'Michael', COLORS['michael']), (sarah_margins, 'Sarah', COLORS['sarah'])],
+                margin_ceiling, label="Margin"
+            ), use_container_width=True, key="margin_cumulative_histogram_chart")
+        with mcol2:
+            st.plotly_chart(create_streak_score_histogram(
+                [(michael_streak_margins, streak_dates, 'Michael', COLORS['michael']),
+                 (sarah_streak_margins, streak_dates, 'Sarah', COLORS['sarah'])],
+                margin_ceiling, label="Margin"
+            ), use_container_width=True, key="margin_streak_histogram_chart")
+
         st.markdown("---")
         col1, col2 = st.columns(2)
         with col1:
