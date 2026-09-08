@@ -1324,7 +1324,7 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
                 y=counts,
                 name=name,
                 mode='lines',
-                line=dict(color=color, width=3),
+                line=dict(color=color, width=3, shape='hv'),
                 fill='tozeroy',
                 fillcolor=hex_to_rgba(color, 0.4),
                 customdata=percentile,
@@ -1442,7 +1442,7 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
             y=y_vals,
             name=name,
             mode='lines',
-            line=dict(color=color, width=3),
+            line=dict(color=color, width=3, shape='hv'),
             fill='tozeroy',
             fillcolor=hex_to_rgba(color, 0.4),
             hovertemplate=f'{label} {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days<extra></extra>'
@@ -1478,6 +1478,106 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
         range=[x_start, ceiling]
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero'
+    )
+
+    return fig
+
+def create_streak_count_histogram(streaks_list) -> go.Figure:
+    """Companion plot to the Streaks table: for every integer streak length X
+    from 1 to the longest streak observed, how many completed win streaks
+    (of either player) were at least X games long — each streak counted once
+    per threshold it qualifies for, never split into sub-streaks.
+    `streaks_list` is a list of (lengths: list[int], name: str, color: str)."""
+    fig = go.Figure()
+
+    non_empty = [(l, n, c) for l, n, c in streaks_list if l]
+    if not non_empty:
+        return fig
+
+    max_len = max(max(l) for l, _, _ in non_empty)
+    x_vals = np.arange(1, max_len + 1)
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    # Each integer X gets its own "bar" of the step — shift the plotted step
+    # half a unit to the left and append one trailing point so that bar spans
+    # [X-0.5, X+0.5) and the tick at X sits at its center, not its left edge.
+    x_plot = np.append(x_vals - 0.5, max_len + 0.5)
+
+    for lengths, name, color in non_empty:
+        sorted_lengths = np.sort(np.array(lengths))
+        counts = len(sorted_lengths) - np.searchsorted(sorted_lengths, x_vals, side='left')
+        y_plot = np.append(counts, counts[-1])
+        fig.add_trace(go.Scatter(
+            x=x_plot,
+            y=y_plot,
+            name=name,
+            mode='lines',
+            line=dict(color=color, width=3, shape='hv'),
+            fill='tozeroy',
+            fillcolor=hex_to_rgba(color, 0.4),
+            hoverinfo='skip',
+        ))
+        # Invisible marker at each bar's actual center (an integer x) — the
+        # line trace above has no data point there (its points sit at the
+        # .5 edges), so without this the hover would snap to an edge instead
+        # of the middle of the bar. hoverinfo is skipped on the line trace
+        # above, leaving these as the only hoverable points.
+        fig.add_trace(go.Scatter(
+            x=x_vals,
+            y=counts,
+            mode='markers',
+            marker=dict(color=color, opacity=0),
+            showlegend=False,
+            hovertemplate='Streak ≥ %{x} games<br>Count: %{y}<extra></extra>'
+        ))
+
+    fig.update_layout(
+        xaxis_title='Streak Length (X, games)',
+        yaxis_title='Streaks ≥ X (count)',
+        height=350,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color=COLORS['text'])
+        ),
+        hovermode='x unified'
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=False,
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        range=[0.5, max_len + 0.5],
+        tick0=1,
+        dtick=1,
     )
     fig.update_yaxes(
         showgrid=True,
@@ -2720,6 +2820,13 @@ if comp_type == 'Cross':
         max_margin = pd.concat([michael_margins, sarah_margins]).max() if (len(michael_margins) or len(sarah_margins)) else 0
         margin_ceiling = int(np.ceil(max(max_margin, 1) / 5000) * 5000)
 
+        # Completed win streaks (same source as the Streaks table below), used
+        # for the "Streaks >= X" count plot — each streak counted once per
+        # length threshold it qualifies for, not split into sub-streaks.
+        win_streaks = calculate_win_streaks(margin_original)
+        michael_streak_lengths = [s['length'] for s in win_streaks if s['winner'] == 'Michael']
+        sarah_streak_lengths = [s['length'] for s in win_streaks if s['winner'] == 'Sarah']
+
         mcol1, mcol2 = st.columns(2)
         with mcol1:
             st.plotly_chart(create_cumulative_histogram(
@@ -2732,6 +2839,10 @@ if comp_type == 'Cross':
                  (sarah_streak_margins, streak_dates, 'Sarah', COLORS['sarah'])],
                 margin_ceiling, label="Margin"
             ), use_container_width=True, key="margin_streak_histogram_chart")
+            st.plotly_chart(create_streak_count_histogram(
+                [(michael_streak_lengths, 'Michael', COLORS['michael']),
+                 (sarah_streak_lengths, 'Sarah', COLORS['sarah'])]
+            ), use_container_width=True, key="margin_streak_count_histogram_chart")
 
         st.markdown("---")
         col1, col2 = st.columns(2)
