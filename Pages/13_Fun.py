@@ -70,7 +70,7 @@ st.markdown(
 )
 
 # --- Background Setup ---
-set_random_sarah_background(lightness_level=0.7)
+set_random_sarah_background(__file__, lightness_level=0.7)
 
 st.audio("./Images/Sarah.mp3", start_time=0, autoplay=True)
 

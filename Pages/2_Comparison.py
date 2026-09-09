@@ -110,7 +110,7 @@ CUSTOM_STYLES = """
 """
 st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
 
-set_random_sarah_background(lightness_level=0.7)
+set_random_sarah_background(__file__, lightness_level=0.7)
 
 # --- Helper Functions ---
 @st.cache_data

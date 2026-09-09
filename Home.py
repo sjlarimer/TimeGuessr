@@ -7,6 +7,13 @@ import plotly.graph_objects as go
 # --- Configuration ---
 st.set_page_config(page_title="Welcome", layout='wide')
 
+# Registers this page in the cross-page "did we just navigate here" tracker
+# (see background.py) so a Daily -> Home -> Daily round trip is still
+# detected as leaving and re-entering the Daily page, even though Home has
+# no Sarah-photo background of its own to trigger this as a side effect.
+from background import mark_page_active
+mark_page_active(__file__)
+
 # --- Load Global CSS ---
 from utils import load_css
 load_css()

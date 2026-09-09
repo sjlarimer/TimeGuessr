@@ -10,7 +10,7 @@ import numpy as np
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Electoral College")
 from background import set_random_sarah_background
-set_random_sarah_background(lightness_level=0.7)
+set_random_sarah_background(__file__, lightness_level=0.7)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Constants

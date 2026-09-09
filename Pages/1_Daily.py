@@ -12,7 +12,10 @@ from streamlit.components.v1 import html as components_html
 # --- Configuration ---
 st.set_page_config(page_title="The Daily Guessr", layout="wide")
 from background import set_random_sarah_background
-set_random_sarah_background(lightness_level=0.7)
+# True only on the run where the user just navigated onto this page (not on
+# reruns triggered by interacting with a widget already on it) — used below
+# to snap the Edition Date back to today every time the page is (re)entered.
+just_entered_daily_page = set_random_sarah_background(__file__, lightness_level=0.7)
 
 # Global Initialization to drastically improve load speeds
 cc_obj = coco.CountryConverter()
@@ -233,24 +236,45 @@ NEWS_STYLES = """
 
         /* EDITION DATE SELECTOR: doubles as the page title. The real date_input
            is kept for click/keyboard behavior but made invisible; a prominent
-           overlay (".page-title"-styled) showing the formatted date is stacked
-           on top of it via CSS grid so the two occupy the same box (clicking
-           the text opens the native calendar). */
+           overlay (".page-title"-styled) showing the formatted date sits on
+           top of it (clicking the text opens the native calendar).
+           The overlay stays in normal flow (its text sizes the box); the
+           invisible date input is absolutely positioned to exactly cover
+           that box. This intentionally avoids CSS Grid's "1fr / 1/1" stacking
+           trick — grid tracks auto-sized against percentage-width children
+           are handled inconsistently enough across browser engines that it
+           could size the real (invisible) input down to zero width on some
+           machines, leaving nothing there to actually click. Plain absolute
+           positioning against an explicit position:relative ancestor has no
+           such ambiguity.
+           The absolute positioning is applied to Streamlit's own element
+           container (".st-key-edition_date_input", auto-named from the
+           widget's key) rather than the "stDateInput" div nested inside it —
+           that wrapper is itself "position: relative" by default, so it (not
+           our outer stack) would otherwise become the real containing block;
+           and since it's an empty shell with no in-flow content of its own
+           once its only child is pulled out via position:absolute, it
+           collapses to 0 height, taking our "top:0; bottom:0" stretch down
+           to 0 with it. */
         .st-key-edition_date_stack {
-            display: grid;
+            position: relative;
             width: max-content;
             max-width: 95%;
             margin: 0 auto 8px auto;
             padding-bottom: 10px;
             border-bottom: 4px double #ccc;
         }
-        .st-key-edition_date_stack > div {
-            grid-area: 1 / 1;
-            height: 100%;
+        .st-key-edition_date_stack .st-key-edition_date_input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2;
         }
         .st-key-edition_date_stack div[data-testid="stDateInput"] {
-            z-index: 2;
             height: 100%;
+            width: 100%;
             display: flex;
             align-items: center;
         }
@@ -2944,11 +2968,17 @@ if not raw_data_all.empty:
     st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
     with st.container(key="edition_date_stack"):
+        if just_entered_daily_page:
+            # Fresh arrival on the page (not a same-page rerun) — always
+            # default back to today regardless of whatever date was last
+            # viewed here.
+            st.session_state["edition_date_input"] = datetime.date.today()
         selected_date = st.date_input(
             "Edition Date",
             value=sd[0].date() if sd else datetime.date.today(),
             max_value=datetime.date.today(),
             label_visibility="collapsed",
+            key="edition_date_input",
         )
         display_str = pd.Timestamp(selected_date).strftime("%A, %B %d, %Y")
         st.markdown(f'<div class="page-title edition-date-overlay">{display_str}</div>', unsafe_allow_html=True)

@@ -15,7 +15,7 @@ from background import set_random_sarah_background
 # --- Configuration & Constants ---
 st.set_page_config(layout="wide", page_title="Map Stats")
 
-set_random_sarah_background(lightness_level=0.7)
+set_random_sarah_background(__file__, lightness_level=0.7)
 
 COLORS = {'michael': '#221e8f', 'sarah': '#8a005c', 'neutral': '#696761'}
 
