@@ -17,8 +17,15 @@ from background import set_random_sarah_background
 # to snap the Edition Date back to today every time the page is (re)entered.
 just_entered_daily_page = set_random_sarah_background(__file__, lightness_level=0.7)
 
-# Global Initialization to drastically improve load speeds
-cc_obj = coco.CountryConverter()
+# Global Initialization to drastically improve load speeds. CountryConverter()
+# parses a large name/alias lookup table on construction (tens of ms); cached
+# as a resource so that cost is paid once per session instead of on every
+# single rerun (every widget interaction reruns this whole script).
+@st.cache_resource
+def _get_country_converter():
+    return coco.CountryConverter()
+
+cc_obj = _get_country_converter()
 
 # --- Load External CSS ---
 from utils import load_css
@@ -57,42 +64,46 @@ NEWS_STYLES = """
 
         .page-title { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #111; letter-spacing: -1px; margin: 0; text-transform: uppercase; text-align: center; }
         
-        /* FORECAST SECTION */
+        /* FORECAST SECTION — flat colour-tinted cards, no shadow/border/internal
+           dividers, matching the Michael / Sarah / Community / Actuals boxes
+           above (plain pastel background per card, no white sub-sections). */
         .forecast-container { width: 100%; margin: 0 auto 60px auto; box-sizing: border-box; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
-        .forecast-card { background-color: #fff; border-radius: 12px; padding: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #f0f0f0; overflow: hidden; display: flex; flex-direction: column; }
-        .fc-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #eee; }
+        .forecast-card { border-radius: 12px; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+        .fc-header { padding: 16px 20px 8px 20px; display: flex; align-items: center; gap: 10px; }
         .fc-icon { font-size: 20px; }
-        .fc-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; color: #333; }
+        .fc-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
 
         /* Per-round M/S/C bars, embedded inside a forecast card */
-        .hbar-group { padding: 14px 20px; border-bottom: 1px solid #eee; }
+        .hbar-group { padding: 8px 20px; }
         .hbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .hbar-row:last-child { margin-bottom: 0; }
         .hbar-lbl { width: 16px; flex-shrink: 0; font-weight: 700; font-size: 0.8rem; text-align: center; }
         .hbar-track { flex: 1; min-width: 0; height: 16px; background-color: #b0afaa; border-radius: 5px; overflow: hidden; display: flex; flex-direction: row; }
-        .bar-section-title { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .bar-section-title { font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .pct-bar-track { flex: 1; min-width: 0; height: 16px; background-color: #000; border-radius: 5px; overflow: hidden; }
         .pct-bar-fill { height: 100%; }
 
-        .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #eee; }
-        .fc-mom-box { padding: 15px; text-align: center; border-right: 1px solid #eee; }
-        .fc-mom-box:last-child { border-right: none; }
-        .fc-mom-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 6px 8px 0 8px; }
+        .fc-mom-box { padding: 9px 12px; text-align: center; }
+        .fc-mom-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
         .fc-mom-leader { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-        .fc-mom-detail { font-family: 'Inter', sans-serif; font-size: 11px; color: #666; line-height: 1.3; }
-        
-        .fc-streaks { padding: 16px 20px; background-color: #fafafa; flex-grow: 1; }
-        .fc-streaks-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
-        .fc-streak-item { display: flex; align-items: center; justify-content: space-between; font-family: 'Inter', sans-serif; font-size: 12px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #e0e0e0; }
+        .fc-mom-detail { font-family: 'Inter', sans-serif; font-size: 11px; color: #555; line-height: 1.3; }
+
+        .fc-streaks { padding: 10px 20px 16px 20px; flex-grow: 1; }
+        .fc-streaks-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .fc-streak-item { display: flex; align-items: center; justify-content: space-between; font-family: 'Inter', sans-serif; font-size: 12px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed rgba(0,0,0,0.12); }
         .fc-streak-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .fc-streak-name { font-weight: 600; color: #333; }
         .fc-streak-val { font-weight: 700; color: #000; }
-        .fc-streak-meta { font-size: 10px; color: #888; }
-        
-        .target-hl { background-color: #fff9c4; padding: 0 3px; border-radius: 2px; font-weight: 600; color: #333; }
-        .border-total { border-top: 5px solid #f1c40f; }
-        .border-time { border-top: 5px solid #8e44ad; }
-        .border-geo { border-top: 5px solid #27ae60; }
+        .fc-streak-meta { font-size: 10px; color: #767676; }
+
+        .target-hl { background-color: rgba(255,255,255,0.65); padding: 0 3px; border-radius: 2px; font-weight: 600; color: #333; }
+        .fc-cat-total { background-color: #f7f0d9; }
+        .fc-cat-total .fc-title { color: #a5760a; }
+        .fc-cat-time { background-color: #ece2f4; }
+        .fc-cat-time .fc-title { color: #8e44ad; }
+        .fc-cat-geo { background-color: #dcefdf; }
+        .fc-cat-geo .fc-title { color: #1f8a4c; }
         
         /* DAILY FEED / CATEGORY CARDS */
         .daily-card { background: #fff; border: 1px solid #ddd; border-top: 4px solid #333; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); scroll-margin-top: 50px; overflow: hidden; }
@@ -2170,7 +2181,7 @@ def render_forecast_section(fs_list, bars_by_cat=None):
     bars_by_cat = bars_by_cat or {}
     html = '<div class="forecast-container">'
     icons = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
-    borders = {"Total Score": "border-total", "Time Score": "border-time", "Geography Score": "border-geo"}
+    borders = {"Total Score": "fc-cat-total", "Time Score": "fc-cat-time", "Geography Score": "fc-cat-geo"}
     for f in fs_list:
         if not f: continue
         cat, ic, bc = f['category'], icons.get(f['category'], "📊"), borders.get(f['category'], "")
@@ -2903,15 +2914,25 @@ def render_daily_news(dt, evs, round_list=None):
 
     return round_card, updates_card
 
-stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
-raw_data = load_data(mtime=stats_mtime)
-# Momentum/streak/record tracking (df_t/df_tm/df_g/all_evs below) needs both
-# players' data to mean anything, so it keeps using the both-required `raw_data`.
-# Per-day rendering (score boxes, Actuals, bars) needs to work even when only
-# one player has submitted, so it uses this unfiltered version instead.
-raw_data_all = load_data(mtime=stats_mtime, require_both=False)
-if not raw_data_all.empty:
-    df_t, df_tm, df_g = prepare_total_margins_data(raw_data), prepare_time_margins_data(raw_data), prepare_geography_margins_data(raw_data)
+@st.cache_data
+def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
+    """The momentum/streak/record/milestone "news" feed is derived entirely
+    from Timeguessr_Stats.csv (via `_raw_data`) — it doesn't depend on any
+    widget state — but computing it means ~20 full-history passes (one
+    iterrows() scan per generate_* call below, several per score type). Left
+    uncached, that ran on *every* rerun of this page, i.e. on every keystroke
+    or click anywhere on the page, which is what actually made the Daily page
+    feel laggy while filling in a submission. Cached here keyed only on the
+    stats file's mtime (the leading-underscore `_raw_data` param is passed
+    through uncached/unhashed — see Streamlit's cache_data docs) so it's real
+    work exactly once per actual data change, a no-op cache hit otherwise.
+    `mtime` is only meaningful now that Score_Update.score_update() skips
+    rewriting Timeguessr_Stats.csv when nothing upstream actually changed —
+    previously it rewrote (and bumped the mtime of) that file on every single
+    rerun regardless, which permanently defeated this kind of caching."""
+    df_t = prepare_total_margins_data(_raw_data)
+    df_tm = prepare_time_margins_data(_raw_data)
+    df_g = prepare_geography_margins_data(_raw_data)
     all_evs = []
     all_evs.extend(generate_news_events(df_t, "Total Score", 5))
     all_evs.extend(generate_news_events(df_t, "Total Score", 10))
@@ -2929,16 +2950,27 @@ if not raw_data_all.empty:
     all_evs.extend(generate_streak_events(df_tm, "Time Score"))
     all_evs.extend(generate_streak_events(df_g, "Geography Score"))
     all_evs.extend(generate_score_threshold_streaks(df_t))
-    all_evs.extend(generate_score_threshold_streaks(df_tm)) 
-    all_evs.extend(generate_score_threshold_streaks(df_g)) 
+    all_evs.extend(generate_score_threshold_streaks(df_tm))
+    all_evs.extend(generate_score_threshold_streaks(df_g))
     all_evs.extend(generate_margin_record_events(df_t, "Total Score"))
     all_evs.extend(generate_margin_record_events(df_tm, "Time Score"))
     all_evs.extend(generate_margin_record_events(df_g, "Geography Score"))
     all_evs.extend(generate_score_record_events(df_t, "Total Score"))
     all_evs.extend(generate_score_record_events(df_tm, "Time Score"))
     all_evs.extend(generate_score_record_events(df_g, "Geography Score"))
-    all_evs.extend(generate_milestone_events(raw_data))
-    round_updates = generate_round_updates(raw_data)
+    all_evs.extend(generate_milestone_events(_raw_data))
+    round_updates = generate_round_updates(_raw_data)
+    return df_t, df_tm, df_g, all_evs, round_updates
+
+stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
+raw_data = load_data(mtime=stats_mtime)
+# Momentum/streak/record tracking (df_t/df_tm/df_g/all_evs below) needs both
+# players' data to mean anything, so it keeps using the both-required `raw_data`.
+# Per-day rendering (score boxes, Actuals, bars) needs to work even when only
+# one player has submitted, so it uses this unfiltered version instead.
+raw_data_all = load_data(mtime=stats_mtime, require_both=False)
+if not raw_data_all.empty:
+    df_t, df_tm, df_g, all_evs, round_updates = _compute_daily_feed_data(raw_data, stats_mtime)
 
     with st.sidebar:
         st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
@@ -3034,21 +3066,29 @@ if not raw_data_all.empty:
                 for k in [f"ay_{r_idx}_{selected_date}", f"ac_{r_idx}_{selected_date}", f"as_{r_idx}_{selected_date}", f"acs_{r_idx}_{selected_date}", f"aci_{r_idx}_{selected_date}", f"acity_{r_idx}_{selected_date}"]:
                     if k in st.session_state: del st.session_state[k]
 
+        # Each player's CSV is read once here and reused below (both for the
+        # m_has/s_has check and inside the p_state loop) — this used to read
+        # every player's CSV up to 3x over on a single rerun (twice just for
+        # m_has/s_has, since it re-called pd.read_csv inside its own boolean
+        # mask expression, plus again per player in the loop below).
         m_path = "./Data/Timeguessr_Michael_Parsed.csv"
         s_path = "./Data/Timeguessr_Sarah_Parsed.csv"
-        m_has = not pd.read_csv(m_path)[pd.read_csv(m_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(m_path) else False
-        s_has = not pd.read_csv(s_path)[pd.read_csv(s_path)['Timeguessr Day'] == timeguessr_day].empty if os.path.exists(s_path) else False
+        df_michael_all = pd.read_csv(m_path) if os.path.exists(m_path) else pd.DataFrame()
+        df_sarah_all = pd.read_csv(s_path) if os.path.exists(s_path) else pd.DataFrame()
+        m_has = not df_michael_all.empty and not df_michael_all[df_michael_all['Timeguessr Day'] == timeguessr_day].empty
+        s_has = not df_sarah_all.empty and not df_sarah_all[df_sarah_all['Timeguessr Day'] == timeguessr_day].empty
 
         act_hidden = selected_date == datetime.date.today() and act_exists and not (m_has and s_has)
 
         # --- Pre-load Player State Data ---
         p_state = {}
+        _player_dfs = {"Michael": df_michael_all, "Sarah": df_sarah_all}
         for p_name, opp_name in [("Michael", "Sarah"), ("Sarah", "Michael")]:
             csv_p = f"./Data/Timeguessr_{p_name}_Parsed.csv"
             csv_o = f"./Data/Timeguessr_{opp_name}_Parsed.csv"
 
-            df_p = pd.read_csv(csv_p) if os.path.exists(csv_p) else pd.DataFrame()
-            df_o = pd.read_csv(csv_o) if os.path.exists(csv_o) else pd.DataFrame()
+            df_p = _player_dfs[p_name]
+            df_o = _player_dfs[opp_name]
 
             curr_p = df_p[df_p['Timeguessr Day'] == timeguessr_day] if not df_p.empty else pd.DataFrame()
             curr_o = df_o[df_o['Timeguessr Day'] == timeguessr_day] if not df_o.empty else pd.DataFrame()
@@ -3121,7 +3161,7 @@ if not raw_data_all.empty:
 
         if not skip_actuals_section:
             # Once submitted and not editing, the consolidated box below carries its
-            # own "Rounds" title, matching the score boxes — this title would be
+            # own "Actuals" title, matching the score boxes — this title would be
             # redundant then, so it's only shown while editing/unsubmitted.
             if not (act_exists and not edit_act):
                 st.markdown('<div class="section-title" style="color:#db5049;">Actuals</div>', unsafe_allow_html=True)
@@ -3134,9 +3174,10 @@ if not raw_data_all.empty:
 
         if not skip_actuals_section:
             if act_exists and not edit_act:
-                # Submitted & not editing: one consolidated box listing all 5 rounds,
-                # instead of 5 separate cards.
-                row_blocks = []
+                # Submitted & not editing: one consolidated strip of 5 round cards
+                # (flag, city, subdivision/country, year) instead of 5 separate
+                # input-style boxes — a quick-scan recap of the day's locations.
+                round_cards = []
                 for r in range(1, 6):
                     row = curr_act[curr_act['Timeguessr Round'] == r].iloc[0] if len(curr_act[curr_act['Timeguessr Round'] == r]) > 0 else {}
                     y_val = str(int(row['Year'])) if 'Year' in row and pd.notna(row['Year']) else ""
@@ -3147,21 +3188,24 @@ if not raw_data_all.empty:
                     valid_y = y_val.isdigit() and len(y_val) == 4 and 1900 <= int(y_val) <= selected_date.year
                     actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
 
-                    border = "" if r == 5 else "border-bottom:1px solid rgba(219,80,73,0.15);"
                     flag_html = get_flag_emoji(c_def_raw) if c_def_raw else get_flag_emoji("United Nations")
                     sub_country = c_def_raw or "—"
                     if pd.notna(s_def) and str(s_def).strip(): sub_country = f"{s_def}, {sub_country}"
 
-                    row_blocks.append(f'''<div style="display:flex; align-items:center; gap:14px; padding:10px 4px; {border}">
-        <span style="font-weight:800; color:#db5049; font-size:0.75em; width:22px; flex-shrink:0;">R{r}</span>
-        <span style="font-weight:700; color:#db5049; font-size:0.95em; min-width:130px;">{c_val or "—"}</span>
-        <span style="flex:1; display:flex; align-items:center; gap:6px; color:#444; font-size:0.88em;">{flag_html}<span>{sub_country}</span></span>
-        <span style="color:#555; font-size:0.85em; white-space:nowrap;">📅 {y_val or "—"}</span>
+                    round_cards.append(f'''<div style="flex:1; min-width:140px; background:rgba(255,255,255,0.55); border-radius:8px; padding:10px 12px; text-align:center;">
+        <div style="font-weight:800; color:#db5049; font-size:0.7em; letter-spacing:0.5px; margin-bottom:5px;">ROUND {r}</div>
+        <div style="font-size:1.5em; line-height:1;">{flag_html}</div>
+        <div style="font-weight:700; color:#333; font-size:0.95em; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{c_val or "—"}</div>
+        <div style="color:#777; font-size:0.78em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{sub_country}</div>
+        <div style="color:#db5049; font-weight:700; font-size:0.88em; margin-top:4px;">📅 {y_val or "—"}</div>
     </div>''')
 
-                actuals_box_html = f'''<div style="background:linear-gradient(135deg,#fff5f5,#ffe8e8); border-radius:12px; padding:6px 16px; border-left:4px solid #db5049; box-shadow:0 2px 8px rgba(219,80,73,0.12);">
-    <div style="font-weight:700; font-size:30px; color:#db5049; margin:6px 0 5px 0; line-height:1.1;">Rounds</div>
-    {"".join(row_blocks)}
+                # Flat pastel background, no border accent / drop shadow — matches
+                # the Michael / Sarah / Community boxes above (plain colour-tinted
+                # cards, no gradients or shadows there either), and no title:
+                # this box sits directly under them so what it is needs no label.
+                actuals_box_html = f'''<div style="background:#f5d9d8; border-radius:12px; padding:14px 16px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">{"".join(round_cards)}</div>
     </div>'''
             else:
                 act_cols = st.columns(5)
@@ -3624,9 +3668,9 @@ if not raw_data_all.empty:
             # Stashed for the single shared Submit button below.
             community_stats_input = {'avg': c_avg_in, 'yrs': c_yrs_in, 'loc': c_loc_in}
 
-        # Submitted & not editing: the Actuals "Rounds" box goes below the Michael /
-        # Sarah / Community boxes instead of above them. While editing, it stays in
-        # its original spot above (rendered earlier, ordering left untouched).
+        # Submitted & not editing: the Actuals box goes below the Michael / Sarah /
+        # Community boxes instead of above them. While editing, it stays in its
+        # original spot above (rendered earlier, ordering left untouched).
         if actuals_box_html is not None:
             st.markdown(actuals_box_html, unsafe_allow_html=True)
 

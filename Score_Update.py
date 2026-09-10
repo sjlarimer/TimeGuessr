@@ -7,6 +7,24 @@ def score_update():
     michael_csv = "Data/Timeguessr_Michael_Parsed.csv"
     sarah_csv   = "Data/Timeguessr_Sarah_Parsed.csv"
     actuals_csv = "Data/Timeguessr_Actuals_Parsed.csv"
+    stats_csv   = "Data/Timeguessr_Stats.csv"
+
+    # Both Home.py and the Daily page call score_update() unconditionally on
+    # every single script rerun (i.e. on every widget interaction, not just
+    # when a submission actually changes something) — so skip the rebuild
+    # entirely when Timeguessr_Stats.csv is already at least as new as every
+    # source CSV. Besides the wasted merge/write work itself, rewriting the
+    # file on every rerun bumps its mtime every time, which permanently
+    # defeats the @st.cache_data cache keyed on that mtime in Pages/1_Daily.py
+    # and forces its whole historical events pipeline to recompute from
+    # scratch on every keystroke — that cascading cost, not this function's
+    # own runtime, is what actually makes the Daily page feel laggy.
+    source_csvs = [michael_csv, sarah_csv, actuals_csv, AVERAGES_PARSED_CSV]
+    if os.path.exists(stats_csv):
+        source_mtimes = [os.path.getmtime(p) for p in source_csvs if os.path.exists(p)]
+        if source_mtimes and os.path.getmtime(stats_csv) >= max(source_mtimes):
+            return
+
     df_michael = pd.read_csv(michael_csv)
     df_sarah   = pd.read_csv(sarah_csv)
     df_actuals = pd.read_csv(actuals_csv)
