@@ -508,9 +508,13 @@ UNIT_ALIASES = {
     "km": "km", "kilometer": "km", "kilometers": "km", "kilometre": "km", "kilometres": "km",
 }
 
-def parse_distance_input(text):
+def parse_distance_input(text, default_unit=None):
     """Parse text like '150 ft' or '0.5 kilometers' into (value, unit).
-    unit is one of 'ft'/'mi'/'m'/'km', or None if missing/unrecognized."""
+    unit is one of 'ft'/'mi'/'m'/'km'. If no unit letters were typed at all,
+    `default_unit` is used instead (still None — i.e. missing — by default,
+    which is what every caller except the Community distance field wants); a
+    typo'd/unrecognized unit still comes back as unit=None either way, so it's
+    still flagged rather than silently guessed."""
     if not text or not str(text).strip():
         return None, None
     match = re.match(r'^\s*([\d,]*\.?\d+)\s*([a-zA-Z]*)\s*$', str(text).strip())
@@ -521,7 +525,8 @@ def parse_distance_input(text):
         value = float(num_str.replace(',', ''))
     except ValueError:
         return None, None
-    unit = UNIT_ALIASES.get(unit_str.strip().lower())
+    unit_str = unit_str.strip().lower()
+    unit = UNIT_ALIASES.get(unit_str) if unit_str else default_unit
     return value, unit
 
 def distance_to_meters(value, unit):
@@ -3530,7 +3535,7 @@ if not raw_data_all.empty:
                                 pass
 
                         geo_est_txt = "—"
-                        dist_val_parsed, dist_unit_parsed = parse_distance_input(def_c_dist)
+                        dist_val_parsed, dist_unit_parsed = parse_distance_input(def_c_dist, default_unit="mi")
                         if dist_val_parsed is not None and dist_unit_parsed is not None:
                             geo_est_txt = f'"{geography_score(distance_to_meters(dist_val_parsed, dist_unit_parsed)):,.0f}"'
 
@@ -3553,9 +3558,12 @@ if not raw_data_all.empty:
                         ctd1, ctd2 = st.columns(2)
                         c_time_in = ctd1.text_input("Time", value=def_c_time, key=f"ct_{r}_{selected_date}")
                         c_dist_in = ctd2.text_input("Distance", value=def_c_dist, key=f"cd_{r}_{selected_date}")
-                        _, c_dist_unit = parse_distance_input(c_dist_in)
+                        # A bare number (no unit typed) is assumed to be miles —
+                        # TimeGuessr's own community-average display is in miles,
+                        # so that's what's almost always being copied in here.
+                        _, c_dist_unit = parse_distance_input(c_dist_in, default_unit="mi")
                         if c_dist_in.strip() and c_dist_unit is None:
-                            st.caption("⚠️ Include a unit: ft, mi, m, or km")
+                            st.caption("⚠️ Unrecognized unit — use ft, mi, m, or km (or leave it off for miles)")
                         if c_dist_unit is not None:
                             st.session_state[c_unit_key] = c_dist_unit
 
@@ -3785,7 +3793,7 @@ if not raw_data_all.empty:
             rounds_payload = {}
             for r in range(1, 6):
                 ci = community_round_input.get(r, {})
-                dval, dunit = parse_distance_input(ci.get('dist', ''))
+                dval, dunit = parse_distance_input(ci.get('dist', ''), default_unit="mi")
                 geo_m = distance_to_meters(dval, dunit) if (dval is not None and dunit is not None) else None
                 rounds_payload[r] = {
                     'score': _to_float_generic(ci.get('score')),
