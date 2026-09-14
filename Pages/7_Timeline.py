@@ -381,13 +381,15 @@ for _row in range(_DECADE_ROWS):
 # doubt that it's centered on the page.
 st.markdown("""
 <style>
-    .year-grid-card, .st-key-year_dist_chart_card { max-width:1300px; margin:0 auto 35px auto !important; padding:24px 24px 20px 24px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
-    /* The combined distribution/outcome chart above gets the same card
-       treatment as this grid — light background, soft border/shadow — plus
-       a gentle hover "pop" of its own, echoing the grid cells' hover-scale
-       without literally copying a per-tile effect onto one big chart. */
-    .st-key-year_dist_chart_card { transition:transform .15s ease, box-shadow .15s ease; }
-    .st-key-year_dist_chart_card:hover { transform:scale(1.01); box-shadow:0 10px 28px rgba(0,0,0,0.12); }
+    .year-grid-card, .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { margin:0 auto 35px auto !important; padding:20px 20px 12px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
+    .year-grid-card, .st-key-year_dist_chart_card { max-width:1300px; }
+    /* The combined distribution/outcome chart above (and the four confusion
+       matrix cards further down) get the same card treatment as this grid —
+       light background, soft border/shadow — plus a gentle hover "pop" of
+       their own, echoing the grid cells' hover-scale without literally
+       copying a per-tile effect onto one big chart. */
+    .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { transition:transform .15s ease, box-shadow .15s ease; }
+    .st-key-year_dist_chart_card:hover, .st-key-conf_matrix_michael_card:hover, .st-key-conf_matrix_sarah_card:hover, .st-key-conf_matrix_michael_year_card:hover, .st-key-conf_matrix_sarah_year_card:hover { transform:scale(1.01); box-shadow:0 10px 28px rgba(0,0,0,0.12); }
     /* Decade column is a fixed width rather than an "Nfr" share: the year
        columns' own content (two side-by-side score pills) has a real minimum
        width the grid honors first, which was quietly capping how much wider
@@ -432,6 +434,123 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 st.markdown(f'<div class="year-grid-card"><div class="year-grid">{"".join(_cells_html)}</div></div>', unsafe_allow_html=True)
+
+# ==========================================
+# CONFUSION MATRICES — for each player, how often a guess landing on X was
+# actually a photo from Y: rows are what they guessed, columns are what it
+# really was, so the diagonal is every exactly-correct guess. Colored white
+# -> that player's own blue/magenta instead of a generic Plotly colorscale.
+# Two granularities, year above decade: the year pair is a much finer (and
+# much sparser) version of the same idea, so it goes first with the coarser,
+# denser decade pair beneath it for contrast. Self-contained (builds its own
+# frame straight from `data`) rather than reusing df_box from the section
+# below, since that's built later in the script and this now sits above it
+# on the page.
+# ==========================================
+_conf_df = data[[col_year, col_michael, col_sarah]].copy()
+for _c in [col_year, col_michael, col_sarah]:
+    _conf_df[_c] = pd.to_numeric(_conf_df[_c], errors="coerce")
+_conf_df = _conf_df.dropna()
+
+_DIAGONAL_GOLD = "#c9a227"
+
+def _gamma_colorscale(hex_color, gamma=0.45, steps=12):
+    """White -> hex_color, but ramped by z**gamma (gamma<1) instead of a
+    straight line. The year-level grid is sparse enough that most nonzero
+    cells sit far below the single brightest outlier cell, so a plain linear
+    scale leaves nearly the whole heatmap looking washed-out white — this
+    front-loads the color ramp so low-but-nonzero counts already read as
+    clearly shaded instead of only the rare high-count cell standing out."""
+    r, g, b = _hex_to_rgb(hex_color)
+    stops = []
+    for i in range(steps + 1):
+        frac = i / steps
+        blend = frac ** gamma
+        cr = round(255 * (1 - blend) + r * blend)
+        cg = round(255 * (1 - blend) + g * blend)
+        cb = round(255 * (1 - blend) + b * blend)
+        stops.append([frac, f"rgb({cr},{cg},{cb})"])
+    return stops
+
+def _confusion_heatmap(table, title, leader_color, axis_suffix="", show_text=True, darken=False):
+    labels = list(table.index)
+    _scale = _gamma_colorscale(leader_color) if darken else [[0, "#ffffff"], [1, leader_color]]
+    fig = go.Figure(data=go.Heatmap(
+        z=table.values, x=labels, y=labels,
+        colorscale=_scale, showscale=False,
+        xgap=0, ygap=0,
+        hovertemplate=f"<b>Actual:</b> %{{x}}{axis_suffix}<br><b>Guessed:</b> %{{y}}{axis_suffix}<br><b>Count:</b> %{{z}}<extra></extra>",
+        hoverlabel=dict(bgcolor="#ffffff", bordercolor=leader_color,
+                        font=dict(family="Inter, sans-serif", size=12, color="#222222")),
+        **({"text": table.values, "texttemplate": "%{text}",
+            "textfont": dict(color="#000000", size=10, family="Inter, sans-serif")} if show_text else {}),
+    ))
+    span = (max(labels) - min(labels)) * 0.04 + 1
+    min_l, max_l = min(labels) - span, max(labels) + span
+    tick_step = 10 if len(labels) > 40 else 1
+    tickvals = [l for l in labels if l % tick_step == 0] if tick_step > 1 else labels
+    fig.update_layout(**PLOT_THEME)
+    fig.update_layout(
+        title=dict(text=title, font=dict(family="Poppins, sans-serif", size=17, color="#000000")),
+        xaxis_title=f"Actual{' Decade' if axis_suffix else ' Year'}",
+        yaxis_title=f"Guessed{' Decade' if axis_suffix else ' Year'}",
+        # No forced 1:1 aspect ratio: these heatmaps sit side by side in a
+        # fairly narrow column, and locking the cells square shrank the
+        # whole grid down to a tiny fraction of the available width, leaving
+        # the tick labels and cell counts too cramped to read. Letting it
+        # fill the column's actual width makes cells rectangular but
+        # legible instead of square but tiny.
+        height=460,
+        margin=dict(l=60, r=20, t=55, b=60),
+        xaxis=dict(tickmode='array', tickvals=tickvals, ticktext=[f"{v}{axis_suffix}" for v in tickvals],
+                   range=[min_l, max_l], showgrid=False),
+        yaxis=dict(tickmode='array', tickvals=tickvals, ticktext=[f"{v}{axis_suffix}" for v in tickvals],
+                   range=[min_l, max_l], showgrid=False),
+    )
+    if axis_suffix:
+        # Coarse decade grid: outline each correct-decade cell individually.
+        for _l in labels:
+            fig.add_shape(type="rect", x0=_l - 5, x1=_l + 5, y0=_l - 5, y1=_l + 5,
+                          line=dict(color=_DIAGONAL_GOLD, width=2.5), fillcolor="rgba(0,0,0,0)")
+    return fig
+
+def _confusion_table(guess_col, actual_col, decade=False):
+    _t = _conf_df.copy()
+    if decade:
+        _t["_g"] = (_t[guess_col] // 10 * 10).astype(int)
+        _t["_a"] = (_t[actual_col] // 10 * 10).astype(int)
+    else:
+        _t["_g"] = _t[guess_col].round().astype(int)
+        _t["_a"] = _t[actual_col].astype(int)
+    labels = sorted(_t["_a"].unique())
+    table = pd.crosstab(_t["_g"], _t["_a"])
+    return table.reindex(index=labels, columns=labels, fill_value=0)
+
+st.markdown('<div class="section-heading">Year Confusion Matrices</div>', unsafe_allow_html=True)
+_michael_yr_conf = _confusion_table(col_michael, col_year, decade=False)
+_sarah_yr_conf = _confusion_table(col_sarah, col_year, decade=False)
+_yr_conf_col1, _yr_conf_col2 = st.columns(2)
+with _yr_conf_col1:
+    with st.container(key="conf_matrix_michael_year_card"):
+        st.plotly_chart(_confusion_heatmap(_michael_yr_conf, "Michael's Guesses", COLOR_M, show_text=False, darken=True),
+                        use_container_width=True, theme=None)
+with _yr_conf_col2:
+    with st.container(key="conf_matrix_sarah_year_card"):
+        st.plotly_chart(_confusion_heatmap(_sarah_yr_conf, "Sarah's Guesses", COLOR_S, show_text=False, darken=True),
+                        use_container_width=True, theme=None)
+
+st.markdown('<div class="section-heading">Decade Confusion Matrices</div>', unsafe_allow_html=True)
+_michael_conf = _confusion_table(col_michael, col_year, decade=True)
+_sarah_conf = _confusion_table(col_sarah, col_year, decade=True)
+_conf_col1, _conf_col2 = st.columns(2)
+with _conf_col1:
+    with st.container(key="conf_matrix_michael_card"):
+        st.plotly_chart(_confusion_heatmap(_michael_conf, "Michael's Guesses", COLOR_M, axis_suffix="s"),
+                        use_container_width=True, theme=None)
+with _conf_col2:
+    with st.container(key="conf_matrix_sarah_card"):
+        st.plotly_chart(_confusion_heatmap(_sarah_conf, "Sarah's Guesses", COLOR_S, axis_suffix="s"),
+                        use_container_width=True, theme=None)
 
 # --- Bin edges: 10-year bins from 1900 to 2025 ---
 bin_edges = list(range(1900, 2026, 10))
@@ -483,51 +602,17 @@ fig_hist.update_layout(
 )
 st.plotly_chart(fig_hist, use_container_width=True, theme=None)
 
-st.markdown('<div class="section-heading">Guess Accuracy Matrix</div>', unsafe_allow_html=True)
-
-df_scatter = data[[col_year, col_michael, col_sarah]].copy()
-df_scatter[col_year] = pd.to_numeric(df_scatter[col_year], errors="coerce")
-df_scatter[col_michael] = pd.to_numeric(df_scatter[col_michael], errors="coerce")
-df_scatter[col_sarah] = pd.to_numeric(df_scatter[col_sarah], errors="coerce")
-df_scatter = df_scatter.dropna()
-
-x_year = df_scatter[col_year].astype(float).values
-y_michael = df_scatter[col_michael].astype(float).values
-y_sarah = df_scatter[col_sarah].astype(float).values
-
-min_val = min(x_year.min(), y_michael.min(), y_sarah.min()) - 5
-max_val = max(x_year.max(), y_michael.max(), y_sarah.max()) + 5
-line_x = np.linspace(min_val, max_val, 200)
-
-fig_scatter = go.Figure()
-fig_scatter.add_trace(go.Scatter(
-    x=line_x, y=line_x, mode="lines", name="Perfect Guess (y = x)",
-    line=dict(color="#7f8c8d", width=2, dash="dash"),
-    hoverinfo="skip"
-))
-fig_scatter.add_trace(go.Scatter(
-    x=x_year, y=y_michael, mode="markers", name="Michael",
-    marker=dict(size=8, color=COLOR_M, opacity=0.8, line=dict(width=1, color="white")),
-    hovertemplate="<b>Actual:</b> %{x}<br><b>Guessed:</b> %{y}<extra>Michael</extra>"
-))
-fig_scatter.add_trace(go.Scatter(
-    x=x_year, y=y_sarah, mode="markers", name="Sarah",
-    marker=dict(size=8, color=COLOR_S, opacity=0.8, line=dict(width=1, color="white")),
-    hovertemplate="<b>Actual:</b> %{x}<br><b>Guessed:</b> %{y}<extra>Sarah</extra>"
-))
-
-fig_scatter.update_layout(**PLOT_THEME)
-fig_scatter.update_layout(
-    title="Time Guessed vs Actual Year",
-    xaxis_title="Actual Year",
-    yaxis_title="Guessed Year",
-    height=600,
-)
-st.plotly_chart(fig_scatter, use_container_width=True, theme=None)
-
 st.markdown('<div class="section-heading">Directional Bias by Decade</div>', unsafe_allow_html=True)
 
-df_box = df_scatter.copy()
+# Removed "Guess Accuracy Matrix" (a guessed-vs-actual scatter) — the Year
+# Confusion Matrices above already show the same guessed-vs-actual
+# relationship per player, so this data prep now feeds straight into the
+# box plot below instead of a scatter plot first.
+df_box = data[[col_year, col_michael, col_sarah]].copy()
+df_box[col_year] = pd.to_numeric(df_box[col_year], errors="coerce")
+df_box[col_michael] = pd.to_numeric(df_box[col_michael], errors="coerce")
+df_box[col_sarah] = pd.to_numeric(df_box[col_sarah], errors="coerce")
+df_box = df_box.dropna()
 df_box["decade"] = (df_box[col_year] // 10 * 10).astype(int)
 df_box["michael_err"] = df_box[col_michael] - df_box[col_year]
 df_box["sarah_err"] = df_box[col_sarah] - df_box[col_year]
@@ -577,73 +662,3 @@ fig_box.update_layout(
     height=500
 )
 st.plotly_chart(fig_box, use_container_width=True, theme=None)
-
-st.markdown('<div class="section-heading">Decade Confusion Matrices</div>', unsafe_allow_html=True)
-
-def count_table(guess_col, actual_col):
-    df_temp = df_box.copy()
-    df_temp["guess_decade"] = (df_temp[guess_col] // 10 * 10).astype(int)
-    df_temp["actual_decade"] = (df_temp[actual_col] // 10 * 10).astype(int)
-    table = pd.crosstab(df_temp["guess_decade"], df_temp["actual_decade"])
-    decades_all = sorted(df_box["decade"].unique())
-    table = table.reindex(index=decades_all, columns=decades_all, fill_value=0)
-    return table
-
-michael_counts = count_table(col_michael, col_year)
-sarah_counts = count_table(col_sarah, col_year)
-
-def heatmap_fig(table, title, colorscale):
-    decades_all = list(table.index)
-    
-    fig = go.Figure(data=go.Heatmap(
-        z=table.values,
-        x=decades_all,
-        y=decades_all,
-        text=table.values,
-        texttemplate="%{text}",
-        textfont=dict(color="#000000", size=10),
-        colorscale=colorscale,
-        showscale=False,
-        xgap=2,
-        ygap=2,
-        hovertemplate="<b>Actual:</b> %{x}s<br><b>Guessed:</b> %{y}s<br><b>Count:</b> %{z}<extra></extra>"
-    ))
-    
-    # Range padding for visibility
-    min_d = min(decades_all) - 5
-    max_d = max(decades_all) + 5
-    
-    fig.update_layout(**PLOT_THEME)
-    fig.update_layout(
-        title=dict(text=title, font=dict(family="Poppins", size=18, color="#000")),
-        xaxis_title="Actual Decade",
-        yaxis_title="Guessed Decade",
-        height=600, # Increased height to allow for square ratio in column
-        margin=dict(l=60, r=30, t=80, b=60),
-        # Equal length axes
-        xaxis=dict(
-            tickmode='array', 
-            tickvals=decades_all, 
-            ticktext=[f"{d}s" for d in decades_all],
-            range=[min_d, max_d],
-            constrain='domain'
-        ),
-        yaxis=dict(
-            tickmode='array', 
-            tickvals=decades_all, 
-            ticktext=[f"{d}s" for d in decades_all],
-            scaleanchor="x", 
-            scaleratio=1,
-            range=[min_d, max_d],
-            constrain='domain'
-        )
-    )
-    return fig
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.plotly_chart(heatmap_fig(michael_counts, "Michael's Guesses", colorscale="Blues"), use_container_width=True, theme=None)
-
-with col2:
-    st.plotly_chart(heatmap_fig(sarah_counts, "Sarah's Guesses", colorscale="PuRd"), use_container_width=True, theme=None)
