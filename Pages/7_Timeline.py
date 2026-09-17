@@ -81,10 +81,9 @@ michael_vals = pd.to_numeric(data[col_michael], errors="coerce").dropna().astype
 sarah_vals = pd.to_numeric(data[col_sarah], errors="coerce").dropna().astype(float).values
 
 # ==========================================
-# SHARED: per-year / per-decade / per-digit / grand-total Time Score rollups,
-# and the "who's ahead, by how much" colour logic derived from them. Both the
-# distribution chart and the year-grid below are built from these same
-# numbers, so a year is always coloured identically everywhere on this page.
+# Per-year Time Score rollups and the "who's ahead, by how much" colour logic
+# derived from them, feeding the distribution chart below. (The year-by-year
+# leaderboard grid that used to live here has moved to its own Year-Go page.)
 # ==========================================
 def _hex_to_rgb(h):
     h = h.lstrip('#')
@@ -94,30 +93,12 @@ _M_RGB = _hex_to_rgb(COLOR_M)
 _S_RGB = _hex_to_rgb(COLOR_S)
 _LEAD_CAP = 1500  # avg Time Score gap (points, out of 5000) treated as a "landslide" -> full-saturation tile
 
-def _year_cell_style(diff):
-    """(background, border color, label color) for a year, given
-    diff = Michael's avg Time Score minus Sarah's avg Time Score there."""
-    if diff is None or pd.isna(diff) or diff == 0:
-        return "#f2f1ec", "#bdbdb5", "#333333"
-    leader_rgb = _M_RGB if diff > 0 else _S_RGB
-    border = COLOR_M if diff > 0 else COLOR_S
-    intensity = min(abs(diff) / _LEAD_CAP, 1.0)
-    # Blend the leader's color into white, capped well short of full strength
-    # so the tile never gets so dark the text on it stops being readable.
-    blend = 0.12 + intensity * 0.5
-    r = round(255 * (1 - blend) + leader_rgb[0] * blend)
-    g = round(255 * (1 - blend) + leader_rgb[1] * blend)
-    b = round(255 * (1 - blend) + leader_rgb[2] * blend)
-    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    label_color = "#ffffff" if luminance < 0.55 else "#222222"
-    return f"rgb({r},{g},{b})", border, label_color
-
 def _bar_color(diff):
-    """A punchier version of _year_cell_style's blend for the count-overlay
-    bars in the distribution chart below — bars don't need to stay pale for
-    text to sit on top of them the way a grid tile does, so they lean much
-    further into the leader's actual color and read far more vividly at a
-    glance."""
+    """Blend the leader's color into white for the count-overlay bars in the
+    distribution chart below — a punchier blend than a tile would want, since
+    a bar doesn't need to stay pale for text to sit on top of it, so it leans
+    much further into the leader's actual color and reads far more vividly at
+    a glance."""
     if diff is None or pd.isna(diff) or diff == 0:
         return "#c9c7bc"
     leader_rgb = _M_RGB if diff > 0 else _S_RGB
@@ -133,63 +114,6 @@ for _c in _yr_df.columns:
     _yr_df[_c] = pd.to_numeric(_yr_df[_c], errors="coerce")
 _yr_df = _yr_df.dropna(subset=[col_year])
 _yr_df[col_year] = _yr_df[col_year].astype(int)
-_yr_stats = _yr_df.groupby(col_year).agg(
-    count=(col_year, "size"),
-    michael_avg=("Michael Time Score", "mean"),
-    sarah_avg=("Sarah Time Score", "mean"),
-)
-
-# Same aggregation one level up, keyed by decade start — feeds the wide
-# "row header" cell to the left of each row (a whole-decade rollup, not an
-# average of the 10 per-year averages, so a decade isn't skewed by a
-# lightly-played year sitting next to a heavily-played one).
-_yr_df["_decade"] = (_yr_df[col_year] // 10 * 10)
-_decade_stats = _yr_df.groupby("_decade").agg(
-    count=(col_year, "size"),
-    michael_avg=("Michael Time Score", "mean"),
-    sarah_avg=("Sarah Time Score", "mean"),
-)
-
-# Orthogonal rollup, keyed by the year's last digit (1903/1913/.../2023 all
-# feed digit 3) — feeds the tall "column header" cell above each column.
-_yr_df["_digit"] = _yr_df[col_year] % 10
-_digit_stats = _yr_df.groupby("_digit").agg(
-    count=(col_year, "size"),
-    michael_avg=("Michael Time Score", "mean"),
-    sarah_avg=("Sarah Time Score", "mean"),
-)
-
-# Every row folded into one — feeds the corner cell where the row-header
-# column and column-header row would otherwise leave an empty square.
-_grand_stats = {
-    "count": len(_yr_df),
-    "michael_avg": _yr_df["Michael Time Score"].mean(),
-    "sarah_avg": _yr_df["Sarah Time Score"].mean(),
-}
-
-def _cell_html(label, stats_row, extra_cls=""):
-    if stats_row is not None:
-        _cnt = int(stats_row["count"])
-        _m_avg, _s_avg = stats_row["michael_avg"], stats_row["sarah_avg"]
-        _diff = (_m_avg - _s_avg) if (pd.notna(_m_avg) and pd.notna(_s_avg)) else None
-        _bg, _border, _label_c = _year_cell_style(_diff)
-        _m_txt = f"{_m_avg:,.0f}" if pd.notna(_m_avg) else "—"
-        _s_txt = f"{_s_avg:,.0f}" if pd.notna(_s_avg) else "—"
-        _count_txt = f"{_cnt}&times;"
-        _faded = ""
-    else:
-        _bg, _border, _label_c = "#f7f7f4", "#e2e1da", "#999999"
-        _m_txt = _s_txt = "—"
-        _count_txt = "0&times;"
-        _faded = "opacity:0.55;"
-    cls = f"year-cell {extra_cls}".strip()
-    return (
-        f'<div class="{cls}" style="background:{_bg}; border-color:{_border}; {_faded}" title="{label}">'
-        f'<div class="yc-year" style="color:{_label_c};">{label}</div>'
-        f'<div class="yc-count" style="color:{_label_c};">{_count_txt}</div>'
-        f'<div class="yc-scores"><span class="yc-m">{_m_txt}</span><span class="yc-s">{_s_txt}</span></div>'
-        f'</div>'
-    )
 
 # ==========================================
 # ACTUAL YEAR DISTRIBUTION — two signals, one chart, one x-axis of years
@@ -336,104 +260,23 @@ fig_single.update_layout(
     height=420,
     margin=dict(l=70, r=70, t=20, b=50),
 )
-# Same card treatment as the leaderboard below — light background, soft
-# border/shadow, a little hover "pop" — so the two sit together as one
-# consistent design instead of a styled grid next to a bare white chart.
+# Same card treatment as the confusion matrices below — light background,
+# soft border/shadow, a little hover "pop" — so they sit together as one
+# consistent design instead of a styled chart next to bare white ones.
 with st.container(key="year_dist_chart_card"):
     st.plotly_chart(fig_single, use_container_width=True, theme=None)
 
-# ==========================================
-# YEAR GRID — 13 decades (rows) x 10 years-within-decade (columns) = every
-# year from 1900 to 2029, one cell each. Each cell shows how many rounds have
-# actually landed on that year, and the two players' average Time Score for
-# it; the cell's background and border shade toward whoever's ahead there,
-# darker the bigger that lead is. A wide cell to the left of each row rolls
-# up its decade; a tall cell above each column rolls up every year ending in
-# that digit; the corner where those two headers would otherwise leave a dead
-# square instead rolls up literally everything.
-# ==========================================
-st.markdown('<div class="section-heading">Year-by-Year Leaderboard</div>', unsafe_allow_html=True)
-
-_GRID_START = 1900
-_DECADE_ROWS = 13
-_cells_html = []
-
-# Header row: the corner (grand total) first, then one tall cell per column
-# rolling up every year that ends in that digit.
-_cells_html.append(_cell_html("🏆 All-Time", _grand_stats, extra_cls="corner-cell"))
-for _digit in range(10):
-    _dg_stats = _digit_stats.loc[_digit] if _digit in _digit_stats.index else None
-    _cells_html.append(_cell_html(f"{_digit}s", _dg_stats, extra_cls="digit-cell"))
-
-for _row in range(_DECADE_ROWS):
-    _decade = _GRID_START + _row * 10
-    _d_stats = _decade_stats.loc[_decade] if _decade in _decade_stats.index else None
-    _cells_html.append(_cell_html(f"🗓️ {_decade}s", _d_stats, extra_cls="decade-cell"))
-    for _col in range(10):
-        _yr = _decade + _col
-        _y_stats = _yr_stats.loc[_yr] if _yr in _yr_stats.index else None
-        _cells_html.append(_cell_html(str(_yr), _y_stats))
-
-# The grid sits inside its own centered, padded "card" rather than running
-# edge-to-edge in the page column — with a wide decade key thrown into the
-# mix, a flush-edge grid reads as lopsided even though its box is technically
-# centered; a visible, symmetric frame around the whole thing removes any
-# doubt that it's centered on the page.
 st.markdown("""
 <style>
-    .year-grid-card, .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { margin:0 auto 35px auto !important; padding:20px 20px 12px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
-    .year-grid-card, .st-key-year_dist_chart_card { max-width:1300px; }
-    /* The combined distribution/outcome chart above (and the four confusion
-       matrix cards further down) get the same card treatment as this grid —
-       light background, soft border/shadow — plus a gentle hover "pop" of
-       their own, echoing the grid cells' hover-scale without literally
-       copying a per-tile effect onto one big chart. */
+    .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { margin:0 auto 35px auto !important; padding:20px 20px 12px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
+    .st-key-year_dist_chart_card { max-width:1300px; }
+    /* The four confusion matrix cards further down get the same card
+       treatment as this chart — light background, soft border/shadow —
+       plus a gentle hover "pop" of their own. */
     .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { transition:transform .15s ease, box-shadow .15s ease; }
     .st-key-year_dist_chart_card:hover, .st-key-conf_matrix_michael_card:hover, .st-key-conf_matrix_sarah_card:hover, .st-key-conf_matrix_michael_year_card:hover, .st-key-conf_matrix_sarah_year_card:hover { transform:scale(1.01); box-shadow:0 10px 28px rgba(0,0,0,0.12); }
-    /* Decade column is a fixed width rather than an "Nfr" share: the year
-       columns' own content (two side-by-side score pills) has a real minimum
-       width the grid honors first, which was quietly capping how much wider
-       a merely-proportional decade track could actually end up — pinning it
-       in px sidesteps that fight entirely and guarantees the ~2x width. The
-       header row (digit + corner cells) is pinned to that same 190px, so it
-       ends up exactly as tall as the decade cells are wide. */
-    .year-grid { display:grid; grid-template-columns:190px repeat(10, minmax(90px, 1fr)); grid-template-rows:190px repeat(13, auto); gap:6px; width:100%; }
-    .year-cell { display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9px; padding:8px 3px 7px 3px; text-align:center; box-sizing:border-box; border:6.25px solid; transition:transform .12s ease; cursor:default; }
-    .year-cell:hover { transform:scale(1.08); z-index:3; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
-    .yc-year { font-family:'Poppins',sans-serif; font-weight:800; font-size:14px; line-height:1.1; }
-    .yc-count { font-family:'Inter',sans-serif; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-top:1px; opacity:.8; }
-    .yc-scores { display:flex; justify-content:center; gap:4px; margin-top:5px; }
-    .yc-m, .yc-s { font-family:'Inter',sans-serif; font-size:10px; font-weight:800; padding:1px 5px; border-radius:5px; background:rgba(255,255,255,0.6); }
-    .yc-m { color:#221e8f; }
-    .yc-s { color:#8a005c; }
-    /* The decade cell is the "Shift key" of its row: a fixed 190px-wide
-       track (about double a year cell's own width), its own rounder
-       corners, a bolder/bigger label carrying a small calendar mark, and
-       bigger score badges — several cues stacked together so it unmistakably
-       reads as the row's label rather than just another tile. */
-    .decade-cell { border-radius:14px; }
-    .decade-cell .yc-year { font-size:17px; font-weight:900; letter-spacing:.3px; }
-    .decade-cell .yc-m, .decade-cell .yc-s { font-size:11px; padding:2px 6px; }
-    /* Digit cell is the decade cell's counterpart turned 90°: same rounder
-       corners and bold label, but tall (190px, via the header row track)
-       rather than wide, rolling up "every year ending in N" above its
-       column. The corner cell is both at once — a full 190x190 square —
-       since it's where those two headers would otherwise leave a dead
-       square, rolled up into a grand total across every year on the board. */
-    .digit-cell, .corner-cell { border-radius:14px; }
-    .digit-cell .yc-year, .corner-cell .yc-year { font-size:17px; font-weight:900; letter-spacing:.3px; }
-    .digit-cell .yc-m, .digit-cell .yc-s, .corner-cell .yc-m, .corner-cell .yc-s { font-size:11px; padding:2px 6px; }
-    .corner-cell .yc-year { font-size:15px; }
-    /* Digit cells are only ~90px wide, too narrow for the Michael/Sarah score
-       pills to sit side by side without crowding — stack them instead. */
-    .digit-cell .yc-scores { flex-direction:column; gap:3px; }
-    .digit-cell .yc-m, .digit-cell .yc-s { width:100%; box-sizing:border-box; }
-    @media (max-width: 900px) {
-        .year-grid { grid-template-columns:120px repeat(4, minmax(60px, 1fr)); grid-template-rows:120px repeat(13, auto); }
-    }
 </style>
 """, unsafe_allow_html=True)
-st.markdown(f'<div class="year-grid-card"><div class="year-grid">{"".join(_cells_html)}</div></div>', unsafe_allow_html=True)
 
 # ==========================================
 # CONFUSION MATRICES — for each player, how often a guess landing on X was
