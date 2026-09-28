@@ -522,14 +522,34 @@ data = load_data(_stats_mtime)
 base_gdf, valid_map_names = load_map()
 iso_gdf = precompute_iso_merged(base_gdf)
 
-# Countries with subdivision splits available (mirrors COUNTRIES_TO_KEEP_SPLIT in Build_Map.py)
+# Countries whose map supports subdivision splits (mirrors COUNTRIES_TO_KEEP_SPLIT in
+# Build_Map.py). NOR and FIN only split off their detached territories (Svalbard/Jan
+# Mayen, Peter I Island, Aland) now — their mainlands are a single merged shape.
 _splittable_isos = {
     'USA', 'GBR', 'FRA', 'NLD', 'ITA', 'CAN', 'DEU', 'POL',
     'SWE', 'JPN', 'AUS', 'CHN', 'CHE', 'HUN', 'GRC', 'DNK',
-    'NOR', 'ESP', 'FIN', 'IRL', 'RUS', 'BRA', 'BEL', 'KOR',
-    'PRT', 'NZL', 'IND', 'ZAF', 'MEX', 'PER', 'TUR', 'AUT',
-    'VNM', 'CZE', 'THA', 'CHL', 'ISR',
+    'NOR', 'ESP', 'FIN', 'IRL', 'RUS', 'BRA', 'BEL',
+    'NZL', 'IND', 'MEX', 'TUR', 'AUT',
 }
+
+def _has_split_cases(iso):
+    """Whether splitting this ISO would actually separate out more than one piece,
+    given what's been played so far. True if a played round for this country has
+    its own recorded Subdivision (e.g. a US state), or one of its dependent
+    territories (e.g. Greenland/Faroe Islands for Denmark) has been played as its
+    own location. A country lacking any such case (like Denmark, Norway, and
+    Finland today — their mainlands have no recorded subdivisions and no
+    Greenland/Svalbard/Aland round has appeared yet) is hidden from the Split
+    Countries picker until one actually shows up; a lack of Subdivision is always
+    the country's own main/mainland part, never a reason to treat it as split.
+    """
+    rows = data[data['ISO3'] == iso]
+    if rows['Subdivision'].notna().any():
+        return True
+    return any(dep_iso for dep_iso, parent_iso in TERRITORY_PARENT_MAP.items()
+               if parent_iso == iso and (data['ISO3'] == dep_iso).any())
+
+_splittable_isos = {iso for iso in _splittable_isos if _has_split_cases(iso)}
 
 # Build display-name → ISO3 dict (SPLIT_CONFIG names take priority for configured countries)
 split_options = {}
@@ -541,10 +561,8 @@ _EXTRA_NAMES = {
     'NOR': 'Norway', 'IRL': 'Ireland',
     'BRA': 'Brazil', 'MEX': 'Mexico',
     'SWE': 'Sweden', 'HUN': 'Hungary', 'DNK': 'Denmark',
-    'FIN': 'Finland', 'KOR': 'South Korea', 'PRT': 'Portugal',
-    'NZL': 'New Zealand', 'ZAF': 'South Africa', 'PER': 'Peru',
-    'TUR': 'Turkiye', 'AUT': 'Austria', 'VNM': 'Vietnam',
-    'CZE': 'Czechia', 'THA': 'Thailand', 'CHL': 'Chile', 'ISR': 'Israel',
+    'FIN': 'Finland', 'NZL': 'New Zealand',
+    'TUR': 'Turkiye', 'AUT': 'Austria',
 }
 for _iso in sorted(_splittable_isos - set(SPLIT_CONFIG.keys())):
     split_options[_EXTRA_NAMES.get(_iso, _iso)] = _iso
@@ -923,17 +941,26 @@ _HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 
 
 def _pill_group(state_key, default, options, key_prefix, per_row=2):
     """Segmented pill-button control (matches Comparison / Electoral College).
-    `options` is a list of (button_label, stored_value). Returns the selected value."""
+    `options` is a list of (button_label, stored_value). Returns the selected value.
+
+    Uses an on_click callback rather than an inline `st.rerun()`. Streamlit runs
+    on_click callbacks (and applies their session_state writes) before the script
+    reruns, so this button's own value is correctly reflected on the very next
+    render with only the one rerun the click already triggers. A manual
+    `st.rerun()` here previously forced a *second*, immediate rerun stacked on
+    top of that natural one, which could race an just-submitted, not-yet-applied
+    value from another widget (e.g. the Split Countries multiselect) and cause
+    it to be silently dropped — this pattern avoids that entirely.
+    """
     cur = st.session_state.get(state_key, default)
     cols = []
     for _ in range(0, len(options), per_row):
         cols.extend(st.columns(per_row))
     for col, (label, value) in zip(cols, options):
         with col:
-            if st.button(label, key=f"{key_prefix}_{value}", use_container_width=True,
-                         type="primary" if cur == value else "secondary"):
-                st.session_state[state_key] = value
-                st.rerun()
+            st.button(label, key=f"{key_prefix}_{value}", use_container_width=True,
+                      type="primary" if cur == value else "secondary",
+                      on_click=lambda v=value: st.session_state.__setitem__(state_key, v))
     return cur
 
 
@@ -945,14 +972,16 @@ with st.sidebar:
         [("Count", "Count"), ("Compare", "Comparison"), ("Michael", "Michael"), ("Sarah", "Sarah")],
         'loc_mm')
 
-    if map_metric != "Count":
-        st.markdown(_HR, unsafe_allow_html=True)
-        score_mode = _pill_group(
-            'loc_score_mode', 'Total Score',
-            [("Total", "Total Score"), ("Geo", "Geography Score"), ("Time", "Time Score")],
-            'loc_sm', per_row=3)
-    else:
-        score_mode = "Total Score"
+    # Always rendered (even when unused by "Count") so the sidebar's widget layout
+    # never shifts based on map_metric — Streamlit ties each keyless-widget's
+    # committed value to its position in the tree, and conditionally inserting/
+    # removing this block was silently discarding the Split Countries / Date Range /
+    # Min Games selections made just before switching metrics.
+    st.markdown(_HR, unsafe_allow_html=True)
+    score_mode = _pill_group(
+        'loc_score_mode', 'Total Score',
+        [("Total", "Total Score"), ("Geo", "Geography Score"), ("Time", "Time Score")],
+        'loc_sm', per_row=3)
 
     st.markdown(_HR, unsafe_allow_html=True)
     view_mode = _pill_group(
@@ -962,12 +991,14 @@ with st.sidebar:
         'loc_vm')
 
     st.markdown(_HR, unsafe_allow_html=True)
-    sel_splits = st.multiselect("Split Countries:", sorted(split_options.keys()), default=[])
-    
+    sel_splits = st.multiselect("Split Countries:", sorted(split_options.keys()), default=[],
+                                 key="loc_split_countries")
+
     if "Date" in data.columns:
         min_d = data[data['Country'].notna()]["Date"].min().date()
         max_d = data["Date"].max().date()
-        sel_dates = st.slider("Select Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY")
+        sel_dates = st.slider("Select Date Range:", min_d, max_d, (min_d, max_d), format="MM/DD/YY",
+                               key="loc_date_range")
         filtered_data = data[(data["Date"].dt.date >= sel_dates[0]) & (data["Date"].dt.date <= sel_dates[1])].copy()
     else: filtered_data = data.copy()
 
@@ -1006,9 +1037,19 @@ with st.sidebar:
     stats = calculate_stats(filtered_data, active_splits_frozen, view_mode, map_metric, score_mode)
 
     st.markdown(_HR, unsafe_allow_html=True)
-    max_games = int(stats['Total_Active'].max()) if not stats.empty else 0
-    min_count = st.slider("Min Games:", 0, max_games, 0)
-    
+    # The slider's bound must not depend on map_metric/active_splits/view_mode:
+    # Streamlit silently drops a keyed slider's stored value whenever its
+    # min/max bounds change on a rerun, even when that value still fits the
+    # new range (this is what caused Min Games to keep resetting to 0 when
+    # switching metrics). Continent-level row counts in the current date range
+    # are the largest grouping this page ever shows, so they make a bound
+    # that's both stable across those settings and comfortably covers them.
+    if 'Continent' in filtered_data.columns and not filtered_data.empty:
+        slider_max = max(int(filtered_data.groupby('Continent').size().max()), 1)
+    else:
+        slider_max = 1
+    min_count = st.slider("Min Games:", 0, slider_max, key="loc_min_games")
+
     stats = stats[stats['Total_Active'] >= min_count]
     stats = stats[stats['Total_Active'] > 0]
 
@@ -1069,7 +1110,16 @@ active_iso_tuple = tuple(map_data[map_data['Join_Key'].isin(active_keys)]['ISO3'
 active_subdivs = {}
 if active_splits:
     for iso in active_splits:
-        subs = map_data[(map_data['ISO3'] == iso) & map_data['Subdivision'].notna()]['Subdivision'].astype(str).str.strip().unique()
+        iso_rows = map_data[map_data['ISO3'] == iso]
+        subs = set(iso_rows.loc[iso_rows['Subdivision'].notna(), 'Subdivision'].astype(str).str.strip().unique())
+        # A played round with no recorded Subdivision is the country's own
+        # main/mainland part (e.g. a Denmark round that isn't Greenland or the
+        # Faroe Islands) — allow the map's own ISO3-named mainland shape
+        # (see NOR_REGION_MAP/FIN_REGION_MAP/the Denmark rename in Build_Map.py)
+        # through the split-country filter below so it isn't dropped for lack
+        # of a matching subdivision name.
+        if iso_rows['Subdivision'].isna().any():
+            subs.add(iso)
         active_subdivs[iso] = tuple(subs)
 
 active_subdivs_tuple = tuple(active_subdivs.items())
