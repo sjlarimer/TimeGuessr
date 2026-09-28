@@ -48,8 +48,9 @@ ISO_LANGUAGE_MAP = {
     'IRL': 'English', 'JAM': 'English', 'BHS': 'English', 
     'BRB': 'English', 'GUY': 'English', 'TTO': 'English', 'ATG': 'English', 'DMA': 'English', 
     'GRD': 'English', 'KNA': 'English', 'LCA': 'English', 'VCT': 'English', 'BLZ': 'English',
-    'NGA': 'English', 'GHA': 'English', 'SLE': 'English', 'LBR': 'English', 'GMB': 'English', 
+    'NGA': 'English', 'GHA': 'English', 'SLE': 'English', 'LBR': 'English', 'GMB': 'English',
     'UGA': 'English', 'ZMB': 'English', 'ZWE': 'English', 'BWA': 'English', 'NAM': 'English',
+    'SGP': 'English', 'PNG': 'English', 'KEN': 'English',
     
     # Spanish
     'ESP': 'Spanish', 'MEX': 'Spanish', 'COL': 'Spanish', 'ARG': 'Spanish', 'PER': 'Spanish', 
@@ -68,6 +69,7 @@ ISO_LANGUAGE_MAP = {
     'GIN': 'French', 'TCD': 'French', 'HTI': 'French', 'MDG': 'French', 
     'BEN': 'French', 'TGO': 'French', 'CAF': 'French', 'COG': 'French', 'GAB': 'French', 
     'DJI': 'French', 'MCO': 'French', 'VUT': 'French', 'SYC': 'French', 'BDI': 'French',
+    'CMR': 'French',
     
     # Other Romance
     'ITA': 'Other Romance', 'SMR': 'Other Romance', 'VAT': 'Other Romance', 
