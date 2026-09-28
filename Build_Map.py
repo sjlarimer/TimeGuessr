@@ -9,6 +9,11 @@ OUTPUT_FILE = "./Data/Custom_World_Map.geojson"
 SIMPLIFIED_OUTPUT_FILE = "./Data/Custom_World_Map_New.json"
 
 # List of Countries to KEEP subdivisions for (ISO Alpha-3 Codes)
+# NOR and FIN stay listed here but only to keep their detached territories
+# (Svalbard/Jan Mayen, Peter I Island, Aland) distinct from the mainland — see
+# NOR_REGION_MAP / FIN_REGION_MAP below, which collapse every mainland region
+# into a single "Norway"/"Finland" entry while leaving those territory rows
+# unmapped (and therefore un-dissolved).
 COUNTRIES_TO_KEEP_SPLIT = [
     'USA', # United States
     'GBR', # United Kingdom
@@ -25,28 +30,18 @@ COUNTRIES_TO_KEEP_SPLIT = [
     'CHE', # Switzerland
     'HUN', # Hungary
     'GRC', # Greece
-    'DNK', # Denmark
-    'NOR', # Norway
+    'NOR', # Norway (mainland merged; Svalbard/Jan Mayen, Peter I Island kept separate)
     'ESP', # Spain
-    'FIN', # Finland
+    'FIN', # Finland (mainland merged; Aland kept separate)
     'IRL', # Ireland
     'RUS', # Russia
     'BRA', # Brazil
     'BEL', # Belgium
-    'KOR', # South Korea
-    'PRT', # Portugal
     'NZL', # New Zealand
     'IND', # India
-    'ZAF', # South Africa
     'MEX', # Mexico
-    'PER', # Peru
     'TUR', # Turkey
     'AUT', # Austria
-    'VNM', # Vietnam
-    'CZE', # Czechia
-    'THA', # Thailand
-    'CHL', # Chile
-    'ISR', # Israel
 ]
 
 FRA_NAME_MAP = {
@@ -215,14 +210,6 @@ JPN_REGION_MAP = {
     'Okinawa':   'Okinawa',
 }
 
-DNK_NAME_MAP = {
-    'Hovedstaden': 'Capital Region',
-    'Midtjylland': 'Central Jutland',
-    'Nordjylland': 'North Jutland',
-    'Sjælland':    'Zealand',
-    'Syddanmark':  'Southern Denmark',
-}
-
 GRC_REGION_MAP = {
     'Ágion Óros':                    'Mount Athos',
     'Aitoloakarnanía':               'Western Greece',
@@ -305,143 +292,6 @@ CHE_REGION_MAP = {
     'Zug':       'Central Switzerland',
     # Ticino
     'Ticino': 'Ticino',
-}
-
-PRT_REGION_MAP = {
-    # Norte
-    'Braga':            'Norte',
-    'Bragança':         'Norte',
-    'Porto':            'Norte',
-    'Viana do Castelo': 'Norte',
-    'Vila Real':        'Norte',
-    # Centro
-    'Aveiro':          'Centro',
-    'Castelo Branco':  'Centro',
-    'Coimbra':         'Centro',
-    'Guarda':          'Centro',
-    'Leiria':          'Centro',
-    'Santarém':        'Centro',
-    'Viseu':           'Centro',
-    # Lisbon Metropolitan Area
-    'Lisboa':  'Lisbon',
-    'Setúbal': 'Lisbon',
-    # Alentejo
-    'Beja':       'Alentejo',
-    'Évora':      'Alentejo',
-    'Portalegre': 'Alentejo',
-    # Algarve
-    'Faro': 'Algarve',
-    # Autonomous Regions
-    'Região Autónoma dos Açores': 'Azores',
-    'Região Autónoma da Madeira': 'Madeira',
-}
-
-THA_REGION_MAP = {
-    # Northern Thailand
-    'Chiang Mai':  'Northern Thailand',
-    'Chiang Rai':  'Northern Thailand',
-    'Lampang':     'Northern Thailand',
-    'Lamphun':     'Northern Thailand',
-    'Mae Hong Son':'Northern Thailand',
-    'Nan':         'Northern Thailand',
-    'Phayao':      'Northern Thailand',
-    'Phrae':       'Northern Thailand',
-    'Uttaradit':   'Northern Thailand',
-    # Northeastern Thailand (Isan)
-    'Amnat Charoen':    'Northeastern Thailand',
-    'Bueng Kan':        'Northeastern Thailand',
-    'Buri Ram':         'Northeastern Thailand',
-    'Chaiyaphum':       'Northeastern Thailand',
-    'Kalasin':          'Northeastern Thailand',
-    'Khon Kaen':        'Northeastern Thailand',
-    'Loei':             'Northeastern Thailand',
-    'Maha Sarakham':    'Northeastern Thailand',
-    'Mukdahan':         'Northeastern Thailand',
-    'Nakhon Phanom':    'Northeastern Thailand',
-    'Nakhon Ratchasima':'Northeastern Thailand',
-    'Nong Bua Lam Phu': 'Northeastern Thailand',
-    'Nong Khai':        'Northeastern Thailand',
-    'Roi Et':           'Northeastern Thailand',
-    'Sakon Nakhon':     'Northeastern Thailand',
-    'Si sa ket':        'Northeastern Thailand',
-    'Surin':            'Northeastern Thailand',
-    'Ubon Ratchathani': 'Northeastern Thailand',
-    'Udon Thani':       'Northeastern Thailand',
-    'Yasothon':         'Northeastern Thailand',
-    # Central Thailand
-    'Ang Thong':             'Central Thailand',
-    'Chai Nat':              'Central Thailand',
-    'Kamphaeng Phet':        'Central Thailand',
-    'Krung Thep Maha Nakhon':'Central Thailand',
-    'Lop Buri':              'Central Thailand',
-    'Nakhon Nayok':          'Central Thailand',
-    'Nakhon Pathom':         'Central Thailand',
-    'Nakhon Sawan':          'Central Thailand',
-    'Nonthaburi':            'Central Thailand',
-    'Pathum Thani':          'Central Thailand',
-    'Phatthaya':             'Central Thailand',
-    'Phetchabun':            'Central Thailand',
-    'Phichit':               'Central Thailand',
-    'Phitsanulok':           'Central Thailand',
-    'Phra Nakhon Si Ayutthaya':'Central Thailand',
-    'Samut Prakan':          'Central Thailand',
-    'Samut Sakhon':          'Central Thailand',
-    'Samut Songkhram':       'Central Thailand',
-    'Saraburi':              'Central Thailand',
-    'Sing Buri':             'Central Thailand',
-    'Sukhothai':             'Central Thailand',
-    'Suphan Buri':           'Central Thailand',
-    'Uthai Thani':           'Central Thailand',
-    # Eastern Thailand
-    'Chachoengsao': 'Eastern Thailand',
-    'Chanthaburi':  'Eastern Thailand',
-    'Chon Buri':    'Eastern Thailand',
-    'Prachin Buri': 'Eastern Thailand',
-    'Rayong':       'Eastern Thailand',
-    'Sa Kaeo':      'Eastern Thailand',
-    'Trat':         'Eastern Thailand',
-    # Western Thailand
-    'Kanchanaburi':      'Western Thailand',
-    'Phetchaburi':       'Western Thailand',
-    'Prachuap Khiri Khan':'Western Thailand',
-    'Ratchaburi':        'Western Thailand',
-    'Tak':               'Western Thailand',
-    # Southern Thailand
-    'Chumphon':          'Southern Thailand',
-    'Krabi':             'Southern Thailand',
-    'Nakhon Si Thammarat':'Southern Thailand',
-    'Narathiwat':        'Southern Thailand',
-    'Pattani':           'Southern Thailand',
-    'Phangnga':          'Southern Thailand',
-    'Phatthalung':       'Southern Thailand',
-    'Phuket':            'Southern Thailand',
-    'Ranong':            'Southern Thailand',
-    'Satun':             'Southern Thailand',
-    'Songkhla':          'Southern Thailand',
-    'Surat Thani':       'Southern Thailand',
-    'Trang':             'Southern Thailand',
-    'Yala':              'Southern Thailand',
-}
-
-CHL_NAME_MAP = {
-    'Aisén del General Carlos Ibañez del Campo': 'Aysen',
-    'Biobío':                                    'Biobio',
-    'La Araucanía':                              'Araucania',
-    "Libertador General Bernardo O'Higgins":     "O'Higgins",
-    'Los Ríos':                                  'Los Rios',
-    'Región Metropolitana de Santiago':          'Santiago Metropolitan',
-    'Tarapacá':                                  'Tarapaca',
-    'Valparaíso':                                'Valparaiso',
-    'Ñuble':                                     'Nuble',
-}
-
-ISR_NAME_MAP = {
-    'HaDarom':           'Southern District',
-    'HaMerkaz':          'Central District',
-    'HaTsafon':          'Northern District',
-    'H̱efa':        'Haifa',
-    'Tel-Aviv':          'Tel Aviv',
-    'Yerushalayim':      'Jerusalem',
 }
 
 AUT_NAME_MAP = {
@@ -544,100 +394,6 @@ TUR_REGION_MAP = {
     'Adıyaman':   'Southeastern Anatolia',
 }
 
-VNM_REGION_MAP = {
-    # Northwest
-    'Lai Châu':   'Northwest',
-    'Điện Biên':  'Northwest',
-    'Sơn La':     'Northwest',
-    'Hòa Bình':   'Northwest',
-    # Northeast
-    'Hà Giang':   'Northeast',
-    'Cao Bằng':   'Northeast',
-    'Bắc Kạn':    'Northeast',
-    'Lạng Sơn':   'Northeast',
-    'Tuyên Quang':'Northeast',
-    'Lào Cai':    'Northeast',
-    'Yên Bái':    'Northeast',
-    'Thái Nguyên':'Northeast',
-    'Phú Thọ':    'Northeast',
-    'Bắc Giang':  'Northeast',
-    'Quảng Ninh': 'Northeast',
-    # Red River Delta
-    'Hà Nội':    'Red River Delta',
-    'Vĩnh Phúc': 'Red River Delta',
-    'Bắc Ninh':  'Red River Delta',
-    'Hà Nam':    'Red River Delta',
-    'Hưng Yên':  'Red River Delta',
-    'Hải Dương': 'Red River Delta',
-    'Hải Phòng': 'Red River Delta',
-    'Thái Bình': 'Red River Delta',
-    'Nam Ðịnh':  'Red River Delta',
-    'Ninh Bình': 'Red River Delta',
-    # North Central Coast
-    'Thanh Hóa':      'North Central Coast',
-    'Nghệ An':        'North Central Coast',
-    'Hà Tĩnh':        'North Central Coast',
-    'Quảng Bình':     'North Central Coast',
-    'Quảng Trị':      'North Central Coast',
-    'Thừa Thiên-Huế': 'North Central Coast',
-    # South Central Coast
-    'Đà Nẵng':   'South Central Coast',
-    'Quảng Nam': 'South Central Coast',
-    'Quảng Ngãi':'South Central Coast',
-    'Bình Định': 'South Central Coast',
-    'Phú Yên':   'South Central Coast',
-    'Khánh Hòa': 'South Central Coast',
-    'Ninh Thuận':'South Central Coast',
-    'Bình Thuận':'South Central Coast',
-    # Central Highlands
-    'Kon Tum':  'Central Highlands',
-    'Gia Lai':  'Central Highlands',
-    'Đắk Lắk': 'Central Highlands',
-    'Đắk Nông': 'Central Highlands',
-    'Lâm Ðồng': 'Central Highlands',
-    # Southeast
-    'Hồ Chí Minh':       'Southeast',
-    'Bình Phước':        'Southeast',
-    'Tây Ninh':          'Southeast',
-    'Bình Dương':        'Southeast',
-    'Ðồng Nai':          'Southeast',
-    'Bà Rịa - Vũng Tàu':'Southeast',
-    # Mekong River Delta
-    'Long An':    'Mekong River Delta',
-    'Tiền Giang': 'Mekong River Delta',
-    'Bến Tre':    'Mekong River Delta',
-    'Ðồng Tháp': 'Mekong River Delta',
-    'An Giang':   'Mekong River Delta',
-    'Vĩnh Long':  'Mekong River Delta',
-    'Trà Vinh':   'Mekong River Delta',
-    'Hậu Giang':  'Mekong River Delta',
-    'Kiến Giang': 'Mekong River Delta',
-    'Sóc Trăng':  'Mekong River Delta',
-    'Bạc Liêu':   'Mekong River Delta',
-    'Cà Mau':     'Mekong River Delta',
-    'Cần Thơ':    'Mekong River Delta',
-}
-
-CZE_REGION_MAP = {
-    # Bohemia
-    'Praha, Hlavní město': 'Bohemia',
-    'Středočeský kraj':    'Bohemia',
-    'Jihočeský kraj':      'Bohemia',
-    'Plzeňský kraj':       'Bohemia',
-    'Karlovarský kraj':    'Bohemia',
-    'Ústecký kraj':        'Bohemia',
-    'Liberecký kraj':      'Bohemia',
-    'Královéhradecký kraj':'Bohemia',
-    'Pardubický kraj':     'Bohemia',
-    'Vysočina':            'Bohemia',
-    # Moravia
-    'Jihomoravský kraj':   'Moravia',
-    'Olomoucký kraj':      'Moravia',
-    'Zlínský kraj':        'Moravia',
-    # Silesia
-    'Moravskoslezský kraj':'Silesia',
-}
-
 MEX_NAME_MAP = {
     'Ciudad de México':             'Mexico City',
     'Coahuila de Zaragoza':         'Coahuila',
@@ -648,16 +404,6 @@ MEX_NAME_MAP = {
     'San Luis Potosí':              'San Luis Potosi',
     'Veracruz de Ignacio de la Llave': 'Veracruz',
     'Yucatán':                      'Yucatan',
-}
-
-PER_NAME_MAP = {
-    'Apurímac':                        'Apurimac',
-    'El Callao':                       'Callao',
-    'Huánuco':                         'Huanuco',
-    'Junín':                           'Junin',
-    'Lima':                            'Lima Region',
-    'Municipalidad Metropolitana de Lima': 'Lima',
-    'San Martín':                      'San Martin',
 }
 
 NZL_NAME_MAP = {
@@ -696,67 +442,6 @@ BEL_NAME_MAP = {
     'Bruxelles-Capitale: Région de': 'Brussels Capital Region',
     'Vlaamse Gewest':                'Flanders',
     'wallonne, Région':              'Wallonia',
-}
-
-KOR_REGION_MAP = {
-    # Seoul Capital Area
-    'Seoul-teukbyeolsi':   'Seoul Capital Area',
-    'Incheon-gwangyeoksi': 'Seoul Capital Area',
-    'Gyeonggi-do':         'Seoul Capital Area',
-    # Gangwon
-    'Gangwon-do':          'Gangwon',
-    # Chungcheong
-    'Chungcheongbuk-do':   'Chungcheong',
-    'Chungcheongnam-do':   'Chungcheong',
-    'Daejeon-gwangyeoksi': 'Chungcheong',
-    'Sejong':              'Chungcheong',
-    # Jeolla
-    'Jeollabuk-do':        'Jeolla',
-    'Jeollanam-do':        'Jeolla',
-    'Gwangju-gwangyeoksi': 'Jeolla',
-    # Gyeongsang
-    'Gyeongsangbuk-do':    'Gyeongsang',
-    'Gyeongsangnam-do':    'Gyeongsang',
-    'Daegu-gwangyeoksi':   'Gyeongsang',
-    'Busan-gwangyeoksi':   'Gyeongsang',
-    'Ulsan-gwangyeoksi':   'Gyeongsang',
-    # Jeju
-    'Jeju-teukbyeoljachido': 'Jeju',
-}
-
-BRA_REGION_MAP = {
-    # North
-    'Acre':      'North',
-    'Amapá':     'North',
-    'Amazonas':  'North',
-    'Pará':      'North',
-    'Rondônia':  'North',
-    'Roraima':   'North',
-    'Tocantins': 'North',
-    # Northeast
-    'Alagoas':             'Northeast',
-    'Bahia':               'Northeast',
-    'Ceará':               'Northeast',
-    'Maranhão':            'Northeast',
-    'Paraíba':             'Northeast',
-    'Pernambuco':          'Northeast',
-    'Piauí':               'Northeast',
-    'Rio Grande do Norte': 'Northeast',
-    'Sergipe':             'Northeast',
-    # Center-West
-    'Distrito Federal':  'Center-West',
-    'Goiás':             'Center-West',
-    'Mato Grosso':       'Center-West',
-    'Mato Grosso do Sul':'Center-West',
-    # Southeast
-    'Espírito Santo': 'Southeast',
-    'Minas Gerais':   'Southeast',
-    'Rio de Janeiro': 'Southeast',
-    'São Paulo':      'Southeast',
-    # South
-    'Paraná':          'South',
-    'Rio Grande do Sul':'South',
-    'Santa Catarina':   'South',
 }
 
 RUS_REGION_MAP = {
@@ -853,51 +538,49 @@ RUS_REGION_MAP = {
     "Zabaykal'skiy kray":       'Far Eastern',
 }
 
+# Every mainland county maps to a single 'NOR' entry so the mainland no longer
+# splits into regions — only Svalbard/Jan Mayen and Peter I Island (left
+# unmapped, so .fillna() keeps their original names) stay distinct. Named after
+# the ISO3 code, not "Norway", so it lines up with the Join_Key a
+# subdivision-less Norway round gets in the app's own stats calculation.
 NOR_REGION_MAP = {
-    # Northern Norway
-    'Nordland':             'Northern Norway',
-    'Troms og Finnmark':    'Northern Norway',
-    # Trøndelag (both old ISO_SUB codes)
-    'Trøndelag':            'Trondelag',
-    # Western Norway
-    'Vestland':             'Western Norway',
-    'Møre og Romsdal':      'Western Norway',
-    'Rogaland':             'Western Norway',
-    'Sogn og Fjordane':     'Western Norway',   # old county absorbed into Vestland
-    # Eastern Norway
-    'Oslo':                 'Eastern Norway',
-    'Viken':                'Eastern Norway',
-    'Innlandet':            'Eastern Norway',
-    'Vestfold og Telemark': 'Eastern Norway',
-    # Southern Norway
-    'Agder':                'Southern Norway',
-    'Aust-Agder':           'Southern Norway',  # old county absorbed into Agder
+    'Nordland':             'NOR',
+    'Troms og Finnmark':    'NOR',
+    'Trøndelag':            'NOR',
+    'Vestland':             'NOR',
+    'Møre og Romsdal':      'NOR',
+    'Rogaland':             'NOR',
+    'Sogn og Fjordane':     'NOR',   # old county absorbed into Vestland
+    'Oslo':                 'NOR',
+    'Viken':                'NOR',
+    'Innlandet':            'NOR',
+    'Vestfold og Telemark': 'NOR',
+    'Agder':                'NOR',
+    'Aust-Agder':           'NOR',  # old county absorbed into Agder
 }
 
+# Every mainland region maps to a single 'FIN' entry (see NOR_REGION_MAP above
+# for why it's the ISO3 code) so the mainland no longer splits into regions —
+# only Åland (its own autonomous region) stays distinct.
 FIN_REGION_MAP = {
-    # Helsinki-Uusimaa
-    'Uusimaa':          'Helsinki-Uusimaa',
-    # Southern Finland
-    'Varsinais-Suomi':  'Southern Finland',
-    'Satakunta':        'Southern Finland',
-    'Kanta-Häme':       'Southern Finland',
-    'Päijät-Häme':      'Southern Finland',
-    'Kymenlaakso':      'Southern Finland',
-    'Etelä-Karjala':    'Southern Finland',
-    # Western Finland
-    'Pirkanmaa':        'Western Finland',
-    'Keski-Suomi':      'Western Finland',
-    'Etelä-Pohjanmaa':  'Western Finland',
-    'Pohjanmaa':        'Western Finland',
-    'Keski-Pohjanmaa':  'Western Finland',
-    # Eastern Finland
-    'Etelä-Savo':       'Eastern Finland',
-    'Pohjois-Savo':     'Eastern Finland',
-    'Pohjois-Karjala':  'Eastern Finland',
-    'Kainuu':           'Eastern Finland',
-    # Northern Finland
-    'Pohjois-Pohjanmaa':'Northern Finland',
-    'Lappi':            'Northern Finland',
+    'Uusimaa':          'FIN',
+    'Varsinais-Suomi':  'FIN',
+    'Satakunta':        'FIN',
+    'Kanta-Häme':       'FIN',
+    'Päijät-Häme':      'FIN',
+    'Kymenlaakso':      'FIN',
+    'Etelä-Karjala':    'FIN',
+    'Pirkanmaa':        'FIN',
+    'Keski-Suomi':      'FIN',
+    'Etelä-Pohjanmaa':  'FIN',
+    'Pohjanmaa':        'FIN',
+    'Keski-Pohjanmaa':  'FIN',
+    'Etelä-Savo':       'FIN',
+    'Pohjois-Savo':     'FIN',
+    'Pohjois-Karjala':  'FIN',
+    'Kainuu':           'FIN',
+    'Pohjois-Pohjanmaa':'FIN',
+    'Lappi':            'FIN',
     # Åland stays as its own autonomous region
     'Ahvenanmaan maakunta': 'Aland',
 }
@@ -998,15 +681,6 @@ def process_map():
     print("COMBINING: merging layers...")
     gdf_final = pd.concat([gdf_split, gdf_dissolved], ignore_index=True)
 
-    print("MERGING: Dissolving Portuguese districts into 7 NUTS-2 regions...")
-    if 'NAME' in gdf_final.columns:
-        prt_mask = gdf_final['ISO3'] == 'PRT'
-        gdf_prt = gdf_final[prt_mask].copy()
-        gdf_rest = gdf_final[~prt_mask].copy()
-        gdf_prt['NAME'] = gdf_prt['NAME'].map(PRT_REGION_MAP).fillna(gdf_prt['NAME'])
-        gdf_prt = gdf_prt.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_prt], ignore_index=True)
-
     print("MERGING: Merging Indian Daman/Dadra duplicate and translating names...")
     if 'NAME' in gdf_final.columns:
         ind_mask = gdf_final['ISO3'] == 'IND'
@@ -1015,24 +689,6 @@ def process_map():
         gdf_ind['NAME'] = gdf_ind['NAME'].map(IND_NAME_MAP).fillna(gdf_ind['NAME'])
         gdf_ind = gdf_ind.dissolve(by='NAME', as_index=False)
         gdf_final = pd.concat([gdf_rest, gdf_ind], ignore_index=True)
-
-    print("MERGING: Dissolving South Korean subdivisions into 6 traditional regions...")
-    if 'NAME' in gdf_final.columns:
-        kor_mask = gdf_final['ISO3'] == 'KOR'
-        gdf_kor = gdf_final[kor_mask].copy()
-        gdf_rest = gdf_final[~kor_mask].copy()
-        gdf_kor['NAME'] = gdf_kor['NAME'].map(KOR_REGION_MAP).fillna(gdf_kor['NAME'])
-        gdf_kor = gdf_kor.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_kor], ignore_index=True)
-
-    print("MERGING: Dissolving Brazilian states into 5 macroregions...")
-    if 'NAME' in gdf_final.columns:
-        bra_mask = gdf_final['ISO3'] == 'BRA'
-        gdf_bra = gdf_final[bra_mask].copy()
-        gdf_rest = gdf_final[~bra_mask].copy()
-        gdf_bra['NAME'] = gdf_bra['NAME'].map(BRA_REGION_MAP).fillna(gdf_bra['NAME'])
-        gdf_bra = gdf_bra.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_bra], ignore_index=True)
 
     print("MERGING: Dissolving Russian subdivisions into 8 federal districts...")
     if 'NAME' in gdf_final.columns:
@@ -1043,7 +699,7 @@ def process_map():
         gdf_rus = gdf_rus.dissolve(by='NAME', as_index=False)
         gdf_final = pd.concat([gdf_rest, gdf_rus], ignore_index=True)
 
-    print("MERGING: Dissolving Norwegian counties into 5 traditional regions...")
+    print("MERGING: Dissolving Norwegian mainland counties into one shape (Svalbard/Jan Mayen, Peter I Island stay separate)...")
     if 'NAME' in gdf_final.columns:
         nor_mask = gdf_final['ISO3'] == 'NOR'
         gdf_nor = gdf_final[nor_mask].copy()
@@ -1052,7 +708,7 @@ def process_map():
         gdf_nor = gdf_nor.dissolve(by='NAME', as_index=False)
         gdf_final = pd.concat([gdf_rest, gdf_nor], ignore_index=True)
 
-    print("MERGING: Dissolving Finnish regions into 5 NUTS-2 regions...")
+    print("MERGING: Dissolving Finnish mainland regions into one shape (Aland stays separate)...")
     if 'NAME' in gdf_final.columns:
         fin_mask = gdf_final['ISO3'] == 'FIN'
         gdf_fin = gdf_final[fin_mask].copy()
@@ -1133,15 +789,6 @@ def process_map():
         gdf_can = gdf_can.dissolve(by='NAME', as_index=False)
         gdf_final = pd.concat([gdf_rest, gdf_can], ignore_index=True)
 
-    print("MERGING: Dissolving Thai provinces into 6 geographical regions...")
-    if 'NAME' in gdf_final.columns:
-        tha_mask = gdf_final['ISO3'] == 'THA'
-        gdf_tha = gdf_final[tha_mask].copy()
-        gdf_rest = gdf_final[~tha_mask].copy()
-        gdf_tha['NAME'] = gdf_tha['NAME'].map(THA_REGION_MAP).fillna(gdf_tha['NAME'])
-        gdf_tha = gdf_tha.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_tha], ignore_index=True)
-
     print("MERGING: Dissolving Turkish provinces into 7 geographical regions...")
     if 'NAME' in gdf_final.columns:
         tur_mask = gdf_final['ISO3'] == 'TUR'
@@ -1150,34 +797,6 @@ def process_map():
         gdf_tur['NAME'] = gdf_tur['NAME'].map(TUR_REGION_MAP).fillna(gdf_tur['NAME'])
         gdf_tur = gdf_tur.dissolve(by='NAME', as_index=False)
         gdf_final = pd.concat([gdf_rest, gdf_tur], ignore_index=True)
-
-    print("MERGING: Dissolving Vietnamese provinces into 8 official regions...")
-    if 'NAME' in gdf_final.columns:
-        vnm_mask = gdf_final['ISO3'] == 'VNM'
-        gdf_vnm = gdf_final[vnm_mask].copy()
-        gdf_rest = gdf_final[~vnm_mask].copy()
-        gdf_vnm['NAME'] = gdf_vnm['NAME'].map(VNM_REGION_MAP).fillna(gdf_vnm['NAME'])
-        gdf_vnm = gdf_vnm.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_vnm], ignore_index=True)
-
-    print("MERGING: Dissolving Czech regions into 3 traditional lands...")
-    if 'NAME' in gdf_final.columns:
-        cze_mask = gdf_final['ISO3'] == 'CZE'
-        gdf_cze = gdf_final[cze_mask].copy()
-        gdf_rest = gdf_final[~cze_mask].copy()
-        gdf_cze['NAME'] = gdf_cze['NAME'].map(CZE_REGION_MAP).fillna(gdf_cze['NAME'])
-        gdf_cze = gdf_cze.dissolve(by='NAME', as_index=False)
-        gdf_final = pd.concat([gdf_rest, gdf_cze], ignore_index=True)
-
-    print("RENAMING: Cleaning up Chilean region names...")
-    if 'NAME' in gdf_final.columns:
-        chl_mask = gdf_final['ISO3'] == 'CHL'
-        gdf_final.loc[chl_mask, 'NAME'] = gdf_final.loc[chl_mask, 'NAME'].replace(CHL_NAME_MAP)
-
-    print("RENAMING: Translating Israeli district names to English...")
-    if 'NAME' in gdf_final.columns:
-        isr_mask = gdf_final['ISO3'] == 'ISR'
-        gdf_final.loc[isr_mask, 'NAME'] = gdf_final.loc[isr_mask, 'NAME'].replace(ISR_NAME_MAP)
 
     print("RENAMING: Translating Austrian state names to English...")
     if 'NAME' in gdf_final.columns:
@@ -1189,11 +808,6 @@ def process_map():
         mex_mask = gdf_final['ISO3'] == 'MEX'
         gdf_final.loc[mex_mask, 'NAME'] = gdf_final.loc[mex_mask, 'NAME'].replace(MEX_NAME_MAP)
 
-    print("RENAMING: Cleaning up Peruvian region names...")
-    if 'NAME' in gdf_final.columns:
-        per_mask = gdf_final['ISO3'] == 'PER'
-        gdf_final.loc[per_mask, 'NAME'] = gdf_final.loc[per_mask, 'NAME'].replace(PER_NAME_MAP)
-
     print("RENAMING: Cleaning up New Zealand region names...")
     if 'NAME' in gdf_final.columns:
         nzl_mask = gdf_final['ISO3'] == 'NZL'
@@ -1204,10 +818,17 @@ def process_map():
         bel_mask = gdf_final['ISO3'] == 'BEL'
         gdf_final.loc[bel_mask, 'NAME'] = gdf_final.loc[bel_mask, 'NAME'].replace(BEL_NAME_MAP)
 
-    print("RENAMING: Translating Danish region names to English...")
+    print("RENAMING: Naming the merged Danish mainland shape 'DNK'...")
+    # DNK is no longer in COUNTRIES_TO_KEEP_SPLIT, so its regions were already
+    # dissolved into one row above; Greenland and the Faroe Islands are separate
+    # ISO3 entities (GRL/FRO) untouched by this and stay distinct on their own.
+    # Named after the ISO3 code (not "Denmark") so it lines up with the Join_Key
+    # a subdivision-less Denmark round gets in the app's own stats calculation —
+    # a plain ISO3 code, resolved to a nice display name at the labeling stage,
+    # same as every other split country's own played-but-unassigned rounds.
     if 'NAME' in gdf_final.columns:
         dnk_mask = gdf_final['ISO3'] == 'DNK'
-        gdf_final.loc[dnk_mask, 'NAME'] = gdf_final.loc[dnk_mask, 'NAME'].replace(DNK_NAME_MAP)
+        gdf_final.loc[dnk_mask, 'NAME'] = 'DNK'
 
     print("RENAMING: Translating Dutch province names to English...")
     if 'NAME' in gdf_final.columns:
