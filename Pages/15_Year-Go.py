@@ -53,17 +53,17 @@ _YG_HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12
 with st.sidebar:
     st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
 
-    _win_mode_cur = st.session_state.get('yg_win', 'Count')
+    _win_mode_cur = st.session_state.get('yg_win', 'Simple')
     _wc1, _wc2 = st.columns(2)
     with _wc1:
+        if st.button("Simple", key="yg_btn_simple", use_container_width=True,
+                     type="primary" if _win_mode_cur == "Simple" else "secondary"):
+            st.session_state['yg_win'] = 'Simple'
+            st.rerun()
+    with _wc2:
         if st.button("Count", key="yg_btn_count", use_container_width=True,
                      type="primary" if _win_mode_cur == "Count" else "secondary"):
             st.session_state['yg_win'] = 'Count'
-            st.rerun()
-    with _wc2:
-        if st.button("Score", key="yg_btn_score", use_container_width=True,
-                     type="primary" if _win_mode_cur == "Score" else "secondary"):
-            st.session_state['yg_win'] = 'Score'
             st.rerun()
 
     st.markdown(_YG_HR, unsafe_allow_html=True)
@@ -101,7 +101,7 @@ with st.sidebar:
             st.session_state['yg_score'] = 'Time Score'
             st.rerun()
 
-win_mode = st.session_state.get('yg_win', 'Count')
+win_mode = st.session_state.get('yg_win', 'Simple')
 game_mode = st.session_state.get('yg_mode', 'Regular')
 score_mode = st.session_state.get('yg_score', 'Time Score')
 _score_mode_label = {"Total Score": "total score", "Geography Score": "geography score", "Time Score": "time score"}[score_mode]
@@ -114,8 +114,8 @@ _score_pts_label = {"Total Score": "pts", "Geography Score": "geo pts", "Time Sc
 st.markdown("## 🗓️ Year-by-Year Leaderboard")
 st.markdown(
     f'<p style="color:#696761;font-size:0.87rem;margin-top:-0.4rem;margin-bottom:0.8rem;">'
-    f'All-time average {_score_mode_label} decides each year · Highest average wins the year · '
-    f'Equal averages tie · Years with no rounds played are unclaimed</p>',
+    f'Total {_score_mode_label} across rounds both played decides each year · Highest total wins the year · '
+    f'Equal totals tie · Years with no shared rounds are unclaimed</p>',
     unsafe_allow_html=True
 )
 
@@ -158,19 +158,22 @@ def _hex_to_rgb(h):
 
 _M_RGB = _hex_to_rgb(COLOR_M)
 _S_RGB = _hex_to_rgb(COLOR_S)
-# avg score gap treated as a "landslide" -> full-saturation tile. Total Score
-# spans roughly double Geography/Time Score's 0-5000 range, so its cap scales
-# up to match.
-_LEAD_CAP = 3000 if score_mode == "Total Score" else 1500
+# Per-round score gap treated as a "landslide" -> full-saturation tile. Total
+# Score spans roughly double Geography/Time Score's 0-5000 range, so its cap
+# scales up to match. A year's actual cap scales with how many shared rounds
+# landed there, since a lead summed over more rounds naturally runs bigger.
+_LEAD_CAP_PER_ROUND = 3000 if score_mode == "Total Score" else 1500
 
-def _year_cell_style(diff):
+def _year_cell_style(diff, cnt=1):
     """(background, border color, label color) for a year, given
-    diff = Michael's avg score minus Sarah's avg score there."""
+    diff = Michael's total points minus Sarah's total points there (summed
+    over rounds both played), and cnt = how many such rounds landed there."""
     if diff is None or pd.isna(diff) or diff == 0:
         return "#f2f1ec", "#bdbdb5", "#333333"
     leader_rgb = _M_RGB if diff > 0 else _S_RGB
     border = COLOR_M if diff > 0 else COLOR_S
-    intensity = min(abs(diff) / _LEAD_CAP, 1.0)
+    _cap = _LEAD_CAP_PER_ROUND * max(cnt, 1)
+    intensity = min(abs(diff) / _cap, 1.0)
     # Blend the leader's color into white, capped well short of full strength
     # so the tile never gets so dark the text on it stops being readable.
     blend = 0.12 + intensity * 0.5
@@ -185,31 +188,27 @@ _m_score_col, _s_score_col = _score_columns(data, score_mode)
 _yr_df = pd.DataFrame({col_year: data[col_year], "_m": _m_score_col, "_s": _s_score_col})
 for _c in _yr_df.columns:
     _yr_df[_c] = pd.to_numeric(_yr_df[_c], errors="coerce")
-_yr_df = _yr_df.dropna(subset=[col_year])
+# Only rounds both Michael and Sarah actually played count toward a year —
+# a round only one of them completed can't decide who's ahead there.
+_yr_df = _yr_df.dropna(subset=[col_year, "_m", "_s"])
 _yr_df[col_year] = _yr_df[col_year].astype(int)
 #
-# Both a mean (michael_avg/sarah_avg — decides who wins the period, unchanged
-# from before Score mode existed) and a sum (michael_sum/sarah_sum — feeds
-# Score mode's per-square point value, see Margin below) are kept side by
-# side, since the two answer different questions: "who's ahead on average"
-# vs. "how many total points is that lead worth."
+# Everything downstream is sum-based: who's ahead in a year (or decade/digit/
+# grand rollup) is decided by total points scored across the rounds both
+# played there, not by average score, and "count" is how many such shared
+# rounds landed there.
 _yr_stats = _yr_df.groupby(col_year).agg(
     count=(col_year, "size"),
-    michael_avg=("_m", "mean"),
-    sarah_avg=("_s", "mean"),
     michael_sum=("_m", "sum"),
     sarah_sum=("_s", "sum"),
 )
 
 # Same aggregation one level up, keyed by decade start — feeds the wide
-# "row header" cell to the left of each row (a whole-decade rollup, not an
-# average of the 10 per-year averages, so a decade isn't skewed by a
-# lightly-played year sitting next to a heavily-played one).
+# "row header" cell to the left of each row (a whole-decade rollup, not a
+# re-average of the 10 per-year totals).
 _yr_df["_decade"] = (_yr_df[col_year] // 10 * 10)
 _decade_stats = _yr_df.groupby("_decade").agg(
     count=(col_year, "size"),
-    michael_avg=("_m", "mean"),
-    sarah_avg=("_s", "mean"),
     michael_sum=("_m", "sum"),
     sarah_sum=("_s", "sum"),
 )
@@ -219,8 +218,6 @@ _decade_stats = _yr_df.groupby("_decade").agg(
 _yr_df["_digit"] = _yr_df[col_year] % 10
 _digit_stats = _yr_df.groupby("_digit").agg(
     count=(col_year, "size"),
-    michael_avg=("_m", "mean"),
-    sarah_avg=("_s", "mean"),
     michael_sum=("_m", "sum"),
     sarah_sum=("_s", "sum"),
 )
@@ -229,19 +226,16 @@ _digit_stats = _yr_df.groupby("_digit").agg(
 # column and column-header row would otherwise leave an empty square.
 _grand_stats = {
     "count": len(_yr_df),
-    "michael_avg": _yr_df["_m"].mean(),
-    "sarah_avg": _yr_df["_s"].mean(),
     "michael_sum": _yr_df["_m"].sum(),
     "sarah_sum": _yr_df["_s"].sum(),
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# All years (1900-2029), each classified by who's ahead on average score that
-# year (unchanged — this is what decides ownership everywhere, Count mode
-# included) plus a "Margin" for Score mode: not the average gap, but the
-# actual difference between the two players' total summed scores for that
-# year — a lightly-played year's average lead isn't worth as many points as
-# the same-size average lead racked up over many more rounds.
+# All years (1900-2029), each classified by who scored more total points there
+# across the rounds both played (this is what decides ownership everywhere,
+# regardless of win_mode) plus a "Margin" — the actual difference between the
+# two players' total summed scores for that year, used by the Year Results
+# table's Lead column.
 # ──────────────────────────────────────────────────────────────────────────────
 _GRID_START = 1900
 _DECADE_ROWS = 13
@@ -252,34 +246,33 @@ for _yr in _ALL_YEARS:
     if _yr in _yr_stats.index:
         _r = _yr_stats.loc[_yr]
         _cnt = int(_r["count"])
-        _m, _s = _r["michael_avg"], _r["sarah_avg"]
         _m_sum, _s_sum = _r["michael_sum"], _r["sarah_sum"]
     else:
-        _cnt, _m, _s, _m_sum, _s_sum = 0, float("nan"), float("nan"), float("nan"), float("nan")
-    if _cnt == 0 or pd.isna(_m) or pd.isna(_s):
+        _cnt, _m_sum, _s_sum = 0, float("nan"), float("nan")
+    if _cnt == 0 or pd.isna(_m_sum) or pd.isna(_s_sum):
         _winner, _margin = "third", 0.0
-    elif _m > _s:
+    elif _m_sum > _s_sum:
         _winner, _margin = "michael", abs(_m_sum - _s_sum)
-    elif _s > _m:
+    elif _s_sum > _m_sum:
         _winner, _margin = "sarah", abs(_m_sum - _s_sum)
     else:
         _winner, _margin = "tied", 0.0
-    _year_rows.append({"Year": _yr, "Count": _cnt, "Michael_Avg": _m, "Sarah_Avg": _s,
+    _year_rows.append({"Year": _yr, "Count": _cnt, "Michael_Sum": _m_sum, "Sarah_Sum": _s_sum,
                         "Winner": _winner, "Margin": _margin})
 
 _year_df_all = pd.DataFrame(_year_rows)
 _TOTAL_YEARS = len(_year_df_all)
 _YEAR_WIN_COUNTS = {k: int((_year_df_all["Winner"] == k).sum()) for k in ["michael", "sarah", "tied", "third"]}
 
-def _winner_of(cnt, m_avg, s_avg):
+def _winner_of(cnt, m_sum, s_sum):
     """Same win/lose/tie/unplayed classification the year cells use, applied
     to any rollup (decade, digit, or grand-total) with a count and two
-    averages."""
-    if cnt == 0 or pd.isna(m_avg) or pd.isna(s_avg):
+    point totals."""
+    if cnt == 0 or pd.isna(m_sum) or pd.isna(s_sum):
         return "third"
-    if m_avg > s_avg:
+    if m_sum > s_sum:
         return "michael"
-    if s_avg > m_avg:
+    if s_sum > m_sum:
         return "sarah"
     return "tied"
 
@@ -299,52 +292,70 @@ for _, _gr in _year_df_all.iterrows():
     _gcol = (_gyr - _GRID_START) % 10
     _grid_owner[(_grow, _gcol)] = _gr["Winner"]
 
+_header_counts = {}
 if game_mode == "Bonus":
     for _dec_row in range(_DECADE_ROWS):
         _decade = _GRID_START + _dec_row * 10
         if _decade in _decade_stats.index:
             _dr = _decade_stats.loc[_decade]
-            _grid_owner[(_dec_row, -1)] = _winner_of(_dr["count"], _dr["michael_avg"], _dr["sarah_avg"])
+            _grid_owner[(_dec_row, -1)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
+            _header_counts[(_dec_row, -1)] = int(_dr["count"])
         else:
             _grid_owner[(_dec_row, -1)] = "third"
     for _dig in range(10):
         if _dig in _digit_stats.index:
             _dr = _digit_stats.loc[_dig]
-            _grid_owner[(-1, _dig)] = _winner_of(_dr["count"], _dr["michael_avg"], _dr["sarah_avg"])
+            _grid_owner[(-1, _dig)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
+            _header_counts[(-1, _dig)] = int(_dr["count"])
         else:
             _grid_owner[(-1, _dig)] = "third"
-    _grid_owner[(-1, -1)] = _winner_of(_grand_stats["count"], _grand_stats["michael_avg"], _grand_stats["sarah_avg"])
+    _grid_owner[(-1, -1)] = _winner_of(_grand_stats["count"], _grand_stats["michael_sum"], _grand_stats["sarah_sum"])
 
-# Each header cell (decade/digit/corner) touched by a Bonus-mode block
-# multiplies that block's effective size by this factor, stacking per header.
-_HEADER_MULTIPLIER = 1.1
+_ALL_TIME_COUNT = int(_grand_stats["count"])
 
-def _connected_blocks(grid, owner_key, multiplier=_HEADER_MULTIPLIER, values=None):
+# A block earns up to three separate multipliers depending on which header
+# cells it touches — see _connected_blocks below for the formula. The flat
+# 2x for touching the All-Time corner is that same formula's own limit: a
+# block "covering" every decade (or every digit) sums to the All-Time count
+# itself, so 1 + all_time/all_time = 2.
+_ALL_TIME_MULTIPLIER = 2
+
+def _connected_blocks(grid, owner_key, header_counts=None, all_time_count=0, values=None):
     """Every 4-connected (up/down/left/right) block of cells controlled by
     owner_key within `grid` (a {(row, col): owner} dict), as
-    {"real", "headers", "effective"} dicts sorted by effective size,
-    largest first. Reused for the live board and for each timeline snapshot
-    below, so both agree on what counts as "contiguous".
+    {"real", "effective", "positions"} dicts sorted by effective size,
+    largest first ("positions" is every (row, col) — real or header — the
+    block occupies, used by the key-year/key-decade analysis below).
+    Reused for the live board and for each timeline snapshot below, so both
+    agree on what counts as "contiguous".
 
     In Bonus mode `grid` also carries header cells (decade rows at col -1,
     digit columns at row -1, the corner at (-1,-1)) so a block can bridge
     through them. A header cell is not itself a "year" though, so it doesn't
-    add to the block's "real" total — instead each header cell inside the
-    block multiplies the block's "effective" size by `multiplier`, stacking
-    with every other header cell the block also touches, rounded to the
+    add to the block's "real" total — instead it feeds one of three
+    multipliers applied to the block's "effective" size:
+      - Decade multiplier: 1 + (sum of `header_counts` for every decade
+        header the block touches) / all_time_count — e.g. a block spanning
+        the 1950s and 1960s headers, which occurred 85 and 136 times against
+        969 all-time, multiplies by 1 + (85+136)/969.
+      - Last-digit multiplier: the same formula, summed over digit headers
+        the block touches instead.
+      - All-time multiplier: a flat 2x if the block touches the corner cell.
+    Each defaults to 1 when the block touches none of that kind of header,
+    and all three multiply together (not stack additively), rounded to the
     nearest whole number at the end.
 
-    `values` optionally maps a real year cell's (row, col) to how much it
-    contributes to the block's "real" total — Score mode passes each year's
-    point margin there so a block is worth the sum of its margins rather
-    than a plain count; left as None (Count mode) every real cell is worth 1.
+    `header_counts` maps a header cell's (row, col) to how many rounds (both
+    played) landed in it — decade cells at col -1, digit cells at row -1 —
+    and `all_time_count` is the grand-total count those are a share of.
+    Left as None/0 outside Bonus mode, where `grid` never carries header
+    cells anyway.
 
-    `multiplier` takes an explicit default rather than always reading the
-    module-level constant directly so that a cached caller (calculate_year_
-    timeline below) can pass it in as a real argument — st.cache_data keys
-    only on a function's own arguments, so a value pulled from a global at
-    call time can change (as it did when this went from 2x to 1.25x) without
-    busting an already-cached result."""
+    `values` optionally maps a real year cell's (row, col) to how much it
+    contributes to the block's "real" total — Count mode passes each year's
+    appearance count there so a block is worth the sum of how many times its
+    years came up rather than a plain count; left as None (Simple mode) every
+    real cell is worth 1."""
     _seen = set()
     _blocks = []
     for _pos, _owner in grid.items():
@@ -352,50 +363,166 @@ def _connected_blocks(grid, owner_key, multiplier=_HEADER_MULTIPLIER, values=Non
             continue
         _stack = [_pos]
         _seen.add(_pos)
-        _real = _headers = 0
+        _real = 0
+        _decade_sum = 0
+        _digit_sum = 0
+        _corner_touched = False
+        _positions = set()
         while _stack:
             _r, _c = _stack.pop()
+            _positions.add((_r, _c))
             if _r >= 0 and _c >= 0:
                 _real += (values.get((_r, _c), 1) if values is not None else 1)
+            elif _r == -1 and _c == -1:
+                _corner_touched = True
+            elif _c == -1:
+                _decade_sum += header_counts.get((_r, _c), 0) if header_counts else 0
             else:
-                _headers += 1
+                _digit_sum += header_counts.get((_r, _c), 0) if header_counts else 0
             for _dr, _dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 _nxt = (_r + _dr, _c + _dc)
                 if grid.get(_nxt) == owner_key and _nxt not in _seen:
                     _seen.add(_nxt)
                     _stack.append(_nxt)
-        _effective = int(round(_real * (multiplier ** _headers)))
-        _blocks.append({"real": _real, "headers": _headers, "effective": _effective})
+        _decade_mult = 1 + (_decade_sum / all_time_count) if (_decade_sum and all_time_count) else 1
+        _digit_mult = 1 + (_digit_sum / all_time_count) if (_digit_sum and all_time_count) else 1
+        _corner_mult = _ALL_TIME_MULTIPLIER if _corner_touched else 1
+        _effective = int(round(_real * _decade_mult * _digit_mult * _corner_mult))
+        _blocks.append({"real": _real, "effective": _effective, "positions": _positions})
     return sorted(_blocks, key=lambda b: b["effective"], reverse=True)
+
+def _key_cell_kind(pos):
+    """"year" for a real year cell, "decade" for a decade-row header, or
+    None for a digit/corner header — those are never reported as key cells,
+    only years and (in Bonus mode) decades are."""
+    _r, _c = pos
+    if _r >= 0 and _c >= 0:
+        return "year"
+    if _r >= 0 and _c == -1:
+        return "decade"
+    return None
+
+def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, blocks):
+    """Years (and, in Bonus mode, decades) that are load-bearing for
+    owner_key's OWN current largest block — the number shown on their
+    scoreboard card. Two kinds are reported, both requiring an actual
+    structural change (a split or a bridge), never a plain single-cell
+    edge gain/loss — see the per-section notes below for how that's
+    enforced for real years, decade headers, digit headers and the
+    All-Time corner alike, since all four are just nodes in the same
+    connectivity graph:
+      - "holding": a cell inside owner_key's largest block whose removal
+        would actually fragment that block into separate pieces (a true
+        cut vertex) — not a leaf on the block's edge, whose removal would
+        only shed that one cell and leave the rest just as connected as
+        before (a real drop in size, perhaps, if it was carrying a header
+        multiplier, but not a "hold").
+      - "merging": a cell owner_key does NOT control that touches 2+ of
+        their existing distinct blocks — winning it would fuse those
+        blocks into one, either growing the current largest (if one of
+        the fused blocks was already it) or forming a new one big enough
+        to replace it. A cell touching only one existing block is a plain
+        extension, not a bridge, and is excluded even if it happens to
+        also flip a header multiplier.
+    Either way, only reported if the resulting structural change actually
+    moves owner_key's own max (a bridge that's still smaller than their
+    existing largest block doesn't move their number, so it's skipped).
+
+    Returns a list of {"pos", "kind", "action", "impact"} dicts, unsorted."""
+    if not blocks:
+        return []
+    _orig_max = blocks[0]["effective"]
+
+    _results = []
+
+    # HOLDING — for each block tied for the current max, test every member
+    # cell: vacate it, re-flood, and check whether the block's OTHER cells
+    # (real or header) now land in 2+ separate blocks. A single remaining
+    # fragment means the cell was just a leaf on the edge — its own weight
+    # (and any header multiplier it alone carried) disappears with it, but
+    # nothing was actually held together, so it's excluded either way.
+    for _b in blocks:
+        if _b["effective"] != _orig_max:
+            continue
+        for _pos in _b["positions"]:
+            _kind = _key_cell_kind(_pos)
+            if _kind is None:
+                continue
+            _remaining = _b["positions"] - {_pos}
+            if not _remaining:
+                continue
+            _grid_copy = dict(grid)
+            _grid_copy[_pos] = "__vacant__"
+            _new_blocks = _connected_blocks(_grid_copy, owner_key, header_counts, all_time_count, values)
+            _fragments_touched = sum(1 for _nb in _new_blocks if _nb["positions"] & _remaining)
+            if _fragments_touched < 2:
+                continue
+            _new_max = _new_blocks[0]["effective"] if _new_blocks else 0
+            if _orig_max - _new_max > 0:
+                _results.append({"pos": _pos, "kind": _kind, "action": "holding", "impact": _orig_max - _new_max})
+
+    # MERGING — a cell not owned by owner_key that borders 2+ of their
+    # distinct existing blocks (by block index) — real cells, decade
+    # headers, digit headers and the corner all count as blocks here, so
+    # bridging through any of them qualifies. A cell touching only one
+    # (or none) is a plain extension, not a bridge, and is skipped.
+    _pos_to_block = {}
+    for _idx, _b in enumerate(blocks):
+        for _p in _b["positions"]:
+            _pos_to_block[_p] = _idx
+    for _pos, _owner in grid.items():
+        if _owner == owner_key:
+            continue
+        _kind = _key_cell_kind(_pos)
+        if _kind is None:
+            continue
+        _r, _c = _pos
+        _touching = set()
+        for _dr, _dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            _nb = (_r + _dr, _c + _dc)
+            if grid.get(_nb) == owner_key and _nb in _pos_to_block:
+                _touching.add(_pos_to_block[_nb])
+        if len(_touching) < 2:
+            continue
+        _grid_copy = dict(grid)
+        _grid_copy[_pos] = owner_key
+        _new_blocks = _connected_blocks(_grid_copy, owner_key, header_counts, all_time_count, values)
+        _new_max = _new_blocks[0]["effective"] if _new_blocks else 0
+        if _new_max - _orig_max > 0:
+            _results.append({"pos": _pos, "kind": _kind, "action": "merging", "impact": _new_max - _orig_max})
+
+    return _results
 
 # Minimum (effective) size for a secondary block to be worth calling out in
 # the "Other" cards below — small 1-2 cell scraps aren't meaningfully
 # "another block".
 _MIN_NOTABLE_BLOCK = 4
 
-# Score mode: each real year cell is worth its "Margin" (the sum-based point
-# gap computed alongside Winner above) rather than a flat 1. Built once here
-# so the live board and the "Other" totals below agree on each year's value.
-_year_margin_grid = {}
+# Count mode: each real year cell is worth its "Count" (how many rounds both
+# played landed on that year) rather than a flat 1. Built once here so the
+# live board and the "Other" totals below agree on each year's value.
+_year_appearance_grid = {}
 for _, _gr in _year_df_all.iterrows():
     _gyr = int(_gr["Year"])
-    _year_margin_grid[((_gyr - _GRID_START) // 10, (_gyr - _GRID_START) % 10)] = _gr["Margin"]
+    _year_appearance_grid[((_gyr - _GRID_START) // 10, (_gyr - _GRID_START) % 10)] = _gr["Count"]
 
-_block_values = _year_margin_grid if win_mode == "Score" else None
+_block_values = _year_appearance_grid if win_mode == "Count" else None
 
-_michael_blocks = _connected_blocks(_grid_owner, "michael", values=_block_values)
-_sarah_blocks = _connected_blocks(_grid_owner, "sarah", values=_block_values)
+_michael_blocks = _connected_blocks(_grid_owner, "michael", header_counts=_header_counts, all_time_count=_ALL_TIME_COUNT, values=_block_values)
+_sarah_blocks = _connected_blocks(_grid_owner, "sarah", header_counts=_header_counts, all_time_count=_ALL_TIME_COUNT, values=_block_values)
 _MICHAEL_BLOCK = _michael_blocks[0]["effective"] if _michael_blocks else 0
 _SARAH_BLOCK = _sarah_blocks[0]["effective"] if _sarah_blocks else 0
+_michael_key_cells = _find_key_cells(_grid_owner, "michael", _header_counts, _ALL_TIME_COUNT, _block_values, _michael_blocks)
+_sarah_key_cells = _find_key_cells(_grid_owner, "sarah", _header_counts, _ALL_TIME_COUNT, _block_values, _sarah_blocks)
 _michael_block_real = _michael_blocks[0]["real"] if _michael_blocks else 0
 _sarah_block_real = _sarah_blocks[0]["real"] if _sarah_blocks else 0
 
 # "Other" is whatever's left outside the (real, unmultiplied) largest block —
-# a leftover year count in Count mode, or leftover margin points in Score
+# a leftover year count in Simple mode, or leftover appearance count in Count
 # mode — never the multiplied "effective" score.
-if win_mode == "Score":
-    _michael_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "michael", "Margin"].sum())
-    _sarah_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "sarah", "Margin"].sum())
+if win_mode == "Count":
+    _michael_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "michael", "Count"].sum())
+    _sarah_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "sarah", "Count"].sum())
 else:
     _michael_total_available = _YEAR_WIN_COUNTS["michael"]
     _sarah_total_available = _YEAR_WIN_COUNTS["sarah"]
@@ -445,18 +572,23 @@ st.markdown("""
 
 _bar_total = _TOTAL_YEARS if _TOTAL_YEARS > 0 else 1
 
-# Bonus mode's per-header multiplier makes "% of board" meaningless — a
-# block's effective size can run well past the actual 130 squares. Show it
-# instead as a share of a reference "max points" ceiling: a strongly
-# controlled board (100 real years) touching every header cell (21 of them)
-# it can reach. Derived from _HEADER_MULTIPLIER rather than a hardcoded
-# number so this ceiling can't drift out of sync the way the timeline cache
-# once did when the multiplier itself changed.
-_MAX_BONUS_POINTS = _HEADER_MULTIPLIER ** 21 * 100
+# Bonus mode's header multipliers (and Count mode's per-year weighting) make
+# "% of board" meaningless — a block's effective size can run well past the
+# actual 130 squares, or not correspond to a count of squares at all. Show it
+# instead as a share of the true ceiling for the current settings: owning
+# every year at once maxes out real (every appearance, or all 130 years) and
+# — in Bonus mode — every header multiplier simultaneously (2x decade x 2x
+# digit x 2x all-time = 8x), since owning literally everything trivially
+# wins every decade and every digit too.
+_MAX_REAL = _ALL_TIME_COUNT if win_mode == "Count" else _TOTAL_YEARS
+_MAX_MULTIPLIER = _ALL_TIME_MULTIPLIER ** 3 if game_mode == "Bonus" else 1
+_MAX_WEIGHTED_TOTAL = max(_MAX_REAL * _MAX_MULTIPLIER, 1)
 
 def _block_pct_html(block_size):
-    if game_mode == "Bonus" or win_mode == "Score":
-        return f"{block_size / _MAX_BONUS_POINTS * 100:.1f}% of max points"
+    if win_mode == "Count":
+        return f"{block_size / _MAX_WEIGHTED_TOTAL * 100:.1f}% of max appearances"
+    if game_mode == "Bonus":
+        return f"{block_size / _MAX_WEIGHTED_TOTAL * 100:.1f}% of max points"
     return f"{block_size / _bar_total * 100:.1f}% of board"
 
 # Top bar: contiguous-block comparison, Michael vs Sarah only.
@@ -543,9 +675,9 @@ st.markdown(f"""
 def _cell_html(label, stats_row, extra_cls=""):
     if stats_row is not None:
         _cnt = int(stats_row["count"])
-        _m_avg, _s_avg = stats_row["michael_avg"], stats_row["sarah_avg"]
-        _diff = (_m_avg - _s_avg) if (pd.notna(_m_avg) and pd.notna(_s_avg)) else None
-        _bg, _border, _label_c = _year_cell_style(_diff)
+        _m_sum, _s_sum = stats_row["michael_sum"], stats_row["sarah_sum"]
+        _diff = (_m_sum - _s_sum) if (pd.notna(_m_sum) and pd.notna(_s_sum)) else None
+        _bg, _border, _label_c = _year_cell_style(_diff, _cnt)
         if _diff is None:
             _lead_cls, _lead_txt = "yc-tied", "—"
         elif _diff == 0:
@@ -571,10 +703,10 @@ def _cell_html(label, stats_row, extra_cls=""):
 
 # ==========================================
 # YEAR GRID — 13 decades (rows) x 10 years-within-decade (columns) = every
-# year from 1900 to 2029, one cell each. Each cell shows how many rounds have
-# actually landed on that year, and by how much whoever's ahead there is
-# leading on average Time Score; the cell's background and border shade
-# toward that leader, darker the bigger the lead is. A wide cell to the left
+# year from 1900 to 2029, one cell each. Each cell shows how many rounds both
+# players actually played on that year, and by how many total points whoever's
+# ahead there is leading; the cell's background and border shade toward that
+# leader, darker the bigger the lead is. A wide cell to the left
 # of each row rolls up its decade; a tall cell above each column rolls up
 # every year ending in that digit; the corner where those two headers would
 # otherwise leave a dead square instead rolls up literally everything.
@@ -648,6 +780,111 @@ st.markdown("""
 st.markdown(f'<div class="year-grid-card"><div class="year-grid">{"".join(_cells_html)}</div></div>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
+# KEY YEARS & DECADES — cells that are load-bearing for either side's own
+# current largest block: a controlled year/decade whose loss would actually
+# fragment that block ("holding"), or an uncontrolled one that would bridge
+# two of their blocks into one, either growing the current largest or
+# replacing it with a bigger merged block ("merging"). A cell that only
+# trims or extends a block's edge by itself never counts as either — see
+# _find_key_cells above for the exact rule.
+# ──────────────────────────────────────────────────────────────────────────────
+def _impact_label(n):
+    if win_mode == "Count":
+        return f"+{n:,} appearance" + ("s" if n != 1 else "")
+    if game_mode == "Bonus":
+        return f"+{n:,} pt" + ("s" if n != 1 else "")
+    return f"+{n:,} year" + ("s" if n != 1 else "")
+
+def _key_chip_html(rec, player, player_name):
+    _pos = rec["pos"]
+    _label = (str(_GRID_START + _pos[0] * 10 + _pos[1]) if rec["kind"] == "year"
+              else f"{_GRID_START + _pos[0] * 10}s")
+    _icon = "🔒" if rec["action"] == "holding" else "🔗"
+    _impact_txt = _impact_label(rec["impact"])
+    if rec["action"] == "holding":
+        _title = f"Losing {_label} would split {player_name}&rsquo;s largest block apart ({_impact_txt} at stake)."
+    else:
+        _title = f"Winning {_label} would bridge two of {player_name}&rsquo;s blocks into a new largest ({_impact_txt})."
+    return (f'<div class="key-chip key-chip-{player} key-chip-{rec["action"]}" title="{_title}">'
+            f'<span class="key-chip-icon">{_icon}</span>'
+            f'<span class="key-chip-label">{_label}</span>'
+            f'<span class="key-chip-impact">{_impact_txt}</span></div>')
+
+_MAX_KEY_CHIPS = 8
+
+def _sorted_by_action(cells, action):
+    return sorted((r for r in cells if r["action"] == action), key=lambda r: r["impact"], reverse=True)
+
+# Four separate groups rather than one per player, so "holds together" and
+# "would merge in" read as distinct questions instead of being blended into
+# a single mixed list per side.
+_KEY_GROUPS = [
+    ("Sarah Locks", "sarah", "Sarah", "🔒", _sorted_by_action(_sarah_key_cells, "holding")),
+    ("Sarah Chains", "sarah", "Sarah", "🔗", _sorted_by_action(_sarah_key_cells, "merging")),
+    ("Michael Locks", "michael", "Michael", "🔒", _sorted_by_action(_michael_key_cells, "holding")),
+    ("Michael Chains", "michael", "Michael", "🔗", _sorted_by_action(_michael_key_cells, "merging")),
+]
+
+st.markdown("""
+<style>
+    .key-cells-card { margin:8px 0 22px 0; padding:16px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.06); }
+    .key-cells-title { font-size:1rem; font-weight:700; color:#3a3935; margin-bottom:8px; }
+    .key-legend { display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:14px; }
+    .key-legend-item { display:flex; align-items:center; gap:6px; font-size:0.76rem; color:#696761; }
+    .key-legend-icon { font-size:0.9rem; }
+    .key-legend-item b { color:#3a3935; font-weight:700; }
+    .key-cells-empty { font-size:0.82rem; color:#9c9790; font-style:italic; }
+    .key-cells-group { margin-top:6px; }
+    .key-cells-group-label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+    .key-cells-row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .key-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 8px; border-radius:99px; font-size:0.78rem; font-weight:700; cursor:default; }
+    .key-chip-icon { font-size:0.78rem; }
+    .key-chip-impact { font-weight:600; opacity:.82; margin-left:1px; }
+    .key-chip-michael.key-chip-holding { background:#e8e7ff; color:#221e8f; border:1.5px solid #221e8f55; }
+    .key-chip-michael.key-chip-merging { background:#f5f5ff; color:#221e8f; border:1.5px dashed #221e8f77; }
+    .key-chip-sarah.key-chip-holding { background:#ffe6f4; color:#8a005c; border:1.5px solid #8a005c55; }
+    .key-chip-sarah.key-chip-merging { background:#fff3f9; color:#8a005c; border:1.5px dashed #8a005c77; }
+    .key-cells-more { font-size:0.72rem; color:#9c9790; margin-left:2px; }
+</style>
+""", unsafe_allow_html=True)
+
+if not any(_records for *_rest, _records in _KEY_GROUPS):
+    st.markdown(
+        '<div class="key-cells-card">'
+        '<div class="key-cells-title">🔑 Key Years &amp; Decades</div>'
+        '<div class="key-cells-empty">No single year or decade is currently pivotal — every largest block would '
+        'survive losing any one cell, and no uncontrolled cell would grow either side&rsquo;s largest block.</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+else:
+    _groups_html = ""
+    for _idx, (_label, _player, _player_name, _icon, _records) in enumerate(_KEY_GROUPS):
+        if not _records:
+            continue
+        _color = "#8a005c" if _player == "sarah" else "#221e8f"
+        _chips = "".join(_key_chip_html(r, _player, _player_name) for r in _records[:_MAX_KEY_CHIPS])
+        _extra = max(0, len(_records) - _MAX_KEY_CHIPS)
+        _more = f'<span class="key-cells-more">+{_extra} more</span>' if _extra else ""
+        _margin = "margin-top:6px;" if _idx == 0 else "margin-top:10px;"
+        _groups_html += (
+            f'<div class="key-cells-group" style="{_margin}">'
+            f'<div class="key-cells-group-label" style="color:{_color};">{_icon} {_label}</div>'
+            f'<div class="key-cells-row">{_chips}{_more}</div></div>'
+        )
+    st.markdown(
+        '<div class="key-cells-card">'
+        '<div class="key-cells-title">🔑 Key Years &amp; Decades</div>'
+        '<div class="key-legend">'
+        '<div class="key-legend-item"><span class="key-legend-icon">🔒</span><b>Lock</b> — splits the block if lost</div>'
+        '<div class="key-legend-item"><span class="key-legend-icon">🔗</span><b>Chain</b> — bridges in a bigger block if won</div>'
+        '</div>'
+        f'{_groups_html}'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+# ──────────────────────────────────────────────────────────────────────────────
 # OVER TIME — same shape as the Electoral College page's EV timeline: replay
 # every round chronologically, re-run the same contiguity logic after each
 # date's rounds land, and emit a point whenever either side's largest block
@@ -655,11 +892,16 @@ st.markdown(f'<div class="year-grid-card"><div class="year-grid">{"".join(_cells
 # multiplier's "points" score rather than a plain block size, so the section
 # is titled accordingly.
 # ──────────────────────────────────────────────────────────────────────────────
-_over_time_title = "Points Over Time" if (game_mode == "Bonus" or win_mode == "Score") else "Largest Block Over Time"
+if game_mode == "Bonus":
+    _over_time_title = "Points Over Time"
+elif win_mode == "Count":
+    _over_time_title = "Appearances Over Time"
+else:
+    _over_time_title = "Largest Block Over Time"
 st.markdown(f'<div class="section-header">{_over_time_title}</div>', unsafe_allow_html=True)
 
 @st.cache_data
-def calculate_year_timeline(df_json, mode, bonus, multiplier, use_score):
+def calculate_year_timeline(df_json, mode, bonus, weight_by_count):
     _df = pd.read_json(io.StringIO(df_json), orient='split')
     _df['Date'] = pd.to_datetime(_df['Date'], errors='coerce')
     _df['_yr'] = pd.to_numeric(_df[col_year], errors='coerce')
@@ -670,31 +912,31 @@ def calculate_year_timeline(df_json, mode, bonus, multiplier, use_score):
     _df['_yr'] = _df['_yr'].astype(int)
     _df = _df.sort_values('Date').reset_index(drop=True)
 
-    _m_sum, _s_sum, _m_cnt, _s_cnt, _winner = {}, {}, {}, {}, {}
+    _m_sum, _s_sum, _cnt, _winner = {}, {}, {}, {}
 
     def _compute_winner(yr):
-        # Ownership stays average-based (unchanged from before Score mode
-        # existed) — only the per-square point *value* used below is sum
-        # based, so Count mode's board never shifts.
-        mc, sc = _m_cnt.get(yr, 0), _s_cnt.get(yr, 0)
-        if mc == 0 or sc == 0:
+        # Ownership is decided by total points scored across rounds both
+        # played, regardless of win_mode — only the per-square *weight* used
+        # below (Count mode's appearance count vs. Simple mode's flat 1)
+        # differs between modes.
+        if _cnt.get(yr, 0) == 0:
             return "third"
-        ma, sa = _m_sum.get(yr, 0) / mc, _s_sum.get(yr, 0) / sc
-        if ma > sa: return "michael"
-        if sa > ma: return "sarah"
+        ms, ss = _m_sum.get(yr, 0), _s_sum.get(yr, 0)
+        if ms > ss: return "michael"
+        if ss > ms: return "sarah"
         return "tied"
 
     def _rollup_winner(years):
         mt = st_ = 0.0
-        mn = sn = 0
+        n = 0
         for yr in years:
-            mt += _m_sum.get(yr, 0); mn += _m_cnt.get(yr, 0)
-            st_ += _s_sum.get(yr, 0); sn += _s_cnt.get(yr, 0)
-        if mn == 0 or sn == 0:
+            mt += _m_sum.get(yr, 0)
+            st_ += _s_sum.get(yr, 0)
+            n += _cnt.get(yr, 0)
+        if n == 0:
             return "third"
-        ma, sa = mt / mn, st_ / sn
-        if ma > sa: return "michael"
-        if sa > ma: return "sarah"
+        if mt > st_: return "michael"
+        if st_ > mt: return "sarah"
         return "tied"
 
     _rows, _prev_state, _total_rounds, _last_date = [], None, 0, None
@@ -706,12 +948,13 @@ def calculate_year_timeline(df_json, mode, bonus, multiplier, use_score):
             _yr = int(_row['_yr'])
             if not (_year_lo <= _yr < _year_hi):
                 continue
-            if pd.notna(_row['_m']):
-                _m_sum[_yr] = _m_sum.get(_yr, 0) + _row['_m']
-                _m_cnt[_yr] = _m_cnt.get(_yr, 0) + 1
-            if pd.notna(_row['_s']):
-                _s_sum[_yr] = _s_sum.get(_yr, 0) + _row['_s']
-                _s_cnt[_yr] = _s_cnt.get(_yr, 0) + 1
+            # Only a round both players actually played counts toward a
+            # year's total — one-sided rounds don't move either side's lead.
+            if pd.isna(_row['_m']) or pd.isna(_row['_s']):
+                continue
+            _m_sum[_yr] = _m_sum.get(_yr, 0) + _row['_m']
+            _s_sum[_yr] = _s_sum.get(_yr, 0) + _row['_s']
+            _cnt[_yr] = _cnt.get(_yr, 0) + 1
             _changed.add(_yr)
             _total_rounds += 1
         for _yr in _changed:
@@ -723,20 +966,27 @@ def calculate_year_timeline(df_json, mode, bonus, multiplier, use_score):
             _w = _winner.get(_yr, "third")
             _pos = ((_yr - _GRID_START) // 10, (_yr - _GRID_START) % 10)
             _grid[_pos] = _w
-            if use_score:
-                _values[_pos] = abs(_m_sum.get(_yr, 0) - _s_sum.get(_yr, 0))
+            if weight_by_count:
+                _values[_pos] = _cnt.get(_yr, 0)
 
+        _header_counts, _all_time_count = None, 0
         if bonus:
+            _header_counts = {}
             for _dec_row in range(_DECADE_ROWS):
                 _decade = _year_lo + _dec_row * 10
-                _grid[(_dec_row, -1)] = _rollup_winner(range(_decade, _decade + 10))
+                _dec_years = range(_decade, _decade + 10)
+                _grid[(_dec_row, -1)] = _rollup_winner(_dec_years)
+                _header_counts[(_dec_row, -1)] = sum(_cnt.get(_y, 0) for _y in _dec_years)
             for _dig in range(10):
-                _grid[(-1, _dig)] = _rollup_winner(range(_year_lo + _dig, _year_hi, 10))
+                _dig_years = range(_year_lo + _dig, _year_hi, 10)
+                _grid[(-1, _dig)] = _rollup_winner(_dig_years)
+                _header_counts[(-1, _dig)] = sum(_cnt.get(_y, 0) for _y in _dig_years)
             _grid[(-1, -1)] = _rollup_winner(range(_year_lo, _year_hi))
+            _all_time_count = sum(_cnt.values())
 
-        _block_vals = _values if use_score else None
-        _m_grid_blocks = _connected_blocks(_grid, "michael", multiplier, _block_vals)
-        _s_grid_blocks = _connected_blocks(_grid, "sarah", multiplier, _block_vals)
+        _block_vals = _values if weight_by_count else None
+        _m_grid_blocks = _connected_blocks(_grid, "michael", _header_counts, _all_time_count, _block_vals)
+        _s_grid_blocks = _connected_blocks(_grid, "sarah", _header_counts, _all_time_count, _block_vals)
         _m_block = _m_grid_blocks[0]["effective"] if _m_grid_blocks else 0
         _s_block = _s_grid_blocks[0]["effective"] if _s_grid_blocks else 0
 
@@ -760,7 +1010,7 @@ def calculate_year_timeline(df_json, mode, bonus, multiplier, use_score):
     return _tl
 
 _df_json = data.to_json(orient='split', date_format='iso')
-_year_timeline = calculate_year_timeline(_df_json, score_mode, game_mode == "Bonus", _HEADER_MULTIPLIER, win_mode == "Score")
+_year_timeline = calculate_year_timeline(_df_json, score_mode, game_mode == "Bonus", win_mode == "Count")
 
 if not _year_timeline.empty and len(_year_timeline) > 1:
     _tl = _year_timeline.copy()
@@ -825,7 +1075,7 @@ if not _year_timeline.empty and len(_year_timeline) > 1:
         yaxis=dict(
             showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
             tickfont=dict(color='#696761', size=11), automargin=False,
-            title=dict(text=("Points" if (game_mode == "Bonus" or win_mode == "Score") else "Years"), font=dict(color='#696761', size=11)),
+            title=dict(text=("Points" if game_mode == "Bonus" else "Appearances" if win_mode == "Count" else "Years"), font=dict(color='#696761', size=11)),
             rangemode='tozero',
         ),
         hoverlabel=dict(bgcolor='white', font_size=12, bordercolor='#d9d7cc'),
@@ -880,7 +1130,7 @@ _tc1, _tc2 = st.columns([2, 2])
 with _tc1:
     _filter_winner = st.selectbox("Filter by outcome", ["All", "Michael", "Sarah", "Tied", "Not Played"])
 with _tc2:
-    _sort_opts = ["Year", "Michael Avg ↓", "Sarah Avg ↓", "Lead ↓", "Times Appeared ↓"]
+    _sort_opts = ["Year", "Michael Total ↓", "Sarah Total ↓", "Lead ↓", "Times Appeared ↓"]
     _sort_by = st.selectbox("Sort by", _sort_opts)
 
 _disp = _year_df_all.copy()
@@ -888,12 +1138,12 @@ _w_map = {"Michael": "michael", "Sarah": "sarah", "Tied": "tied", "Not Played": 
 if _filter_winner != "All":
     _disp = _disp[_disp["Winner"] == _w_map[_filter_winner]]
 
-if _sort_by == "Michael Avg ↓":
-    _disp = _disp.sort_values("Michael_Avg", ascending=False)
-elif _sort_by == "Sarah Avg ↓":
-    _disp = _disp.sort_values("Sarah_Avg", ascending=False)
+if _sort_by == "Michael Total ↓":
+    _disp = _disp.sort_values("Michael_Sum", ascending=False)
+elif _sort_by == "Sarah Total ↓":
+    _disp = _disp.sort_values("Sarah_Sum", ascending=False)
 elif _sort_by == "Lead ↓":
-    _disp = _disp.assign(_lead=(_disp["Michael_Avg"] - _disp["Sarah_Avg"]).abs())
+    _disp = _disp.assign(_lead=(_disp["Michael_Sum"] - _disp["Sarah_Sum"]).abs())
     _disp = _disp.sort_values("_lead", ascending=False)
 elif _sort_by == "Times Appeared ↓":
     _disp = _disp.sort_values("Count", ascending=False)
@@ -909,7 +1159,7 @@ _badge_html = {
 
 _rows_html = ""
 for _, _row in _disp.iterrows():
-    _m, _s = _row["Michael_Avg"], _row["Sarah_Avg"]
+    _m, _s = _row["Michael_Sum"], _row["Sarah_Sum"]
     _m_str = f"{_m:,.0f}" if pd.notna(_m) else "—"
     _s_str = f"{_s:,.0f}" if pd.notna(_s) else "—"
     if pd.notna(_m) and pd.notna(_s):
@@ -940,8 +1190,8 @@ st.markdown(
         <th>Year</th>
         <th class="center">Times Appeared</th>
         <th class="center">Winner</th>
-        <th class="right" style="color:{COLOR_M};">Michael (avg {_score_pts_label})</th>
-        <th class="right" style="color:{COLOR_S};">Sarah (avg {_score_pts_label})</th>
+        <th class="right" style="color:{COLOR_M};">Michael (total {_score_pts_label})</th>
+        <th class="right" style="color:{COLOR_S};">Sarah (total {_score_pts_label})</th>
         <th class="center">Lead</th>
       </tr></thead>
       <tbody>{_rows_html}</tbody>
