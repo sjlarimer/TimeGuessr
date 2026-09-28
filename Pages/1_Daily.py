@@ -58,6 +58,11 @@ NEWS_STYLES = """
         
         html { scroll-behavior: smooth; }
         .news-container { width: 100%; margin: 0 auto; padding: 40px 20px; box-sizing: border-box; }
+        /* the divider between Actuals and Michael/Sarah/Community defaults to a
+           much larger margin than the rest of this page's tightened spacing —
+           scoped to the main content area so the sidebar's own hr (styled
+           separately, inline) is untouched */
+        section[data-testid="stMain"] hr { margin: 6px 0 !important; }
         
         .back-to-top { position: fixed; bottom: 30px; right: 30px; background-color: #333; color: white !important; width: 50px; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; text-decoration: none !important; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; transition: transform 0.2s, background-color 0.2s; }
         .back-to-top:hover { transform: scale(1.1); background-color: #000; color: white !important; }
@@ -67,13 +72,13 @@ NEWS_STYLES = """
         /* FORECAST SECTION — flat colour-tinted cards, no shadow/border/internal
            dividers, matching the Michael / Sarah / Community / Actuals boxes
            above (plain pastel background per card, no white sub-sections). */
-        .forecast-container { width: 100%; margin: 0 auto 60px auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
+        .forecast-container { width: 100%; margin: -8px auto 28px auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
         /* row 1: Total/Geo/Time Streaks; row 2: the same 3, Score Runs */
         .forecast-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
         /* Round Scores + Percentile row, shown above the round recap instead,
            pulled up to close the default block gap under the Michael / Sarah /
            Community boxes above it */
-        .score-bars-row { margin-top: -16px; margin-bottom: 20px; }
+        .score-bars-row { margin-top: -16px; margin-bottom: 8px; }
         .forecast-card { border-radius: 12px; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
         .fc-header { padding: 16px 20px 8px 20px; display: flex; align-items: center; gap: 10px; }
         .fc-icon { font-size: 20px; }
@@ -3060,7 +3065,7 @@ if not raw_data_all.empty:
         actual_rounds_data = {}
         all_valid_act = True
         save_rows_act = []
-        actuals_box_html = None  # submitted & not editing: rendered below the M/S/C boxes instead of here
+        actuals_box_html = None
 
         if True:  # the Actuals section always renders now (masked when mask_actuals)
             if act_exists and not edit_act:
@@ -3089,20 +3094,20 @@ if not raw_data_all.empty:
                         year_disp = y_val or "—"
 
                     round_cards.append(f'''<div style="flex:1; min-width:140px; background:rgba(255,255,255,0.55); border-radius:8px; padding:10px 12px; text-align:center;">
-        <div style="font-weight:800; color:#db5049; font-size:0.7em; letter-spacing:0.5px; margin-bottom:5px;">ROUND {r}</div>
-        <div style="font-size:1.5em; line-height:1;">{flag_html}</div>
-        <div style="font-weight:700; color:#333; font-size:0.95em; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{city_disp}</div>
-        <div style="color:#777; font-size:0.78em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{sub_country}</div>
-        <div style="color:#db5049; font-weight:700; font-size:0.88em; margin-top:4px;">📅 {year_disp}</div>
+        <div class="bar-section-title" style="margin-bottom:6px;">Round {r}</div>
+        <div style="font-size:1.4em; line-height:1;">{flag_html}</div>
+        <div style="font-family:'Poppins', sans-serif; font-weight:800; color:#222; font-size:15px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{city_disp}</div>
+        <div style="font-family:'Inter', sans-serif; color:#767676; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{sub_country}</div>
+        <div style="font-family:'Poppins', sans-serif; color:#db5049; font-weight:700; font-size:12px; margin-top:5px;">📅 {year_disp}</div>
     </div>''')
 
                 # Flat pastel background, no border accent / drop shadow — matches
-                # the Michael / Sarah / Community boxes above (plain colour-tinted
-                # cards, no gradients or shadows there either), and no title:
-                # this box sits directly under them so what it is needs no label.
+                # the Michael / Sarah / Community boxes below (plain colour-tinted
+                # cards, no gradients or shadows there either).
                 actuals_box_html = f'''<div style="background:#f5d9d8; border-radius:12px; padding:14px 16px;">
     <div style="display:flex; gap:10px; flex-wrap:wrap;">{"".join(round_cards)}</div>
     </div>'''
+                st.markdown(actuals_box_html, unsafe_allow_html=True)
             else:
                 # The whole editable Actuals grid is one fragment: typing in it
                 # only reruns/re-renders these 5 columns, not every Michael /
@@ -3234,20 +3239,23 @@ if not raw_data_all.empty:
             community_fields_disabled = not edit_community and not date_rows.empty
 
             for col, p_name in [(michael_col, "Michael"), (sarah_col, "Sarah")]:
+                st_state = p_state[p_name]
+                # View mode always shows the consolidated box — generate_player_html
+                # falls back to "???" placeholders on its own for whatever this
+                # player hasn't submitted (a few rounds, the whole day, or a day
+                # where only the opponent has played so far), and keeps the round
+                # flags as UN flags until both players have completed the round.
+                # The header would be redundant then (the box already names itself
+                # at its own top), so skip the reserved header slot entirely rather
+                # than leaving it empty.
+                show_consolidated_box = not st_state['edit'] and not date_rows.empty
+                if show_consolidated_box: continue
                 with col, st.container(key=f"hdr_box_{p_name}_{selected_date}", border=False):
-                    st_state = p_state[p_name]
-                    # View mode always shows the consolidated box — generate_player_html
-                    # falls back to "???" placeholders on its own for whatever this
-                    # player hasn't submitted (a few rounds, the whole day, or a day
-                    # where only the opponent has played so far), and keeps the round
-                    # flags as UN flags until both players have completed the round.
-                    show_consolidated_box = not st_state['edit'] and not date_rows.empty
-                    if not show_consolidated_box:
-                        p_color = "#221e8f" if p_name == "Michael" else "#8a005c"
-                        st.markdown(f'<div class="section-title" style="color:{p_color};">{p_name}</div>', unsafe_allow_html=True)
+                    p_color = "#221e8f" if p_name == "Michael" else "#8a005c"
+                    st.markdown(f'<div class="section-title" style="color:{p_color};">{p_name}</div>', unsafe_allow_html=True)
 
-            with community_col, st.container(key=f"hdr_box_community_{selected_date}", border=False):
-                if not community_fields_disabled:
+            if not community_fields_disabled:
+                with community_col, st.container(key=f"hdr_box_community_{selected_date}", border=False):
                     st.markdown('<div class="section-title" style="color:#6c757d;">Community</div>', unsafe_allow_html=True)
 
             # --- PLAYER ROUNDS (each column loops its own 5 rounds, one fixed-height slot per round) ---
@@ -3584,17 +3592,10 @@ if not raw_data_all.empty:
         community_round_input = st.session_state.get('_comm_rounds', {})
         community_stats_input = st.session_state.get('_comm_stats', {'avg': '', 'yrs': '', 'loc': ''})
 
-        # Round Scores / Percentile cards: below the Michael / Sarah / Community
-        # boxes, above the round recap (actuals_box_html) rendered next.
+        # Round Scores / Percentile cards: below the Michael / Sarah / Community boxes.
         score_bars_html = render_score_bars_cards(bars_by_cat, top_pct_cat)
         if score_bars_html:
             st.markdown(score_bars_html, unsafe_allow_html=True)
-
-        # Submitted & not editing: the Actuals box goes below the Michael / Sarah /
-        # Community boxes instead of above them. While editing, it stays in its
-        # original spot above (rendered earlier, ordering left untouched).
-        if actuals_box_html is not None:
-            st.markdown(actuals_box_html, unsafe_allow_html=True)
 
         # --- Single shared Submit button for the whole page ---
         def _to_float_generic(s):
