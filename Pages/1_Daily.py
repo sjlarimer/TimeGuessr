@@ -67,21 +67,41 @@ NEWS_STYLES = """
         /* FORECAST SECTION — flat colour-tinted cards, no shadow/border/internal
            dividers, matching the Michael / Sarah / Community / Actuals boxes
            above (plain pastel background per card, no white sub-sections). */
-        .forecast-container { width: 100%; margin: 0 auto 60px auto; box-sizing: border-box; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+        .forecast-container { width: 100%; margin: 0 auto 60px auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
+        /* row 1: Total/Geo/Time Streaks; row 2: the same 3, Score Runs */
+        .forecast-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        /* Round Scores + Percentile row, shown above the round recap instead,
+           pulled up to close the default block gap under the Michael / Sarah /
+           Community boxes above it */
+        .score-bars-row { margin-top: -16px; margin-bottom: 20px; }
         .forecast-card { border-radius: 12px; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
         .fc-header { padding: 16px 20px 8px 20px; display: flex; align-items: center; gap: 10px; }
         .fc-icon { font-size: 20px; }
         .fc-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        /* Total/Geo/Time score cards: closer to the plain, bigger-text look of
+           the Michael/Sarah/Community boxes than the other forecast cards */
+        .score-card-header { padding: 10px 12px 4px 12px; }
+        .score-card-header .fc-title { font-size: 20px; text-transform: none; letter-spacing: normal; }
+        .score-card-header .fc-icon { font-size: 20px; }
+        .score-card .hbar-group { padding: 6px 12px; }
 
         /* Per-round M/S/C bars, embedded inside a forecast card */
         .hbar-group { padding: 8px 20px; }
         .hbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .hbar-row:last-child { margin-bottom: 0; }
-        .hbar-lbl { width: 16px; flex-shrink: 0; font-weight: 700; font-size: 0.8rem; text-align: center; }
+        .hbar-lbl { width: 22px; flex-shrink: 0; font-weight: 700; font-size: 0.8rem; text-align: center; white-space: nowrap; }
         .hbar-track { flex: 1; min-width: 0; height: 16px; background-color: #b0afaa; border-radius: 5px; overflow: hidden; display: flex; flex-direction: row; }
         .bar-section-title { font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-        .pct-bar-track { flex: 1; min-width: 0; height: 16px; background-color: #000; border-radius: 5px; overflow: hidden; }
+        .pct-bar-track { flex: 1; min-width: 0; height: 16px; background-color: #fff; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; position: relative; box-sizing: border-box; }
+        .wm-marker { position: absolute; top: 1px; bottom: 1px; width: 3px; border-radius: 2px; transform: translateX(-50%); }
+        .wm-all-vals { width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; line-height: 1.05; gap: 1px; }
+        .wm-all-vals span { font-size: 0.62rem; }
         .pct-bar-fill { height: 100%; }
+
+        /* Win Margin block: size of today's win + its percentile vs all games
+           and vs just that winner's own wins — top of the Total/Geo/Time cards */
+        .wm-win-size { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 19px; text-align: center; padding: 2px 12px 12px 12px; }
+        .wm-record-note { font-size: 11px; font-weight: 500; color: #555; margin: -2px 0 9px 30px; line-height: 1.35; }
 
         .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 6px 8px 0 8px; }
         .fc-mom-box { padding: 9px 12px; text-align: center; }
@@ -127,14 +147,11 @@ NEWS_STYLES = """
         .row-discovery { background-color: #f0fbfd; border-left: 4px solid #00acc1; }
         .row-capture { background-color: #fffaf0; border-left: 5px solid #f39c12; }
         .row-record-max { background-color: #f6fff8; border-left: 5px solid #27ae60; }
-        .row-record-min { background-color: #f0f8ff; border-left: 5px solid #1565C0; }
         .row-record-near { background-color: #fefefe; border-left: 5px solid #bdc3c7; }
         .row-score-max { background-color: #fcf9ff; border-left: 5px solid #8e44ad; }
         .row-score-min { background-color: #f7f9f9; border-left: 5px solid #95a5a6; }
-        .row-score-beat-opp { background-color: #fff0f6; border-left: 5px solid #e91e63; }
         .row-score-streak-hot { background-color: #fff5eb; border-left: 5px solid #ff5722; }
         .row-score-streak-cold { background-color: #f4faff; border-left: 5px solid #3498db; }
-        .row-milestone { background-color: #f3e5f5; border-left: 5px solid #9c27b0; }
 
         .category-box { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 60px; min-width: 60px; text-align: center; margin-top: 4px; }
         .cat-icon { font-size: 24px; margin-bottom: 6px; }
@@ -147,14 +164,11 @@ NEWS_STYLES = """
         .event-title-discovery { color: #00838f; }
         .event-title-capture { color: #d35400; }
         .event-title-record-max { color: #27ae60; }
-        .event-title-record-min { color: #1565C0; }
         .event-title-record-near { color: #7f8c8d; }
         .event-title-score-max { color: #8e44ad; }
         .event-title-score-min { color: #7f8c8d; }
-        .event-title-score-beat { color: #e91e63; }
         .event-title-hot { color: #ff5722; }
         .event-title-cold { color: #3498db; }
-        .event-title-milestone { color: #9c27b0; }
 
         .change-visual { font-family: 'Poppins', sans-serif; font-size: 20px; line-height: 1.3; color: #333; display: block; }
         .player-name { font-weight: 700; }
@@ -222,14 +236,25 @@ NEWS_STYLES = """
         /* value-level (New / Rare) markers, shown in the round's dimension header row */
         .rt-mk { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 3px; color: #fff; margin: 3px 4px 0 0; text-transform: uppercase; letter-spacing: 0.4px; }
         .rt-mk-new  { background: #5db300; }
+        .rt-mk-milestone { background: #8e44ad; }
         .rt-mk-rare { background: #e8952e; }
+        /* mini "Top ___" milestone block at the bottom of a round's cell, mirroring
+           the milestone breakdown chip shown in Daily Updates */
+        .rt-ms-block { }
+        .rt-ms-row { margin-bottom: 6px; }
+        .rt-ms-row:last-child { margin-bottom: 0; }
+        .rt-ms-icon { margin-right: 3px; }
+        .rt-ms-dim { display: inline-block; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: #8e44ad; background: #f2e6fa; border: 1px solid #e1bee7; padding: 1px 5px; border-radius: 3px; margin-right: 5px; }
+        .rt-ms-det { font-size: 10px; font-weight: 700; color: #555; }
+        .rt-ms-chip { margin-top: 4px; font-size: 10px; color: #6a1b9a; background-color: #f3e5f5; padding: 3px 7px; border-radius: 4px; display: inline-block; font-weight: 500; border: 1px solid #e1bee7; }
         .rb-dash { color: #bbb; margin: 0 3px; }
         .rb-score-na { color: #aaa; font-weight: 500; font-style: italic; }
         .rb-approx { color: #b0a89e; font-weight: 700; margin-right: 1px; }
         .rt-state { display: block; font-size: 11px; font-weight: 700; color: #444; line-height: 1.4; }
-        /* NEW / FLIP / RARE: prominent badge + whole-cell highlight (tint priority: new > flip > rare) */
+        /* NEW / FLIP / MILESTONE / RARE: prominent badge + whole-cell highlight (tint priority: flip > new > milestone > rare) */
         .round-table td.rt-cell-new  { background: #edf8db !important; box-shadow: inset 4px 0 0 #5db300; }
         .round-table td.rt-cell-flip { background: #fde3df !important; box-shadow: inset 4px 0 0 #c0392b; }
+        .round-table td.rt-cell-milestone { background: #f2e6fa !important; box-shadow: inset 4px 0 0 #8e44ad; }
         .round-table td.rt-cell-rare { background: #fdf1de !important; box-shadow: inset 4px 0 0 #e8952e; }
         .rb-tag { display: inline-block; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin: 5px 4px 0 0; letter-spacing: 0.6px; text-transform: uppercase; color: #fff; }
         .rb-tag-flip { background: #c0392b; box-shadow: 0 1px 3px rgba(192,57,43,0.4); }
@@ -240,7 +265,7 @@ NEWS_STYLES = """
         .rt-dir-s { background: #8a005c; }
         .rt-dir-t { background: #999; }
         .rt-dir-missed { background: transparent; color: #b0453a; border: 1px dashed #cf9b95; }
-        .rt-cell-new .rt-dh-val, .rt-cell-rare .rt-dh-val { color: #111; }
+        .rt-cell-new .rt-dh-val, .rt-cell-milestone .rt-dh-val, .rt-cell-rare .rt-dh-val { color: #111; }
         .rb-swing { font-weight: 700; }
         .rb-was { display: block; font-size: 9px; color: #8a8a8a; font-weight: 600; font-style: italic; margin-top: 1px; }
         .rb-na { color: #ccc; }
@@ -339,7 +364,7 @@ NEWS_STYLES = """
         }
 
         @media (max-width: 900px) {
-            .forecast-container { grid-template-columns: 1fr; }
+            .forecast-row { grid-template-columns: 1fr; }
             .events-list { column-count: 1; padding: 16px; }
         }
     </style>
@@ -823,6 +848,211 @@ def render_percentile_bars(date_rows):
         "Geography Score": build(num("Michael Location"), num("Sarah Location"), num("Community Location Average")),
     }
 
+def compute_top_percentile_category(date_rows):
+    """Whichever of Total/Geography/Time has the higher Michael+Sarah average
+    percentile for this date gets the same red-outline "leader" highlight the
+    Michael/Sarah boxes give the higher total score."""
+    if len(date_rows) == 0: return None
+    row_0 = date_rows.iloc[0]
+
+    def avg(col_m, col_s, mult=1):
+        m, s = row_0.get(col_m), row_0.get(col_s)
+        if pd.isna(m) or pd.isna(s): return None
+        return (float(m) + float(s)) / 2 * mult
+
+    avgs = {
+        "Total Score": avg("Michael Percentile", "Sarah Percentile", 100),
+        "Geography Score": avg("Michael Location", "Sarah Location"),
+        "Time Score": avg("Michael Years", "Sarah Years"),
+    }
+    avgs = {k: v for k, v in avgs.items() if v is not None}
+    return max(avgs, key=avgs.get) if avgs else None
+
+def _ordinal(n):
+    suf = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf}"
+
+def _record_rank_context(population, value_col, today_value, prefer_high):
+    """Where today's value (the last row of `population`, sorted ascending by
+    Date) ranks against every earlier row in it, using `value_col`.
+    prefer_high=True ranks bigger values as more extreme (largest/best);
+    False ranks smaller values as more extreme (tightest/worst). Returns None
+    with fewer than 2 rows to compare against; otherwise {rank, is_alltime,
+    gap, ref_date} — gap/ref_date mirror the "Rare" / PB gap convention used
+    elsewhere: gap is how many games have been played since the last time a
+    value this extreme (or more) occurred, and ref_date is when that
+    previous instance happened."""
+    if len(population) < 2: return None
+    prev = population.iloc[:-1]
+    vals = prev[value_col]
+    if prefer_high:
+        rank = int((vals > today_value).sum()) + 1
+        qualifying = prev[vals >= today_value]
+    else:
+        rank = int((vals < today_value).sum()) + 1
+        qualifying = prev[vals <= today_value]
+    if qualifying.empty:
+        return {"rank": rank, "is_alltime": True, "gap": len(population), "ref_date": None}
+    ref_date = qualifying["Date"].max()
+    # +1 to count today's own game — if ref_date is yesterday, that's 1 game
+    # since (today itself), not 0.
+    gap = int((prev["Date"] > ref_date).sum()) + 1
+    return {"rank": rank, "is_alltime": False, "gap": gap, "ref_date": ref_date}
+
+def _rank_record_note(ctx, direction_word, noun, color=None):
+    if not ctx: return ""
+    rank_txt = direction_word.capitalize() if ctx["rank"] == 1 else f'{_ordinal(ctx["rank"])} {direction_word}'
+    if ctx["is_alltime"]:
+        second = f'{direction_word.capitalize()} {noun} in all {ctx["gap"]} games played'
+    else:
+        ref_str = ctx["ref_date"].strftime('%b %d, %Y').replace(' 0', ' ')
+        second = f'{direction_word.capitalize()} {noun} in {ctx["gap"]} games ({ref_str})'
+    note = f'{rank_txt} {noun} &middot; {second}'
+    style = f' style="color:{color};"' if color else ""
+    return f'<div class="wm-record-note"{style}>{note}</div>'
+
+# direction is implied by which threshold the percentile crossed — a record
+# context is only ever computed for the one direction that was crossed
+def _pct_bar_row(label, color, pct, record_ctx, high_word, low_word, noun):
+    if pct is None:
+        return ""
+    direction = high_word if pct >= 90 else (low_word if pct <= 10 else None)
+    row = (f'<div class="hbar-row"><span class="hbar-lbl" style="color:{color};">{label}</span>'
+           f'<div class="pct-bar-track"><div class="pct-bar-fill" style="width:{pct:.1f}%; background-color:{color};"></div></div>'
+           f'<span class="hbar-lbl" style="width:44px; font-size:0.72rem; color:{color};">{pct:.1f}%</span></div>')
+    if direction:
+        row += _rank_record_note(record_ctx, direction, noun)
+    return row
+
+def compute_win_margin_stats(df_asof, sel_ts):
+    """For the selected date's row in df_asof ("Score Diff" = Michael - Sarah
+    for that category), how big was the win, how does that margin stack up
+    percentile-wise against (a) every game played up to this date and (b)
+    only the games that same winner has won up to this date, and — once a
+    percentile clears 90 or drops under 10 — exactly which largest/tightest
+    rank it holds, for each of those two populations separately."""
+    row = df_asof[df_asof["Date"] == sel_ts]
+    if row.empty: return None
+    diff = row.iloc[0]["Score Diff"]
+    if pd.isna(diff): return None
+    margin = abs(float(diff))
+    winner = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
+
+    pop_all = df_asof.sort_values("Date").assign(_margin=lambda d: d["Score Diff"].abs())
+    pct_all = float((pop_all["_margin"] <= margin).mean() * 100) if len(pop_all) else None
+    record_all = None
+    if pct_all is not None:
+        if pct_all >= 90: record_all = _record_rank_context(pop_all, "_margin", margin, True)
+        elif pct_all <= 10: record_all = _record_rank_context(pop_all, "_margin", margin, False)
+
+    pct_winner, record_winner = None, None
+    if winner != "Tie":
+        pop_winner = pop_all[pop_all["Score Diff"] > 0] if winner == "Michael" else pop_all[pop_all["Score Diff"] < 0]
+        if len(pop_winner):
+            pct_winner = float((pop_winner["_margin"] <= margin).mean() * 100)
+            if pct_winner >= 90: record_winner = _record_rank_context(pop_winner, "_margin", margin, True)
+            elif pct_winner <= 10: record_winner = _record_rank_context(pop_winner, "_margin", margin, False)
+
+    return {"winner": winner, "margin": margin, "pct_all": pct_all, "pct_winner": pct_winner,
+            "record_all": record_all, "record_winner": record_winner}
+
+def render_win_headline(stats):
+    """The size of the win, front and center at the top of the Wins card —
+    separate from (and above) the Win Percentile block."""
+    if not stats:
+        return ""
+    winner, margin = stats["winner"], stats["margin"]
+    if winner == "Tie":
+        return '<div class="wm-win-size" style="color:#999;">Tied</div>'
+    w_color = "#221e8f" if winner == "Michael" else "#8a005c"
+    return f'<div class="wm-win-size"><span style="color:{w_color};">{winner}</span> wins by <b>{margin:,.0f}</b></div>'
+
+def render_win_margin_block(stats):
+    if not stats:
+        return ""
+    winner = stats["winner"]
+    win_lbl = "M" if winner == "Michael" else ("S" if winner == "Sarah" else None)
+    win_color = "#221e8f" if winner == "Michael" else ("#8a005c" if winner == "Sarah" else "#999")
+
+    rows = _pct_bar_row("All", "#6c757d", stats["pct_all"], stats["record_all"], "largest", "tightest", "win")
+    if win_lbl:
+        rows += _pct_bar_row(win_lbl, win_color, stats["pct_winner"], stats["record_winner"], "largest", "tightest", "win")
+    if not rows:
+        return ""
+    return f'<div class="hbar-group wm-group"><div class="bar-section-title">Win Percentile</div>{rows}</div>'
+
+def compute_score_percentile_stats(df_asof, sel_ts, cat):
+    """Each player's percentile against only their OWN historical scores in
+    this category, up to this date — self-comparison only, the opponent
+    never factors in. cat is e.g. "Total Score", matching the "{player} {cat}"
+    column names. Also computes, per player, where today's score lands in
+    the COMBINED pool of both players' scores (stored under "_all") — the
+    record context there treats a game as "qualifying" if EITHER player's
+    score that day was as extreme as today's target, since it's ranking
+    against the whole field rather than one player's own history."""
+    row = df_asof[df_asof["Date"] == sel_ts]
+    if row.empty: return None
+    pop = df_asof.sort_values("Date")
+    m_col, s_col = f"Michael {cat}", f"Sarah {cat}"
+    result = {}
+    for p, col in [("Michael", m_col), ("Sarah", s_col)]:
+        if col not in pop.columns: continue
+        today_score = row.iloc[0].get(col)
+        if pd.isna(today_score): continue
+        today_score = float(today_score)
+        own_pop = pop[pop[col].notna()]
+        if own_pop.empty: continue
+        pct = float((own_pop[col] <= today_score).mean() * 100)
+        record = None
+        if pct >= 90: record = _record_rank_context(own_pop, col, today_score, True)
+        elif pct <= 10: record = _record_rank_context(own_pop, col, today_score, False)
+        result[p] = {"score": today_score, "pct": pct, "record": record}
+
+    if result and m_col in pop.columns and s_col in pop.columns:
+        combined_vals = pd.concat([pop[m_col], pop[s_col]]).dropna()
+        pop_best = pop.assign(_extreme=pop[[m_col, s_col]].max(axis=1)).dropna(subset=["_extreme"])
+        pop_worst = pop.assign(_extreme=pop[[m_col, s_col]].min(axis=1)).dropna(subset=["_extreme"])
+        all_info = {}
+        for p in ["Michael", "Sarah"]:
+            s = result.get(p)
+            if not s or combined_vals.empty: continue
+            pct_all = float((combined_vals <= s["score"]).mean() * 100)
+            record_all = None
+            if pct_all >= 90: record_all = _record_rank_context(pop_best, "_extreme", s["score"], True)
+            elif pct_all <= 10: record_all = _record_rank_context(pop_worst, "_extreme", s["score"], False)
+            all_info[p] = {"pct": pct_all, "record": record_all}
+        if all_info:
+            result["_all"] = all_info
+    return result if result else None
+
+def render_score_percentile_block(stats):
+    if not stats:
+        return ""
+    rows = ""
+    all_info = stats.get("_all", {})
+    if all_info:
+        markers, notes, vals = "", "", ""
+        for p, color in [("Michael", "#221e8f"), ("Sarah", "#8a005c")]:
+            info = all_info.get(p)
+            if not info: continue
+            pos = max(2.0, min(98.0, info["pct"]))
+            markers += (f'<div class="wm-marker" style="left:{pos:.1f}%; background:{color};" '
+                        f'title="{p} {info["pct"]:.1f}%"></div>')
+            vals += f'<span style="color:{color};">{info["pct"]:.1f}%</span>'
+            direction = "best" if info["pct"] >= 90 else ("worst" if info["pct"] <= 10 else None)
+            if direction:
+                notes += _rank_record_note(info.get("record"), direction, "score", color=color)
+        rows += (f'<div class="hbar-row"><span class="hbar-lbl" style="color:#767676;">All</span>'
+                 f'<div class="pct-bar-track">{markers}</div>'
+                 f'<span class="hbar-lbl wm-all-vals">{vals}</span></div>{notes}')
+    for p, color in [("Michael", "#221e8f"), ("Sarah", "#8a005c")]:
+        s = stats.get(p)
+        if not s: continue
+        rows += _pct_bar_row(p[0], color, s["pct"], s.get("record"), "best", "worst", "score")
+    if not rows:
+        return ""
+    return f'<div class="hbar-group wm-group"><div class="bar-section-title">Score Percentile</div>{rows}</div>'
+
 DAILY_SNAPSHOT_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
@@ -1004,235 +1234,6 @@ def generate_streak_events(df, cat, min_streak=3):
                 
     return events
 
-def generate_margin_record_events(df, category_name):
-    if df.empty: return []
-    events = []
-    margin_history = {"Michael": [], "Sarah": []}
-    
-    for game_num, (idx, row) in enumerate(df.iterrows(), start=1):
-        diff, date = row["Score Diff"], row["Date"]
-        if diff == 0: continue
-        winner = "Michael" if diff > 0 else "Sarah"
-        margin = abs(diff)
-        opponent = "Sarah" if winner == "Michael" else "Michael"
-        
-        # --- Largest Win (Max Margin) Top 10 Logic ---
-        current_largest = sorted(margin_history[winner], key=lambda x: x[0], reverse=True)
-        rank_largest = 1
-        for prev_m in current_largest:
-            if margin < prev_m[0]: rank_largest += 1
-            else: break
-            
-        days_since_largest = None
-        ref_date_largest = None
-        for i in range(len(margin_history[winner]) - 1, -1, -1):
-            if margin_history[winner][i][0] >= margin:
-                days_since_largest = game_num - margin_history[winner][i][2]
-                ref_date_largest = margin_history[winner][i][1]
-                break
-                
-        if days_since_largest is None:
-            days_since_largest = game_num
-            
-        if rank_largest <= 10:
-            player_max = current_largest[0][0] if current_largest else None
-            is_pb_tie = player_max is not None and margin == player_max
-            
-            opp_max = max([m[0] for m in margin_history[opponent]]) if margin_history[opponent] else 0
-            overall_max = max(player_max if player_max is not None else 0, opp_max)
-            
-            is_all_time_new = margin > overall_max
-            is_all_time_tie = margin == overall_max and overall_max > 0
-                
-            events.append({
-                "date": date, "category": category_name, "event_type": "margin_record_largest", 
-                "player": winner, "margin": margin, "rank": rank_largest, 
-                "days_since": days_since_largest, "ref_date": ref_date_largest, 
-                "is_pb_tie": is_pb_tie,
-                "is_all_time_new": is_all_time_new and len(margin_history[winner]) > 0,
-                "is_all_time_tie": is_all_time_tie and len(margin_history[winner]) > 0
-            })
-            
-        # --- Tightest Win (Min Margin) Top 10 Logic ---
-        current_tightest = sorted(margin_history[winner], key=lambda x: x[0])
-        rank_tightest = 1
-        for prev_m in current_tightest:
-            if margin > prev_m[0]: rank_tightest += 1
-            else: break
-            
-        days_since_tightest = None
-        ref_date_tightest = None
-        for i in range(len(margin_history[winner]) - 1, -1, -1):
-            if margin_history[winner][i][0] <= margin:
-                days_since_tightest = game_num - margin_history[winner][i][2]
-                ref_date_tightest = margin_history[winner][i][1]
-                break
-                
-        if days_since_tightest is None:
-            days_since_tightest = game_num
-            
-        if rank_tightest <= 10:
-            player_min = current_tightest[0][0] if current_tightest else None
-            is_pb_tie = player_min is not None and margin == player_min
-            
-            opp_min = min([m[0] for m in margin_history[opponent]]) if margin_history[opponent] else float('inf')
-            overall_min = min(player_min if player_min is not None else float('inf'), opp_min)
-            
-            is_all_time_new = margin < overall_min
-            is_all_time_tie = margin == overall_min and overall_min != float('inf')
-                
-            events.append({
-                "date": date, "category": category_name, "event_type": "margin_record_tightest", 
-                "player": winner, "margin": margin, "rank": rank_tightest, 
-                "days_since": days_since_tightest, "ref_date": ref_date_tightest, 
-                "is_pb_tie": is_pb_tie,
-                "is_all_time_new": is_all_time_new and len(margin_history[winner]) > 0,
-                "is_all_time_tie": is_all_time_tie and len(margin_history[winner]) > 0
-            })
-            
-        margin_history[winner].append((margin, date, game_num))
-        
-    return events
-
-def generate_score_record_events(df, category_name):
-    if df.empty: return []
-    events = []
-    
-    # Store history for Top 10 logic
-    score_history = {"Michael": [], "Sarah": []}
-    rival_pb = {"Michael": 0, "Sarah": 0}
-    rival_worst = {"Michael": float('inf'), "Sarah": float('inf')}
-
-    for idx, row in df.iterrows():
-        date = row["Date"]
-        for player in ["Michael", "Sarah"]:
-            score = row[f"{player} {category_name}"]
-            if pd.isna(score): continue
-            
-            opponent = "Sarah" if player == "Michael" else "Michael"
-            
-            # --- Top 10 Logic ---
-            current_leaderboard = sorted(score_history[player], key=lambda x: x[0], reverse=True)
-            
-            # Calculate Rank
-            rank = 1
-            for prev_score in current_leaderboard:
-                if score < prev_score[0]:
-                    rank += 1
-                else:
-                    break
-            
-            # Calculate "Best score in X games"
-            days_since = None
-            ref_date = None
-            for i in range(len(score_history[player]) - 1, -1, -1):
-                if score_history[player][i][0] >= score:
-                    days_since = len(score_history[player]) - i
-                    ref_date = score_history[player][i][1]
-                    break
-            
-            if days_since is None:
-                # All-time record across all games played so far
-                days_since = len(score_history[player]) + 1
-            
-            if rank <= 10:
-                current_max = current_leaderboard[0][0] if current_leaderboard else None
-                is_pb_tie = current_max is not None and score == current_max
-                events.append({
-                    "date": date, 
-                    "category": category_name, 
-                    "event_type": "score_top_10", 
-                    "player": player, 
-                    "score": score, 
-                    "rank": rank,
-                    "days_since": days_since,
-                    "ref_date": ref_date,
-                    "is_pb_tie": is_pb_tie,
-                    "is_all_time": rank == 1 and len(score_history[player]) > 0
-                })
-
-            # --- Bottom 10 Logic ---
-            bottom_days_since = None
-            bottom_ref_date = None
-            if len(score_history[player]) > 0:  # Skip game 1 so it doesn't trigger "All-Time Worst" on day 1
-                current_bottom_leaderboard = sorted(score_history[player], key=lambda x: x[0])
-                
-                # Calculate Bottom Rank
-                bottom_rank = 1
-                for prev_score in current_bottom_leaderboard:
-                    if score > prev_score[0]:
-                        bottom_rank += 1
-                    else:
-                        break
-                
-                # Calculate "Worst score in X games"
-                for i in range(len(score_history[player]) - 1, -1, -1):
-                    if score_history[player][i][0] <= score:
-                        bottom_days_since = len(score_history[player]) - i
-                        bottom_ref_date = score_history[player][i][1]
-                        break
-                
-                if bottom_days_since is None:
-                    # All-time worst across all games played so far
-                    bottom_days_since = len(score_history[player]) + 1
-                
-                if bottom_rank <= 10:
-                    current_min = current_bottom_leaderboard[0][0] if current_bottom_leaderboard else None
-                    is_worst_tie = current_min is not None and score == current_min
-                    events.append({
-                        "date": date, 
-                        "category": category_name, 
-                        "event_type": "score_bottom_10", 
-                        "player": player, 
-                        "score": score, 
-                        "rank": bottom_rank,
-                        "days_since": bottom_days_since,
-                        "ref_date": bottom_ref_date,
-                        "is_worst_tie": is_worst_tie,
-                        "is_all_time": bottom_rank == 1
-                    })
-
-            # --- Beat Opponent's PB Logic ---
-            opp_record = rival_pb[opponent]
-            if opp_record > 0 and score > opp_record:
-                events.append({
-                    "date": date, 
-                    "category": category_name, 
-                    "event_type": "score_vs_opp", 
-                    "subtype": "surpass_opp_max", 
-                    "player": player, 
-                    "score": score, 
-                    "opponent": opponent, 
-                    "opp_record": opp_record,
-                    "days_since": days_since,
-                    "ref_date": ref_date
-                })
-                
-            # --- Worse Than Opponent's Worst Logic ---
-            opp_worst = rival_worst[opponent]
-            if opp_worst != float('inf') and score < opp_worst:
-                events.append({
-                    "date": date, 
-                    "category": category_name, 
-                    "event_type": "score_vs_opp", 
-                    "subtype": "worse_than_opp_min", 
-                    "player": player, 
-                    "score": score, 
-                    "opponent": opponent, 
-                    "opp_record": opp_worst,
-                    "days_since": bottom_days_since,
-                    "ref_date": bottom_ref_date
-                })
-
-            # Update histories for next day processing
-            score_history[player].append((score, date))
-            if score > rival_pb[player]:
-                rival_pb[player] = score
-            if score < rival_worst[player]:
-                rival_worst[player] = score
-                
-    return events
-
 def generate_momentum_score_events(df, category_name, window=5):
     if len(df) < window: return []
     events = []
@@ -1388,144 +1389,6 @@ def generate_score_threshold_streaks(df):
                         trk['cur'] = 0
         prev_date = date
     return events
-
-def generate_milestone_events(df):
-    if df.empty: return []
-    evs = []
-    dec, yr, loc = {}, {}, {}
-    dec_years = {}
-    cont_regions = {}
-    reg_countries = {}
-    country_subdivs = {}
-    country_cities = {}
-    subdiv_cities = {}
-    seen_dates = set()
-    total_days = 0
-    
-    uc = list(df["Country"].dropna().unique())
-    iso_res = cc_obj.convert(names=uc, to='ISO3', not_found='Unknown') if uc else []
-    if isinstance(iso_res, str): iso_res = [iso_res]
-    iso = dict(zip(uc, iso_res))
-    
-    ui = [i for i in set(iso.values()) if i and i != 'Unknown']
-    reg_res = cc_obj.convert(names=ui, to="UNregion", not_found="Unknown") if ui else []
-    if isinstance(reg_res, str): reg_res = [reg_res]
-    reg = dict(zip(ui, reg_res))
-    
-    con_res = cc_obj.convert(names=ui, to="continent", not_found="Unknown") if ui else []
-    if isinstance(con_res, str): con_res = [con_res]
-    con = dict(zip(ui, con_res))
-    
-    def is_milestone(n):
-        return n in [5, 10, 15, 20, 25, 50, 75, 100] or (n > 100 and n % 50 == 0)
-    
-    for _, r in df.sort_values("Date").iterrows():
-        dt = r["Date"]
-        if dt not in seen_dates:
-            seen_dates.add(dt)
-            total_days += 1
-            if is_milestone(total_days):
-                evs.append({"date": dt, "category": "Milestone", "event_type": "milestone", "subtype": "total", "name": "Total Games", "count": total_days})
-        
-        y = r.get("Year")
-        if pd.notna(y):
-            ystr = str(int(y))
-            yr[ystr] = yr.get(ystr, 0) + 1
-            if is_milestone(yr[ystr]): evs.append({"date": dt, "category": "Milestone", "event_type": "milestone", "subtype": "year", "name": ystr, "count": yr[ystr]})
-            try: dstr = str(int(y // 10) * 10) + "s"
-            except: dstr = None
-            if dstr:
-                dec[dstr] = dec.get(dstr, 0) + 1
-                if dstr not in dec_years: dec_years[dstr] = {}
-                dec_years[dstr][ystr] = dec_years[dstr].get(ystr, 0) + 1
-                
-                if is_milestone(dec[dstr]): 
-                    milestone_val = dec[dstr]
-                    threshold = milestone_val * 0.1
-                    sorted_years = sorted(dec_years[dstr].items(), key=lambda item: item[1], reverse=True)
-                    
-                    top_subitems = [x for x in sorted_years if x[1] >= threshold]
-                    other_items = [x for x in sorted_years if x[1] < threshold]
-                    
-                    if len(other_items) == 1:
-                        top_subitems.append(other_items[0])
-                        other_count = 0
-                    else:
-                        other_count = sum(x[1] for x in other_items)
-                        
-                    evs.append({"date": dt, "category": "Milestone", "event_type": "milestone", "subtype": "decade", "name": dstr, "count": milestone_val, "top_subitems": top_subitems, "other_count": other_count, "subitems_label": "Top Years"})
-        
-        c, s = r.get("Country"), r.get("Subdivision")
-        city = r.get("City")
-        ccl = str(c).strip() if pd.notna(c) else "Unknown"
-        scl = str(s).strip() if pd.notna(s) and str(s).strip() else None
-        city_str = str(city).strip() if pd.notna(city) and str(city).strip() else None
-        isoc = iso.get(ccl)
-        rg, cn = reg.get(isoc, "Unknown"), con.get(isoc, "Unknown")
-        
-        if cn != "Unknown" and rg != "Unknown":
-            if cn not in cont_regions: cont_regions[cn] = {}
-            cont_regions[cn][rg] = cont_regions[cn].get(rg, 0) + 1
-            
-        if rg != "Unknown" and ccl != "Unknown":
-            if rg not in reg_countries: reg_countries[rg] = {}
-            reg_countries[rg][ccl] = reg_countries[rg].get(ccl, 0) + 1
-            
-        if ccl != "Unknown":
-            if scl:
-                if ccl not in country_subdivs: country_subdivs[ccl] = {}
-                country_subdivs[ccl][scl] = country_subdivs[ccl].get(scl, 0) + 1
-            if city_str:
-                if ccl not in country_cities: country_cities[ccl] = {}
-                country_cities[ccl][city_str] = country_cities[ccl].get(city_str, 0) + 1
-                
-        if scl and city_str:
-            if scl not in subdiv_cities: subdiv_cities[scl] = {}
-            subdiv_cities[scl][city_str] = subdiv_cities[scl].get(city_str, 0) + 1
-        
-        for kt, kn in [("continent", cn), ("region", rg), ("country", ccl), ("subdivision", scl)]:
-            if kn and kn != "Unknown":
-                k = (kt, kn)
-                loc[k] = loc.get(k, 0) + 1
-                if is_milestone(loc[k]): 
-                    milestone_val = loc[k]
-                    threshold = milestone_val * 0.1
-                    event = {"date": dt, "category": "Milestone", "event_type": "milestone", "subtype": kt, "name": kn, "count": milestone_val}
-                    
-                    items_dict = None
-                    sub_lbl = None
-                    if kt == "continent" and kn in cont_regions:
-                        items_dict = cont_regions[kn]
-                        sub_lbl = "Top Regions"
-                    elif kt == "region" and kn in reg_countries:
-                        items_dict = reg_countries[kn]
-                        sub_lbl = "Top Countries"
-                    elif kt == "country":
-                        if kn in country_subdivs:
-                            items_dict = country_subdivs[kn]
-                            sub_lbl = "Top Subdivisions"
-                        elif kn in country_cities:
-                            items_dict = country_cities[kn]
-                            sub_lbl = "Top Cities"
-                    elif kt == "subdivision" and kn in subdiv_cities:
-                        items_dict = subdiv_cities[kn]
-                        sub_lbl = "Top Cities"
-                        
-                    if items_dict:
-                        sorted_items = sorted(items_dict.items(), key=lambda x: x[1], reverse=True)
-                        top_subitems = [x for x in sorted_items if x[1] >= threshold]
-                        other_items = [x for x in sorted_items if x[1] < threshold]
-                        
-                        if len(other_items) == 1:
-                            top_subitems.append(other_items[0])
-                            event["other_count"] = 0
-                        else:
-                            event["other_count"] = sum(x[1] for x in other_items)
-                        event["top_subitems"] = top_subitems
-                        event["subitems_label"] = sub_lbl
-                        
-                    evs.append(event)
-    return evs
 
 @st.cache_data
 def get_flag_html(name):
@@ -1908,7 +1771,7 @@ def generate_decade_events(df):
 def generate_round_updates(df):
     """Replay every round of every day in play order and record how that single
     round shifted the cumulative Michael-vs-Sarah head-to-head control of its
-    continent / UN region / country / subdivision / year / decade — separately
+    continent / UN region / country / subdivision / city / year / decade — separately
     for total, geography and time points.
 
     Appearance count and the "rounds since last seen" gap (and therefore is_rare)
@@ -1920,7 +1783,12 @@ def generate_round_updates(df):
     total, geo and time round scores, and metric_rows -> a 3-item list (total, geo,
     time) each with {metric, label, swing, dims}, where dims is a per-dimension list
     of dicts (label, value, tracked, and when tracked: leader, margin, is_new,
-    did_flip, is_rare, gap, appearances, prev_leader, prev_margin).
+    did_flip, is_rare, is_milestone, gap, appearances, prev_leader, prev_margin).
+    round_dict also has milestones -> a list of {key, label, value, count, breakdown}
+    for every continent/region/country/subdivision/decade milestone hit this round,
+    where breakdown (when available) is {label, top_items, other_count} — a 10%
+    threshold top/other split of that value's sub-items (e.g. a country's
+    subdivisions), shown as the round-by-round table's "Top ___" mini block.
     """
     if df.empty or "Timeguessr Round" not in df.columns:
         return {}
@@ -1955,16 +1823,45 @@ def generate_round_updates(df):
     if isinstance(con_res, str): con_res = [con_res]
     con = dict(zip(ui, con_res))
 
-    DIMS = ["continent", "region", "country", "subdivision", "year", "decade"]
+    DIMS = ["continent", "region", "country", "subdivision", "city", "year", "decade"]
     LABELS = {"continent": "Continent", "region": "UN Region", "country": "Country",
-              "subdivision": "Subdivision", "year": "Year", "decade": "Decade"}
+              "subdivision": "Subdivision", "city": "City", "year": "Year", "decade": "Decade"}
     METRICS = ["total", "geo", "time"]  # each round splits into these 3 sub-rows, in this order
     METRIC_LABEL = {"total": "Total", "geo": "Geography", "time": "Time"}
     RARE_GAP = 125  # rounds since last appearance (~25 days at 5 rounds/day)
     MAX_SCORE = {"total": 10000.0, "geo": 5000.0, "time": 5000.0}  # best possible round score per metric
+    MILESTONE_APPEARANCES = {5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100,
+                              125, 150, 175, 200, 225, 250}  # + every 50 beyond 250
+
+    def is_milestone(n):
+        return n in MILESTONE_APPEARANCES or (n > 250 and n % 50 == 0)
     state = {m: {k: {} for k in DIMS} for m in METRICS}  # metric -> dim -> value -> {m, s}
     last_round = {k: {} for k in DIMS}    # dim -> value -> round index last seen
     appearances = {k: {} for k in DIMS}  # dim -> value -> count of rounds it has appeared in
+
+    # sub-item breakdowns for the milestone "Top ___" mini block (continent->region,
+    # region->country, country->subdivision/city, subdivision->city, decade->year)
+    cont_regions, reg_countries = {}, {}
+    country_subdivs, country_cities, subdiv_cities, dec_years = {}, {}, {}, {}
+    MILESTONE_BREAKDOWN_DIMS = {"continent", "region", "country", "subdivision", "decade"}
+
+    def bump(nested, key, subitem):
+        nested.setdefault(key, {})
+        nested[key][subitem] = nested[key].get(subitem, 0) + 1
+
+    def top_breakdown(items_dict, milestone_val, label):
+        if not items_dict:
+            return None
+        threshold = milestone_val * 0.1
+        sorted_items = sorted(items_dict.items(), key=lambda x: x[1], reverse=True)
+        top_items = [x for x in sorted_items if x[1] >= threshold]
+        other_items = [x for x in sorted_items if x[1] < threshold]
+        if len(other_items) == 1:
+            top_items.append(other_items[0])
+            other_count = 0
+        else:
+            other_count = sum(x[1] for x in other_items)
+        return {"label": label, "top_items": top_items, "other_count": other_count}
 
     def leader(delta):
         return "Michael" if delta > 0 else ("Sarah" if delta < 0 else "Tie")
@@ -1977,6 +1874,7 @@ def generate_round_updates(df):
             round_no += 1
             country = str(r["Country"]).strip() if pd.notna(r.get("Country")) else None
             subdiv = str(r["Subdivision"]).strip() if (pd.notna(r.get("Subdivision")) and str(r.get("Subdivision")).strip()) else None
+            city = str(r["City"]).strip() if (pd.notna(r.get("City")) and str(r.get("City")).strip()) else None
             yr = r.get("Year")
             year_s = str(int(yr)) if pd.notna(yr) else None
             decade_s = (str(int(yr // 10) * 10) + "s") if pd.notna(yr) else None
@@ -2015,6 +1913,7 @@ def generate_round_updates(df):
                 "region": region if region != "Unknown" else None,
                 "country": country if (country and country != "Unknown") else None,
                 "subdivision": f"{subdiv} | {country}" if (subdiv and country) else None,
+                "city": f"{city} | {subdiv or ''} | {country}" if (city and country) else None,
                 "year": year_s,
                 "decade": decade_s,
             }
@@ -2023,12 +1922,33 @@ def generate_round_updates(df):
                 "region": region if region != "Unknown" else "—",
                 "country": country or "—",
                 "subdivision": subdiv or "—",
+                "city": city or "—",
                 "year": year_s or "—",
                 "decade": decade_s or "—",
             }
 
+            # sub-item counters feeding the milestone "Top ___" breakdown, updated
+            # before the milestone check below so this round's own location
+            # counts toward the breakdown that fires on it (only for rounds with
+            # scores, matching what actually counts toward appearances/milestones)
+            if has:
+                if continent != "Unknown" and region != "Unknown":
+                    bump(cont_regions, continent, region)
+                if region != "Unknown" and country and country != "Unknown":
+                    bump(reg_countries, region, country)
+                if country and country != "Unknown":
+                    if subdiv:
+                        bump(country_subdivs, country, subdiv)
+                    if city:
+                        bump(country_cities, country, city)
+                if dim_value["subdivision"] and city:
+                    bump(subdiv_cities, dim_value["subdivision"], city)
+                if decade_s and year_s:
+                    bump(dec_years, decade_s, year_s)
+
             # per-dimension round-level facts (computed once per round, not per metric)
             dim_meta = {}
+            round_milestones = []
             for k in DIMS:
                 v = dim_value[k]
                 if v is None or not has:
@@ -2039,11 +1959,30 @@ def generate_round_updates(df):
                 gap = 0 if is_new else (round_no - prev_round)
                 appearances[k][v] = appearances[k].get(v, 0) + 1
                 last_round[k][v] = round_no
+                ms_count = appearances[k][v]
                 dim_meta[k] = {
                     "tracked": True, "is_new": is_new, "gap": gap,
-                    "appearances": appearances[k][v],
+                    "appearances": ms_count,
                     "is_rare": (not is_new) and gap >= RARE_GAP,
+                    "is_milestone": is_milestone(ms_count),
                 }
+                if dim_meta[k]["is_milestone"] and k in MILESTONE_BREAKDOWN_DIMS:
+                    breakdown = None
+                    if k == "continent":
+                        breakdown = top_breakdown(cont_regions.get(continent), ms_count, "Top Regions")
+                    elif k == "region":
+                        breakdown = top_breakdown(reg_countries.get(region), ms_count, "Top Countries")
+                    elif k == "country":
+                        breakdown = (top_breakdown(country_subdivs.get(country), ms_count, "Top Subdivisions")
+                                     or top_breakdown(country_cities.get(country), ms_count, "Top Cities"))
+                    elif k == "subdivision":
+                        breakdown = top_breakdown(subdiv_cities.get(v), ms_count, "Top Cities")
+                    elif k == "decade":
+                        breakdown = top_breakdown(dec_years.get(decade_s), ms_count, "Top Years")
+                    round_milestones.append({
+                        "key": k, "label": LABELS[k], "value": dim_display[k],
+                        "count": ms_count, "breakdown": breakdown,
+                    })
 
             metric_add = {"total": (m_round, s_round), "geo": (m_geo, s_geo), "time": (m_time, s_time)}
             metric_rows = []
@@ -2079,6 +2018,7 @@ def generate_round_updates(df):
                             "did_flip": did_flip,
                             "missed_flip": missed_flip,
                             "is_rare": dm["is_rare"],
+                            "is_milestone": dm["is_milestone"],
                             "gap": dm["gap"],
                             "appearances": dm["appearances"],
                             "leader": new_leader,
@@ -2111,6 +2051,7 @@ def generate_round_updates(df):
                 "c_round": c_round, "c_geo_est": c_geo_est, "c_time_est": c_time_est,
                 "estimated": estimated,
                 "metric_rows": metric_rows,
+                "milestones": round_milestones,
             })
         out[pd.Timestamp(dt)] = rounds
     return out
@@ -2146,14 +2087,14 @@ def get_full_category_forecast(df, cat):
         else: sw, cs = w, (1 if w != "Tie" else 0)
         if w != "Tie" and cs > ms[w]: ms[w] = cs
 
-    sh = ""
+    vs_sh = ""
     if sw and sw != "Tie" and cs > 0:
         opp = "Sarah" if sw == "Michael" else "Michael"
         rec = ms[sw]
         if cs == rec: t_str = f"<span style='color:#27ae60; font-weight:700;'>Record Streak!</span>"
         else: t_str = f"Matches PB in <b>{rec - cs}</b>"
-        sh += f"""<div class="fc-streak-item"><span class="fc-streak-name">Win Streak ({sw})</span> <span class="fc-streak-val">{cs}</span> <span class="fc-streak-meta">{t_str}</span></div>"""
-    
+        vs_sh += f"""<div class="fc-streak-item"><span class="fc-streak-name">Win Streak ({sw})</span> <span class="fc-streak-val">{cs}</span> <span class="fc-streak-meta">{t_str}</span></div>"""
+
     cth = {
         "Total Score": [{"id": ">45k", "label": ">45k", "check": lambda s: s > 45000}, {"id": ">40k", "label": ">40k", "check": lambda s: s > 40000}, {"id": "<40k", "label": "<40k", "check": lambda s: s < 40000}, {"id": "<35k", "label": "<35k", "check": lambda s: s < 35000}],
         "Time Score": [{"id": ">20k", "label": ">20k", "check": lambda s: s > 20000}, {"id": "<20k", "label": "<20k", "check": lambda s: s < 20000}],
@@ -2184,29 +2125,70 @@ def get_full_category_forecast(df, cat):
                      c = "#e67e22" if ">" in tid else "#3498db"
                      rt = f"<span style='color:#27ae60; font-weight:700;'>New Record!</span>" if cur > rec else (f"<span style='color:#d35400; font-weight:700;'>Matches PB!</span>" if cur == rec else f"Matches PB in {rec - cur}")
                      acts.append(f"<div class='fc-streak-item'><span class='fc-streak-name' style='color:{c}'>{p} {t['label']}</span> <span class='fc-streak-val'>{cur}</span> <span class='fc-streak-meta'>{rt}</span></div>")
-        if acts: sh += f"""<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ccc;"><div style="font-size:10px; font-weight:700; color:#999; margin-bottom:5px; text-transform:uppercase;">Active Score Runs</div>{''.join(acts)}</div>"""
-    return {"category": cat, "l5": l5, "m5": m5, "l10": l10, "m10": m10, "streaks_html": sh}
+        self_sh = "".join(acts)
+    else:
+        self_sh = ""
+    return {"category": cat, "l5": l5, "m5": m5, "l10": l10, "m10": m10,
+            "vs_streak_html": vs_sh, "self_streak_html": self_sh}
 
-def render_forecast_section(fs_list, bars_by_cat=None):
-    bars_by_cat = bars_by_cat or {}
-    html = '<div class="forecast-container">'
-    icons = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
-    borders = {"Total Score": "fc-cat-total", "Time Score": "fc-cat-time", "Geography Score": "fc-cat-geo"}
-    for f in fs_list:
-        if not f: continue
-        cat, ic, bc = f['category'], icons.get(f['category'], "📊"), borders.get(f['category'], "")
+FORECAST_ICONS = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
+FORECAST_BORDERS = {"Total Score": "fc-cat-total", "Time Score": "fc-cat-time", "Geography Score": "fc-cat-geo"}
+FORECAST_PREFIX = {"Total Score": "Total", "Time Score": "Time", "Geography Score": "Geography"}
+FORECAST_ORDER = ["Total Score", "Geography Score", "Time Score"]
+
+def render_score_bars_cards(bars_by_cat, highlight_cat=None):
+    """The Round Scores + Percentile bars — a per-round M/S/C comparison for
+    the selected date — shown as their own Total/Geo/Time row, placed above
+    the round recap and below the Michael/Sarah/Community boxes. Styled to
+    match those boxes: plain pastel card, a bold plain-text title, and the
+    same red "leader" outline — here given to whichever of the three has the
+    higher Michael+Sarah average percentile."""
+    cards = []
+    for cat in FORECAST_ORDER:
         bars_html = bars_by_cat.get(cat, "")
-        def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
-        html += f"""<div class="forecast-card {bc}"><div class="fc-header"><span class="fc-icon">{ic}</span><span class="fc-title">{cat}</span></div>{bars_html}<div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Active Streaks</div>{f['streaks_html'] if f['streaks_html'] else '<div style="font-size:11px; color:#999; font-style:italic;">No active streaks.</div>'}</div></div>"""
-    return html + '</div>'
+        if not bars_html: continue
+        ic, bc = FORECAST_ICONS.get(cat, "📊"), FORECAST_BORDERS.get(cat, "")
+        outline = ' style="border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);"' if cat == highlight_cat else ""
+        cards.append(f"""<div class="forecast-card score-card {bc}"{outline}><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{FORECAST_PREFIX.get(cat, cat)}</span></div>{bars_html}</div>""")
+    if not cards:
+        return ""
+    return f'<div class="forecast-row score-bars-row">{"".join(cards)}</div>'
+
+def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=None):
+    empty = '<div style="font-size:11px; color:#999; font-style:italic;">{}</div>'
+    def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
+    win_margin_by_cat = win_margin_by_cat or {}
+    score_pct_by_cat = score_pct_by_cat or {}
+
+    by_cat = {f['category']: f for f in fs_list if f}
+    wins_cards, run_cards = [], []
+    for cat in FORECAST_ORDER:
+        f = by_cat.get(cat)
+        if not f: continue
+        ic, bc, px = FORECAST_ICONS.get(cat, "📊"), FORECAST_BORDERS.get(cat, ""), FORECAST_PREFIX.get(cat, cat)
+        # Wins: the size of the win front and center, then the Win Percentile
+        # block, then the momentum averages and the active win streak — all
+        # one player measured against the other, whether over one game or a
+        # rolling window.
+        wm_headline_html = render_win_headline(win_margin_by_cat.get(cat))
+        wm_html = render_win_margin_block(win_margin_by_cat.get(cat))
+        wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Win Streak</div>{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
+        # Score: each player's own percentile against their own history up
+        # top, then their active run against a fixed score threshold below —
+        # both self-comparison only, the opponent never factors in.
+        sp_html = render_score_percentile_block(score_pct_by_cat.get(cat))
+        run_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Score</span></div>{sp_html}<div class="fc-streaks"><div class="fc-streaks-title">Active Score Runs</div>{f['self_streak_html'] or empty.format('No active runs.')}</div></div>""")
+
+    html = ('<div class="forecast-container">'
+            f'<div class="forecast-row">{"".join(wins_cards)}</div>'
+            f'<div class="forecast-row">{"".join(run_cards)}</div>'
+            '</div>')
+    return html
 
 FEED_CATEGORIES = {
     "Momentum": ["flip", "momentum_record_largest", "momentum_score_top_10", "momentum_score_bottom_10"], 
     "Win Streak Updates": ["streak", "streak_broken"], 
-    "Score Threshold Streaks": ["score_streak", "score_streak_broken"], 
-    "Win Margin Records": ["margin_record_largest", "margin_record_tightest"], 
-    "Leaderboard Records": ["score_top_10", "score_bottom_10", "score_vs_opp"],
-    "Milestones": ["milestone"]
+    "Score Threshold Streaks": ["score_streak", "score_streak_broken"],
 }
 # Location / year / decade discoveries, control flips and rare appearances are
 # now covered by the round-by-round table at the top of each edition, so their
@@ -2235,6 +2217,9 @@ def render_round_strip(rounds):
         if dr.get("is_new"):
             box_cls = " rt-cell-new"
             meta += '<span class="rt-mk rt-mk-new">New</span>'
+        elif dr.get("is_milestone"):
+            box_cls = " rt-cell-milestone"
+            meta += f'<span class="rt-mk rt-mk-milestone">Milestone</span>'
         elif dr.get("is_rare"):
             box_cls = " rt-cell-rare"
             meta += ('<span class="rt-mk rt-mk-rare">Rare</span>'
@@ -2249,8 +2234,8 @@ def render_round_strip(rounds):
         lead_txt = ('<span class="p-tie">Tied</span>' if ld == "Tie"
                     else f'<span class="{pc_map[ld]}">{ld} +{dr["margin"]:,.0f}</span>')
         tag, was, box_cls = "", "", ""
-        # a flip on this score type overrules the value-level (New / Rare) tint;
-        # otherwise the whole column carries the New / Rare colour
+        # a flip on this score type overrules the value-level (New / Milestone / Rare)
+        # tint; otherwise the whole column carries the New / Milestone / Rare colour
         if dr["did_flip"]:
             box_cls = " rt-cell-flip"
             pl, nl = dr["prev_leader"], ld
@@ -2263,6 +2248,8 @@ def render_round_strip(rounds):
                    else f'<span class="rb-was">was {pl} +{dr["prev_margin"]:,.0f}</span>')
         elif dr.get("is_new"):
             box_cls = " rt-cell-new"
+        elif dr.get("is_milestone"):
+            box_cls = " rt-cell-milestone"
         elif dr.get("is_rare"):
             box_cls = " rt-cell-rare"
         # "Missed flip": trailing player had a max-score path to the lead this round
@@ -2318,6 +2305,26 @@ def render_round_strip(rounds):
                 f'<b class="p-michael">{format_year_guess(m_guess, actual)}</b><span class="rb-dash">&ndash;</span>'
                 f'<b class="p-sarah">{format_year_guess(s_guess, actual)}</b>{c_part}</span>')
 
+    def milestone_breakdown_chip(bd):
+        if not bd or not bd.get("top_items"):
+            return ""
+        parts = [f"{item} ({count})" for item, count in bd["top_items"]]
+        if bd.get("other_count", 0) > 0:
+            parts.append(f"Other ({bd['other_count']})")
+        return f'<div class="rt-ms-chip"><b>{bd["label"]}:</b> {" &middot; ".join(parts)}</div>'
+
+    def milestone_block(rd):
+        mss = rd.get("milestones")
+        if not mss:
+            return ""
+        rows = ""
+        for ms in mss:
+            rows += (f'<div class="rt-ms-row"><span class="rt-ms-icon">🎉</span>'
+                     f'<span class="rt-ms-dim">{ms["label"]}</span>'
+                     f'<span class="rt-ms-det">{ms["count"]} Games in {ms["value"]}</span>'
+                     f'{milestone_breakdown_chip(ms.get("breakdown"))}</div>')
+        return f'<div class="rt-extra rt-ms-block">{rows}</div>'
+
     body = ""
     for rd in rounds:
         loc = ", ".join([b for b in [rd["subdivision"], rd["country"]] if b]) or rd["city"]
@@ -2332,6 +2339,7 @@ def render_round_strip(rounds):
                      + year_row(rd.get("m_year_guess"), rd.get("s_year_guess"), rd.get("actual_year"), rd.get("c_yrs_off")))
             if extra:
                 score += f'<div class="rt-extra">{extra}</div>'
+            score += milestone_block(rd)
         else:
             score = '<span class="rb-score-na">no scores</span>'
         round_cell = (f'<td class="rt-round" rowspan="4">'
@@ -2365,9 +2373,7 @@ def render_daily_news(dt, evs, round_list=None):
         return f"{n}{suffix}"
 
     rmap = {
-        ('milestone', 'total'): 1, ('milestone', 'continent'): 2, ('milestone', 'region'): 3, ('milestone', 'country'): 4, ('milestone', 'subdivision'): 5, ('milestone', 'decade'): 6, ('milestone', 'year'): 7,
-        ('score_top_10', ''): 10, ('score_bottom_10', ''): 11, ('margin_record_largest', ''): 12, ('margin_record_tightest', ''): 13, ('score_vs_opp', ''): 14,
-        ('streak', 'new_record'): 20, ('streak', 'matched_record'): 21, ('streak', 'active'): 22, ('streak_broken', ''): 23, 
+        ('streak', 'new_record'): 20, ('streak', 'matched_record'): 21, ('streak', 'active'): 22, ('streak_broken', ''): 23,
         ('score_streak', 'new_record'): 24, ('score_streak', 'matched_record'): 25, ('score_streak', 'active'): 26, ('score_streak_broken', ''): 27, 
         ('discovery', 'new_continent'): 30, ('discovery', 'new_un_region'): 31, ('discovery', 'new_country'): 32, ('discovery', 'new_subdivision'): 33, ('decade_discovery', 'new_decade'): 34, ('year_discovery', 'new_year'): 35,
         ('location_flip', 'continent'): 40, ('location_flip', 'region'): 41, ('location_flip', 'country'): 42, ('location_flip', 'subdivision'): 43, ('decade_flip', 'decade'): 44, ('year_flip', 'year'): 45,
@@ -2378,7 +2384,7 @@ def render_daily_news(dt, evs, round_list=None):
     def gr(e):
         t, s, w = e.get('event_type'), e.get('subtype', ''), e.get('window')
         if t == 'flip': return 60 if w == 10 else 61
-        if t in ['score_top_10', 'score_bottom_10', 'margin_record_largest', 'margin_record_tightest', 'score_vs_opp', 'streak_broken', 'score_streak_broken', 'momentum_record_largest', 'momentum_score_top_10', 'momentum_score_bottom_10']: s = ''
+        if t in ['streak_broken', 'score_streak_broken', 'momentum_record_largest', 'momentum_score_top_10', 'momentum_score_bottom_10']: s = ''
         return rmap.get((t, s), 99)
     
     # Sort first by rank ascending
@@ -2410,7 +2416,6 @@ def render_daily_news(dt, evs, round_list=None):
             elif cat == "Discovery": ic, cs = "🗺️", "Map"
             elif cat == "Year": ic, cs = "📅", "Year"
             elif cat == "Decade": ic, cs = "🗓️", "Decade"
-            elif cat == "Milestone": ic, cs = "🎉", "Milestone"
             
             def pc(n): return "p-michael" if n == "Michael" else ("p-sarah" if n == "Sarah" else "p-tie")
             rc, ct = "row-winner-Tie", ""
@@ -2565,126 +2570,6 @@ def render_daily_news(dt, evs, round_list=None):
                 if sub == 'denied_break': det += " One game short of a new record!"
                 elif sub == 'denied_match': det += " One game short of matching record!"
                 ct = f"""<div class="event-title event-title-broken">{cs} &middot; {lbl.upper()} STREAK SNAPPED</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="broken-detail">{det}</span></div>"""
-            elif et in ['margin_record_largest', 'margin_record_tightest']:
-                p, m, r = e['player'], e['margin'], e['rank']
-                is_pb = r == 1
-                is_pb_tie = e.get('is_pb_tie', False)
-                is_largest = et == 'margin_record_largest'
-                
-                ic = "📈" if is_largest else "🤏"
-                rc = "row-record-max" if is_largest else "row-record-min"
-                ord_rank = get_ordinal(r)
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                at_badge = ""
-                if e.get('is_all_time_new'):
-                    at_badge = '<span class="all-time-badge">ALL-TIME RECORD</span>'
-                elif e.get('is_all_time_tie'):
-                    at_badge = '<span class="all-time-badge" style="background-color:#7f8c8d;">TIED ALL-TIME RECORD</span>'
-                
-                if is_largest:
-                    tt = "TIED RECORD WIN MARGIN" if (is_pb and is_pb_tie) else ("NEW RECORD WIN MARGIN" if is_pb else f"TOP 10 LARGEST WIN ({ord_rank})")
-                    cl = "event-title-record-max"
-                    det_txt = f"Margin: {int(m):,} pts &middot; Ranked {ord_rank} largest win all-time as of this date"
-                    if days:
-                        if days > 1:
-                            if is_pb and not is_pb_tie: det_txt += f" &middot; Largest win in all {days} games played"
-                            else: det_txt += f" &middot; Largest win in {days} games{ref_str}"
-                        else:
-                            det_txt += f" &middot; Largest win since yesterday"
-                else:
-                    tt = "TIED RECORD TIGHTEST WIN" if (is_pb and is_pb_tie) else ("NEW RECORD TIGHTEST WIN" if is_pb else f"TOP 10 TIGHTEST WIN ({ord_rank})")
-                    cl = "event-title-record-min"
-                    det_txt = f"Margin: {int(m):,} pts &middot; Ranked {ord_rank} tightest win all-time as of this date"
-                    if days:
-                        if days > 1:
-                            if is_pb and not is_pb_tie: det_txt += f" &middot; Tightest win in all {days} games played"
-                            else: det_txt += f" &middot; Tightest win in {days} games{ref_str}"
-                        else:
-                            det_txt += f" &middot; Tightest win since yesterday"
-                
-                ct = f"""<div class="event-title {cl}">{cs} &middot; {tt} {at_badge}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">{det_txt}</span></div>"""
-            elif et == 'score_top_10':
-                p, s, r = e['player'], e['score'], e['rank']
-                is_pb = r == 1
-                is_pb_tie = e.get('is_pb_tie', False)
-                ic = "👑" if is_pb else "🏅"
-                rc = "row-score-max" if is_pb else "row-score-min"
-                ord_rank = get_ordinal(r)
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                tt = "TIED ALL-TIME RECORD" if (is_pb and is_pb_tie) else ("NEW ALL-TIME RECORD" if is_pb else f"TOP 10 PERFORMANCE ({ord_rank})")
-                cl = "event-title-score-max" if is_pb else "event-title-score-min"
-                
-                det_txt = f"Score: {int(s):,} pts &middot; Ranked {ord_rank} highest all-time as of this date"
-                if days:
-                    if days > 1:
-                        if is_pb and not is_pb_tie:
-                            det_txt += f" &middot; Best score in all {days} games played"
-                        else:
-                            det_txt += f" &middot; Best score in {days} games{ref_str}"
-                    else:
-                        det_txt += f" &middot; Best score since yesterday"
-                        
-                ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span>
-                         <span class="record-detail">{det_txt}</span></div>"""
-            elif et == 'score_bottom_10':
-                p, s, r = e['player'], e['score'], e['rank']
-                is_worst = r == 1
-                is_worst_tie = e.get('is_worst_tie', False)
-                ic = "📉" if is_worst else "⚠️"
-                rc = "row-score-min"
-                ord_rank = get_ordinal(r)
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                tt = "TIED ALL-TIME WORST" if (is_worst and is_worst_tie) else ("NEW ALL-TIME WORST" if is_worst else f"BOTTOM 10 PERFORMANCE ({ord_rank} Worst)")
-                cl = "event-title-score-min"
-                
-                det_txt = f"Score: {int(s):,} pts &middot; Ranked {ord_rank} lowest all-time as of this date"
-                if days:
-                    if days > 1:
-                        if is_worst and not is_worst_tie:
-                            det_txt += f" &middot; Worst score in all {days} games played"
-                        else:
-                            det_txt += f" &middot; Worst score in {days} games{ref_str}"
-                    else:
-                        det_txt += f" &middot; Worst score since yesterday"
-                        
-                ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span>
-                         <span class="record-detail">{det_txt}</span></div>"""
-            elif et == 'score_vs_opp':
-                p, sub, s = e['player'], e['subtype'], e['score']
-                opp, opp_rec = e['opponent'], e['opp_record']
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                ic, rc = "⚔️", "row-score-beat-opp"
-                tt, cl = ("BEAT OPPONENT'S PB", "event-title-score-beat") if sub == "surpass_opp_max" else ("LOWER THAN OPPONENT'S WORST", "event-title-score-beat")
-                det_txt = f"Score: {int(s):,} pts (Surpassed {opp}'s best of {int(opp_rec):,})" if sub == "surpass_opp_max" else f"Score: {int(s):,} pts (Lower than {opp}'s worst of {int(opp_rec):,})"
-                
-                if days:
-                    if days > 1:
-                        if sub == "surpass_opp_max":
-                            det_txt += f" &middot; Best score in {days} games{ref_str}"
-                        else:
-                            det_txt += f" &middot; Worst score in {days} games{ref_str}"
-                    else:
-                        if sub == "surpass_opp_max":
-                            det_txt += f" &middot; Best score since yesterday"
-                        else:
-                            det_txt += f" &middot; Worst score since yesterday"
-                
-                ct = f"""<div class="event-title {cl}">{cs} &middot; {tt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">{det_txt}</span></div>"""
             elif et == 'discovery':
                 n, sub = e['name'], e['subtype']
                 
@@ -2893,23 +2778,6 @@ def render_daily_news(dt, evs, round_list=None):
                          <div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}{app_badge}</div>
                          {sh}
                          {rare_html}"""
-            elif et == 'milestone':
-                sub, n, cnt = e['subtype'], e['name'], e['count']
-                ic, rc = "🎉", "row-milestone"
-                lbl = f"{n.upper()}" if sub in ["continent", "region", "country", "subdivision"] else (f"{n} DECADE" if sub == "decade" else (f"{n} YEAR" if sub == "year" else "TOTAL GAMES"))
-                det = f"{cnt} Games in {n}" if sub != "total" else f"{cnt} Games Played"
-                
-                breakdown_html = ""
-                if sub in ["decade", "continent", "region", "country", "subdivision"] and 'top_subitems' in e:
-                    parts = [f"{item} ({count})" for item, count in e['top_subitems']]
-                    if e.get('other_count', 0) > 0:
-                        parts.append(f"Other ({e['other_count']})")
-                    if parts:
-                        top_lbl = e.get('subitems_label', 'Top')
-                        breakdown_html = f"<div style='margin-top: 8px; font-size: 12px; color: #6a1b9a; background-color: #f3e5f5; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: 500; border: 1px solid #e1bee7;'><b>{top_lbl}:</b> {' &middot; '.join(parts)}</div>"
-                        
-                ct = f"""<div class="event-title event-title-milestone">MILESTONE REACHED</div><div class="change-visual"><span class="discovery-highlight">{lbl}</span><span class="record-detail">{det}</span>{breakdown_html}</div>"""
-            
             rh += f"""<div class="event-row {rc}"><div class="category-box"><div class="cat-icon">{ic}</div><div class="cat-name">{cs}</div></div><div class="content-box">{ct}</div></div>"""
             
         rh += '</div>'
@@ -2926,7 +2794,7 @@ def render_daily_news(dt, evs, round_list=None):
 
 @st.cache_data
 def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
-    """The momentum/streak/record/milestone "news" feed is derived entirely
+    """The momentum/streak/record "news" feed is derived entirely
     from Timeguessr_Stats.csv (via `_raw_data`) — it doesn't depend on any
     widget state — but computing it means ~20 full-history passes (one
     iterrows() scan per generate_* call below, several per score type). Left
@@ -2962,13 +2830,6 @@ def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
     all_evs.extend(generate_score_threshold_streaks(df_t))
     all_evs.extend(generate_score_threshold_streaks(df_tm))
     all_evs.extend(generate_score_threshold_streaks(df_g))
-    all_evs.extend(generate_margin_record_events(df_t, "Total Score"))
-    all_evs.extend(generate_margin_record_events(df_tm, "Time Score"))
-    all_evs.extend(generate_margin_record_events(df_g, "Geography Score"))
-    all_evs.extend(generate_score_record_events(df_t, "Total Score"))
-    all_evs.extend(generate_score_record_events(df_tm, "Time Score"))
-    all_evs.extend(generate_score_record_events(df_g, "Geography Score"))
-    all_evs.extend(generate_milestone_events(_raw_data))
     round_updates = generate_round_updates(_raw_data)
     return df_t, df_tm, df_g, all_evs, round_updates
 
@@ -3028,10 +2889,37 @@ if not raw_data_all.empty:
     sel_ts = pd.Timestamp(selected_date)
     date_rows = raw_data_all[raw_data_all["Date"] == sel_ts]
 
+    # Momentum/win-margin stats reflect the state as of the selected date — if
+    # that date hasn't been completed (no row for it yet, since df_t/df_tm/df_g
+    # only contain days both players have submitted), this naturally falls
+    # back to the most recent completed date before it. Computed once here so
+    # both the win-margin cards (above) and the forecast cards (below) can
+    # share it.
+    df_t_asof = df_t[df_t["Date"] <= sel_ts]
+    df_tm_asof = df_tm[df_tm["Date"] <= sel_ts]
+    df_g_asof = df_g[df_g["Date"] <= sel_ts]
+
     # Comparison bars (Round Scores / Percentile) inherently compare Michael vs
     # Sarah — if only one of them played, there is nothing meaningful to show,
     # so this is filled in below only once both are confirmed present.
     bars_by_cat = {}
+    top_pct_cat = None
+
+    # Win-margin stats (size of win + its percentile) per category, shown at
+    # the top of each Wins card further down — computed here since df_*_asof
+    # is already available and compute_win_margin_stats handles missing data.
+    win_margin_by_cat = {
+        "Total Score": compute_win_margin_stats(df_t_asof, sel_ts),
+        "Geography Score": compute_win_margin_stats(df_g_asof, sel_ts),
+        "Time Score": compute_win_margin_stats(df_tm_asof, sel_ts),
+    }
+    # Each player's own score percentile (self-comparison only), shown at the
+    # top of each Score card further down.
+    score_pct_by_cat = {
+        "Total Score": compute_score_percentile_stats(df_t_asof, sel_ts, "Total Score"),
+        "Geography Score": compute_score_percentile_stats(df_g_asof, sel_ts, "Geography Score"),
+        "Time Score": compute_score_percentile_stats(df_tm_asof, sel_ts, "Time Score"),
+    }
 
     # --- Score Submission (Actuals + Michael / Sarah / Community, merged from
     #     the old Score Submission page) ---
@@ -3128,6 +3016,7 @@ if not raw_data_all.empty:
             pct_by_cat = render_percentile_bars(date_rows)
             for _cat in bars_by_cat:
                 bars_by_cat[_cat] += pct_by_cat.get(_cat, "")
+            top_pct_cat = compute_top_percentile_category(date_rows)
 
         # --- Single shared Edit toggle for the whole page (Actuals + Michael +
         # Sarah + Community), rendered at the top of the sidebar Settings panel
@@ -3695,6 +3584,12 @@ if not raw_data_all.empty:
         community_round_input = st.session_state.get('_comm_rounds', {})
         community_stats_input = st.session_state.get('_comm_stats', {'avg': '', 'yrs': '', 'loc': ''})
 
+        # Round Scores / Percentile cards: below the Michael / Sarah / Community
+        # boxes, above the round recap (actuals_box_html) rendered next.
+        score_bars_html = render_score_bars_cards(bars_by_cat, top_pct_cat)
+        if score_bars_html:
+            st.markdown(score_bars_html, unsafe_allow_html=True)
+
         # Submitted & not editing: the Actuals box goes below the Michael / Sarah /
         # Community boxes instead of above them. While editing, it stays in its
         # original spot above (rendered earlier, ordering left untouched).
@@ -3855,14 +3750,8 @@ if not raw_data_all.empty:
     st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
 
     # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
-    # Averages/streaks/score-runs reflect the state as of the selected date —
-    # if that date hasn't been completed (no row for it yet, since df_t/df_tm/df_g
-    # only contain days both players have submitted), this naturally falls back
-    # to the most recent completed date before it.
-    df_t_asof = df_t[df_t["Date"] <= sel_ts]
-    df_tm_asof = df_tm[df_tm["Date"] <= sel_ts]
-    df_g_asof = df_g[df_g["Date"] <= sel_ts]
-    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], bars_by_cat), unsafe_allow_html=True)
+    # df_t_asof/df_tm_asof/df_g_asof were already computed above, alongside sel_ts.
+    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat), unsafe_allow_html=True)
 
     # --- BOTTOM: Round-by-round recap, then Updates (separate boxes) for the selected date ---
     if sel_ts in sd_set:
