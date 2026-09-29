@@ -109,10 +109,23 @@ NEWS_STYLES = """
         .wm-record-note { font-size: 11px; font-weight: 500; color: #555; margin: -2px 0 9px 30px; line-height: 1.35; }
 
         .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 6px 8px 0 8px; }
-        .fc-mom-box { padding: 9px 12px; text-align: center; }
+        .fc-mom-box { padding: 9px 10px; text-align: center; }
         .fc-mom-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-        .fc-mom-leader { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-        .fc-mom-detail { font-family: 'Inter', sans-serif; font-size: 11px; color: #555; line-height: 1.3; }
+        /* Momentum box: leader name + the exact average lead front and
+           center (bold, big), then a compact 2-stat strip below (days
+           they've held the average, and the margin needed to flip it). */
+        .mom-leader-name { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+        .mom-trend { display: flex; align-items: baseline; justify-content: center; gap: 6px; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+        .mom-trend-arrow { color: #bbb; font-weight: 600; font-size: 12px; }
+        .mom-avg-val { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 22px; line-height: 1.15; }
+        .mom-avg-unit { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+        .mom-stats-row { display: flex; justify-content: center; gap: 14px; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 7px; margin-top: 2px; }
+        .mom-stat-val { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 13px; color: #222; line-height: 1.2; }
+        .mom-stat-lbl { font-family: 'Inter', sans-serif; font-size: 8.5px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 3px; }
+        .fc-mom-empty { font-family: 'Inter', sans-serif; font-size: 11px; color: #999; font-style: italic; }
+        /* Flags a leader change in the rolling average — same "flip" story
+           the Momentum feed tells, surfaced right where the trend is shown. */
+        .mom-flip-bubble { display: inline-block; background: rgba(41,128,185,0.12); color: #2471a3; font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; padding: 4px 9px; border-radius: 12px; margin: 2px 0 6px 0; }
 
         .fc-streaks { padding: 10px 20px 16px 20px; flex-grow: 1; }
         .fc-streaks-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
@@ -121,8 +134,30 @@ NEWS_STYLES = """
         .fc-streak-name { font-weight: 600; color: #333; }
         .fc-streak-val { font-weight: 700; color: #000; }
         .fc-streak-meta { font-size: 10px; color: #767676; }
+        /* Win Streak block: a big bold count + player name up top, then a
+           compact 3-stat strip (times reached / last hit / gap to PB) below
+           — large and scannable instead of a dense sentence. */
+        .ws-block { padding: 2px 0 0 0; }
+        .ws-main { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .ws-flame { font-size: 26px; line-height: 1; }
+        .ws-count { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 40px; line-height: 1; }
+        .ws-player-block { display: flex; flex-direction: column; gap: 1px; }
+        .ws-player-name { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .ws-player-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.5px; }
+        .ws-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 4px; text-align: center; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 10px; }
+        .ws-stat-val { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 17px; color: #222; line-height: 1.2; }
+        .ws-stat-sep { color: #bbb; font-weight: 600; margin: 0 3px; }
+        .ws-stat-sub { font-family: 'Inter', sans-serif; font-size: 9px; color: #999; margin-top: 1px; }
+        .ws-stat-lbl { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px; }
+        .ws-badge-row { border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 10px; text-align: center; }
+        .ws-badge-record { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 13px; color: #27ae60; }
+        /* Pill flagging that yesterday's streak was snapped by today's game —
+           sits above the current (new) streak block, or alone if today was a
+           tie / the other side's own streak start with nothing yet to show. */
+        .ws-broken-bubble { display: inline-block; background: rgba(192,57,43,0.12); color: #c0392b; font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 14px; margin-bottom: 12px; }
+        .ws-broken-bubble b { font-weight: 800; }
+        .ws-broken-nth { color: #8a3d36; font-weight: 700; }
 
-        .target-hl { background-color: rgba(255,255,255,0.65); padding: 0 3px; border-radius: 2px; font-weight: 600; color: #333; }
         .fc-cat-total { background-color: #f7f0d9; }
         .fc-cat-total .fc-title { color: #a5760a; }
         .fc-cat-time { background-color: #ece2f4; }
@@ -1098,237 +1133,6 @@ def prepare_geography_margins_data(df):
 # --- Logic ---
 def get_leader_state(d): return "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
 
-def generate_news_events(df, cat, window=5):
-    """
-    Tracks Momentum Flips with added lead sizes.
-    """
-    if len(df) < window: return []
-    t = df.copy()
-    t["Rolling"] = t["Score Diff"].rolling(window=window).mean()
-    
-    evs = []
-    prev_state = None
-    prev_val = None
-    days_in_state = 0
-    margin_history = {"Michael": [], "Sarah": []}
-    
-    for game_num, (idx, r) in enumerate(t.iterrows(), start=1):
-        if pd.isna(r["Rolling"]): continue
-        curr_state = get_leader_state(r["Rolling"])
-        curr_val = r["Rolling"]
-        date = r["Date"]
-        
-        if prev_state is None:
-            prev_state = curr_state
-            days_in_state = 1
-        elif curr_state == prev_state:
-            days_in_state += 1
-        else:
-            evs.append({
-                "date": date, 
-                "category": cat, 
-                "event_type": "flip", 
-                "window": window, 
-                "prev_state": prev_state, 
-                "current_state": curr_state, 
-                "prev_val": prev_val,
-                "curr_val": curr_val,
-                "days_held": days_in_state
-            })
-            prev_state = curr_state
-            days_in_state = 1
-            
-        prev_val = curr_val
-        
-        # --- Momentum Record Logic ---
-        if curr_state == "Tie" or curr_val == 0: continue
-        margin = abs(curr_val)
-        winner = curr_state
-        opponent = "Sarah" if winner == "Michael" else "Michael"
-        
-        current_largest = sorted(margin_history[winner], key=lambda x: x[0], reverse=True)
-        rank_largest = 1
-        for prev_m in current_largest:
-            if margin < prev_m[0]: rank_largest += 1
-            else: break
-            
-        days_since_largest = None
-        ref_date_largest = None
-        for i in range(len(margin_history[winner]) - 1, -1, -1):
-            if margin_history[winner][i][0] >= margin:
-                days_since_largest = game_num - margin_history[winner][i][2]
-                ref_date_largest = margin_history[winner][i][1]
-                break
-                
-        if days_since_largest is None:
-            days_since_largest = game_num
-            
-        if rank_largest <= 10:
-            player_max = current_largest[0][0] if current_largest else None
-            is_pb_tie = player_max is not None and margin == player_max
-            
-            opp_max = max([m[0] for m in margin_history[opponent]]) if margin_history[opponent] else 0
-            overall_max = max(player_max if player_max is not None else 0, opp_max)
-            
-            is_all_time_new = margin > overall_max
-            is_all_time_tie = margin == overall_max and overall_max > 0
-                
-            evs.append({
-                "date": date, "category": cat, "event_type": "momentum_record_largest", 
-                "window": window,
-                "player": winner, "margin": margin, "rank": rank_largest, 
-                "days_since": days_since_largest, "ref_date": ref_date_largest, 
-                "is_pb_tie": is_pb_tie,
-                "is_all_time_new": is_all_time_new and len(margin_history[winner]) > 0,
-                "is_all_time_tie": is_all_time_tie and len(margin_history[winner]) > 0
-            })
-            
-        margin_history[winner].append((margin, date, game_num))
-        
-    return evs
-
-def generate_streak_events(df, cat, min_streak=3):
-    if df.empty: return []
-    events = []
-    personal_bests = {"Michael": 0, "Sarah": 0}
-    completed_blocks = {"Michael": [], "Sarah": []}
-    current_winner = None
-    current_streak = 0
-    prev_date = None
-    
-    for game_num, (idx, row) in enumerate(df.iterrows(), start=1):
-        diff, date = row["Score Diff"], row["Date"]
-        winner = "Michael" if diff > 0 else ("Sarah" if diff < 0 else "Tie")
-            
-        if winner == current_winner and winner != "Tie":
-            current_streak += 1
-        else:
-            if current_winner and current_winner != "Tie" and current_streak > 0:
-                completed_blocks[current_winner].append({'len': current_streak, 'end_game': game_num - 1, 'date': prev_date})
-                
-                pb = personal_bests[current_winner]
-                if current_streak >= min_streak or (pb > 0 and current_streak >= (pb - 1)):
-                    sub = "denied_break" if current_streak == pb else ("denied_match" if current_streak == pb - 1 else "significant_break")
-                    events.append({"date": date, "category": cat, "event_type": "streak_broken", "subtype": sub, "player": current_winner, "breaker": winner, "count": current_streak, "record": pb})
-            
-            current_winner = winner
-            current_streak = 1 if winner != "Tie" else 0
-            
-        if current_winner and current_winner != "Tie":
-            if current_streak >= min_streak:
-                past_blocks = [b for b in completed_blocks[current_winner] if b['len'] >= current_streak]
-                times_reached = len(past_blocks) + 1
-                last_end = past_blocks[-1]['end_game'] if past_blocks else None
-                last_reached_date = past_blocks[-1]['date'] if past_blocks else None
-                games_since = (game_num - last_end) if last_end else None
-                
-                pb = personal_bests[current_winner]
-                if current_streak > pb:
-                    sub = "new_record"
-                elif current_streak == pb:
-                    sub = "matched_record"
-                else:
-                    sub = "active"
-                    
-                events.append({"date": date, "category": cat, "event_type": "streak", "subtype": sub, "player": current_winner, "count": current_streak, "times_reached": times_reached, "days_since_last": games_since, "last_reached_date": last_reached_date})
-                
-            if current_streak > personal_bests[current_winner]:
-                personal_bests[current_winner] = current_streak
-        
-        prev_date = date
-                
-    return events
-
-def generate_momentum_score_events(df, category_name, window=5):
-    if len(df) < window: return []
-    events = []
-    t = df.copy()
-    for p in ["Michael", "Sarah"]:
-        t[f"{p}_rolling"] = t[f"{p} {category_name}"].rolling(window=window).mean()
-        
-    score_history = {"Michael": [], "Sarah": []}
-
-    for game_num, (idx, row) in enumerate(t.iterrows(), start=1):
-        date = row["Date"]
-        for player in ["Michael", "Sarah"]:
-            score = row[f"{player}_rolling"]
-            if pd.isna(score): continue
-            
-            # --- Top 10 Logic ---
-            current_leaderboard = sorted(score_history[player], key=lambda x: x[0], reverse=True)
-            rank = 1
-            for prev_score in current_leaderboard:
-                if score < prev_score[0]: rank += 1
-                else: break
-            
-            days_since = None
-            ref_date = None
-            for i in range(len(score_history[player]) - 1, -1, -1):
-                if score_history[player][i][0] >= score:
-                    days_since = game_num - score_history[player][i][2]
-                    ref_date = score_history[player][i][1]
-                    break
-            
-            if days_since is None:
-                days_since = game_num
-            
-            if rank <= 10:
-                current_max = current_leaderboard[0][0] if current_leaderboard else None
-                is_pb_tie = current_max is not None and score == current_max
-                events.append({
-                    "date": date, 
-                    "category": category_name, 
-                    "event_type": "momentum_score_top_10", 
-                    "window": window,
-                    "player": player, 
-                    "score": score, 
-                    "rank": rank,
-                    "days_since": days_since,
-                    "ref_date": ref_date,
-                    "is_pb_tie": is_pb_tie,
-                    "is_all_time": rank == 1 and len(score_history[player]) > 0
-                })
-
-            # --- Bottom 10 Logic ---
-            bottom_days_since = None
-            bottom_ref_date = None
-            if len(score_history[player]) > 0:
-                current_bottom_leaderboard = sorted(score_history[player], key=lambda x: x[0])
-                bottom_rank = 1
-                for prev_score in current_bottom_leaderboard:
-                    if score > prev_score[0]: bottom_rank += 1
-                    else: break
-                
-                for i in range(len(score_history[player]) - 1, -1, -1):
-                    if score_history[player][i][0] <= score:
-                        bottom_days_since = game_num - score_history[player][i][2]
-                        bottom_ref_date = score_history[player][i][1]
-                        break
-                
-                if bottom_days_since is None:
-                    bottom_days_since = game_num
-                
-                if bottom_rank <= 10:
-                    current_min = current_bottom_leaderboard[0][0] if current_bottom_leaderboard else None
-                    is_worst_tie = current_min is not None and score == current_min
-                    events.append({
-                        "date": date, 
-                        "category": category_name, 
-                        "event_type": "momentum_score_bottom_10", 
-                        "window": window,
-                        "player": player, 
-                        "score": score, 
-                        "rank": bottom_rank,
-                        "days_since": bottom_days_since,
-                        "ref_date": bottom_ref_date,
-                        "is_worst_tie": is_worst_tie,
-                        "is_all_time": bottom_rank == 1
-                    })
-
-            score_history[player].append((score, date, game_num))
-            
-    return events
-
 def generate_score_threshold_streaks(df):
     if df.empty: return []
     events = []
@@ -2061,44 +1865,181 @@ def generate_round_updates(df):
         out[pd.Timestamp(dt)] = rounds
     return out
 
+def get_ordinal(n):
+    if 11 <= (n % 100) <= 13: suffix = 'th'
+    else: suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
+
+def leader_color(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
+
+def render_momentum_box(df, window, label):
+    """A rolling-average momentum box: yesterday's reading, today's shift,
+    and where that leaves the average — front and center — then how many
+    days running the same player has held that average, and the swing still
+    needed to flip it."""
+    if len(df) < window:
+        return f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div><div class="fc-mom-empty">Not enough data</div></div>'
+
+    roll = df["Score Diff"].rolling(window=window).mean()
+    r = roll.iloc[-1]
+    if pd.isna(r):
+        return f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div><div class="fc-mom-empty">Not enough data</div></div>'
+
+    leader = get_leader_state(r)
+    color = leader_color(leader)
+    leader_label = "Tied" if leader == "Tie" else leader
+
+    # Yesterday's reading, today's shift, and where that leaves it — the full
+    # before/shift/after picture instead of just today's resulting value.
+    prev_r = roll.iloc[-2] if len(roll) >= 2 else float("nan")
+    if pd.notna(prev_r):
+        prev_color = leader_color(get_leader_state(prev_r))
+        shift = r - prev_r
+        shift_dir = "Michael" if shift > 0 else ("Sarah" if shift < 0 else None)
+        shift_color = leader_color(shift_dir) if shift_dir else "#999"
+        shift_sign = "+" if shift > 0 else ("-" if shift < 0 else "")
+        shift_html = (f'<div class="mom-trend">'
+                      f'<span class="mom-trend-val" style="color:{prev_color};">{abs(prev_r):,.0f}</span>'
+                      f'<span class="mom-trend-arrow">&rarr;</span>'
+                      f'<span class="mom-trend-val" style="color:{color};">{abs(r):,.0f}</span></div>'
+                      f'<div class="mom-avg-val" style="color:{shift_color}; font-size:16px;">{shift_sign}{abs(shift):,.0f}</div>'
+                      f'<div class="mom-avg-unit">swing today</div>')
+    else:
+        shift_html = f'<div class="mom-avg-val" style="color:{color};">{abs(r):,.0f}</div><div class="mom-avg-unit">avg lead (first reading)</div>'
+
+    # If the leader changed today, flag it and say how long the run that
+    # just ended lasted — same story the Momentum feed tells, surfaced here.
+    flip_html = ""
+    if pd.notna(prev_r):
+        prev_leader = get_leader_state(prev_r)
+        if prev_leader != leader:
+            run_len = 0
+            for v in roll.iloc[-2::-1]:
+                if pd.isna(v) or get_leader_state(v) != prev_leader: break
+                run_len += 1
+            unit = "day" if run_len == 1 else "days"
+            if prev_leader == "Tie":
+                flip_text = f"broke a {run_len}-{unit} tie"
+            elif leader == "Tie":
+                flip_text = f"ended {prev_leader}'s {run_len}-{unit} run &mdash; now tied"
+            else:
+                flip_text = f"ended {prev_leader}'s {run_len}-{unit} run"
+            flip_html = f'<div class="mom-flip-bubble">\U0001f504 Flipped &middot; {flip_text}</div>'
+
+    if leader == "Tie":
+        return (f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div>'
+                f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>{shift_html}{flip_html}</div>')
+
+    # How many consecutive most-recent days this same player has led the
+    # rolling average — walk backward from today until the leader changes.
+    days_controlled = 0
+    for v in roll.iloc[::-1]:
+        if pd.isna(v) or get_leader_state(v) != leader: break
+        days_controlled += 1
+
+    # The exact next-single-game margin that would flip the rolling average.
+    # Usually the trailing player needs an outright win of this size — but if
+    # the games left in the window are lopsided enough, even a smaller loss
+    # for today's leader is enough to flip it, so state whichever is true.
+    b = -df.tail(window - 1)["Score Diff"].sum()
+    opponent = "Sarah" if leader == "Michael" else "Michael"
+    opp_color = leader_color(opponent)
+    needs_win = (leader == "Michael" and b < 0) or (leader == "Sarah" and b > 0)
+    if needs_win:
+        swing_val, swing_lbl = f"{abs(b):,.0f}+", f"{opponent} win flips it"
+    else:
+        swing_val, swing_lbl = f"&lt;{abs(b):,.0f}", f"{opponent} loss flips it"
+
+    return (f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div>'
+            f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>'
+            f'{shift_html}{flip_html}'
+            f'<div class="mom-stats-row">'
+            f'<div class="mom-stat"><div class="mom-stat-val">{days_controlled}d</div><div class="mom-stat-lbl">Controlled</div></div>'
+            f'<div class="mom-stat"><div class="mom-stat-val" style="color:{opp_color};">{swing_val}</div><div class="mom-stat-lbl">{swing_lbl}</div></div>'
+            f'</div></div>')
+
 def get_full_category_forecast(df, cat):
     if len(df) < 5: return None
-    r5 = df["Score Diff"].rolling(window=5).mean().iloc[-1]
-    r10 = df["Score Diff"].rolling(window=10).mean().iloc[-1] if len(df) >= 10 else None
+    mom5_html = render_momentum_box(df, 5, "5-Game Avg")
+    mom10_html = render_momentum_box(df, 10, "10-Game Avg")
 
-    if pd.notna(r5):
-        l5 = get_leader_state(r5)
-        b5 = -df.tail(4)["Score Diff"].sum()
-        if l5 == "Michael": m5 = f"Sarah flips with win of <span class='target-hl'>{abs(b5):,.0f}+</span>" if b5 < 0 else f"Sarah flips with anything better than a loss of <span class='target-hl'>{abs(b5):,.0f}</span>"
-        elif l5 == "Sarah": m5 = f"Michael flips with win of <span class='target-hl'>{b5:,.0f}+</span>" if b5 > 0 else f"Michael flips with anything better than a loss of <span class='target-hl'>{abs(b5):,.0f}</span>"
-        else: m5 = "Next winner takes the lead."
-    else: l5, m5 = "N/A", "Not enough data"
-
-    if pd.notna(r10):
-        l10 = get_leader_state(r10)
-        b10 = -df.tail(9)["Score Diff"].sum()
-        if l10 == "Michael": m10 = f"Sarah flips with win of <span class='target-hl'>{abs(b10):,.0f}+</span>" if b10 < 0 else f"Sarah flips with anything better than a loss of <span class='target-hl'>{abs(b10):,.0f}</span>"
-        elif l10 == "Sarah": m10 = f"Michael flips with win of <span class='target-hl'>{b10:,.0f}+</span>" if b10 > 0 else f"Michael flips with anything better than a loss of <span class='target-hl'>{abs(b10):,.0f}</span>"
-        else: m10 = "Next winner takes the lead."
-    else: l10, m10 = "N/A", "Not enough data"
-
+    n_rows = len(df)
     ms, sw, cs = {"Michael": 0, "Sarah": 0}, None, 0
-    for _, r in df.iterrows():
-        d = r["Score Diff"]
+    completed_blocks, prev_date = {"Michael": [], "Sarah": []}, None
+    broken_today = None
+    for game_num, (_, r) in enumerate(df.iterrows(), start=1):
+        d, date = r["Score Diff"], r["Date"]
         w = "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
         # A tie is not a win for either side, so it breaks an active streak
         # instead of being skipped over (which let a streak survive across it).
         if w == sw and w != "Tie": cs += 1
-        else: sw, cs = w, (1 if w != "Tie" else 0)
+        else:
+            if sw and sw != "Tie" and cs > 0:
+                completed_blocks[sw].append({'len': cs, 'end_game': game_num - 1, 'date': prev_date})
+                # Only flag it if this break happened on the most recent
+                # game — i.e. today's result is what ended yesterday's streak.
+                if game_num == n_rows: broken_today = {"player": sw, "len": cs}
+            sw, cs = w, (1 if w != "Tie" else 0)
         if w != "Tie" and cs > ms[w]: ms[w] = cs
+        prev_date = date
 
-    vs_sh = ""
+    broken_html = ""
+    if broken_today:
+        bp, blen = broken_today["player"], broken_today["len"]
+        # completed_blocks[bp] already includes this break (appended above),
+        # so a plain count of same-length endings gives the "Nth time" directly.
+        times_ended = sum(1 for b in completed_blocks[bp] if b['len'] == blen)
+        bcolor = "#221e8f" if bp == "Michael" else "#8a005c"
+        broken_html = (f'<div class="ws-broken-bubble">\U0001f6d1 <span style="color:{bcolor};">{bp}</span>\'s '
+                       f'<b>{blen}</b>-game streak ended <span class="ws-broken-nth">&middot; {get_ordinal(times_ended)} time</span></div>')
+
+    vs_sh = broken_html
     if sw and sw != "Tie" and cs > 0:
-        opp = "Sarah" if sw == "Michael" else "Michael"
         rec = ms[sw]
-        if cs == rec: t_str = f"<span style='color:#27ae60; font-weight:700;'>Record Streak!</span>"
-        else: t_str = f"Matches PB in <b>{rec - cs}</b>"
-        vs_sh += f"""<div class="fc-streak-item"><span class="fc-streak-name">Win Streak ({sw})</span> <span class="fc-streak-val">{cs}</span> <span class="fc-streak-meta">{t_str}</span></div>"""
+        color = "#221e8f" if sw == "Michael" else "#8a005c"
+        # Past blocks at least as long as the current streak — every one of
+        # them passed through this same length on the way up, so counting
+        # them (plus the current run) gives "how many times has this streak
+        # length been reached", matching the daily news feed's wording.
+        past_blocks = [b for b in completed_blocks[sw] if b['len'] >= cs]
+        times_reached = len(past_blocks) + 1
+        last_block = past_blocks[-1] if past_blocks else None
+        is_record = cs == rec
+
+        head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
+                f'<span class="ws-count" style="color:{color};">{cs}</span>'
+                f'<div class="ws-player-block"><span class="ws-player-name" style="color:{color};">{sw}</span>'
+                f'<span class="ws-player-label">Win Streak</span></div></div>')
+
+        if times_reached == 1:
+            # Never reached this length before, so it's a new PB outright —
+            # nothing to compare it against yet.
+            body = '<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span></div>'
+        else:
+            nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
+            last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
+            if last_block is not None and pd.notna(last_block['date']):
+                days_ago = (date - last_block['date']).days
+                since_val = "1d" if days_ago == 1 else f"{days_ago}d"
+                date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
+                last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
+                             f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
+            if is_record:
+                pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#27ae60;">PB!</div><div class="ws-stat-lbl">New Record</div></div>'
+            else:
+                pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cs}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
+            # Of the past times this length was reached, how many kept going
+            # past it (extended) vs stopped right there (ended) — the
+            # historical odds of surviving past the current point.
+            end_count = sum(1 for b in past_blocks if b['len'] == cs)
+            ext_count = len(past_blocks) - end_count
+            ext_html = (f'<div class="ws-stat"><div class="ws-stat-val">'
+                        f'<span style="color:#27ae60;">{ext_count}</span><span class="ws-stat-sep">:</span>'
+                        f'<span style="color:#c0392b;">{end_count}</span></div>'
+                        f'<div class="ws-stat-lbl">Extended : Ended</div></div>')
+            body = f'<div class="ws-stats-grid">{nth_html}{last_html}{pb_html}{ext_html}</div>'
+
+        vs_sh += f'<div class="ws-block">{head}{body}</div>'
 
     cth = {
         "Total Score": [{"id": ">45k", "label": ">45k", "check": lambda s: s > 45000}, {"id": ">40k", "label": ">40k", "check": lambda s: s > 40000}, {"id": "<40k", "label": "<40k", "check": lambda s: s < 40000}, {"id": "<35k", "label": "<35k", "check": lambda s: s < 35000}],
@@ -2133,7 +2074,7 @@ def get_full_category_forecast(df, cat):
         self_sh = "".join(acts)
     else:
         self_sh = ""
-    return {"category": cat, "l5": l5, "m5": m5, "l10": l10, "m10": m10,
+    return {"category": cat, "mom5_html": mom5_html, "mom10_html": mom10_html,
             "vs_streak_html": vs_sh, "self_streak_html": self_sh}
 
 FORECAST_ICONS = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
@@ -2161,7 +2102,6 @@ def render_score_bars_cards(bars_by_cat, highlight_cat=None):
 
 def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=None):
     empty = '<div style="font-size:11px; color:#999; font-style:italic;">{}</div>'
-    def lc(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
     win_margin_by_cat = win_margin_by_cat or {}
     score_pct_by_cat = score_pct_by_cat or {}
 
@@ -2177,7 +2117,7 @@ def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=No
         # rolling window.
         wm_headline_html = render_win_headline(win_margin_by_cat.get(cat))
         wm_html = render_win_margin_block(win_margin_by_cat.get(cat))
-        wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-momentum-grid"><div class="fc-mom-box"><div class="fc-mom-label">5-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l5'])}">{f['l5']}</div><div class="fc-mom-detail">{f['m5']}</div></div><div class="fc-mom-box"><div class="fc-mom-label">10-Game Avg</div><div class="fc-mom-leader" style="color: {lc(f['l10'])}">{f['l10']}</div><div class="fc-mom-detail">{f['m10']}</div></div></div><div class="fc-streaks"><div class="fc-streaks-title">Win Streak</div>{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
+        wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-momentum-grid">{f['mom5_html']}{f['mom10_html']}</div><div class="fc-streaks"><div class="fc-streaks-title">Win Streak</div>{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
         # Score: each player's own percentile against their own history up
         # top, then their active run against a fixed score threshold below —
         # both self-comparison only, the opponent never factors in.
@@ -2191,8 +2131,6 @@ def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=No
     return html
 
 FEED_CATEGORIES = {
-    "Momentum": ["flip", "momentum_record_largest", "momentum_score_top_10", "momentum_score_bottom_10"], 
-    "Win Streak Updates": ["streak", "streak_broken"], 
     "Score Threshold Streaks": ["score_streak", "score_streak_broken"],
 }
 # Location / year / decade discoveries, control flips and rare appearances are
@@ -2817,21 +2755,6 @@ def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
     df_tm = prepare_time_margins_data(_raw_data)
     df_g = prepare_geography_margins_data(_raw_data)
     all_evs = []
-    all_evs.extend(generate_news_events(df_t, "Total Score", 5))
-    all_evs.extend(generate_news_events(df_t, "Total Score", 10))
-    all_evs.extend(generate_news_events(df_tm, "Time Score", 5))
-    all_evs.extend(generate_news_events(df_tm, "Time Score", 10))
-    all_evs.extend(generate_news_events(df_g, "Geography Score", 5))
-    all_evs.extend(generate_news_events(df_g, "Geography Score", 10))
-    all_evs.extend(generate_momentum_score_events(df_t, "Total Score", 5))
-    all_evs.extend(generate_momentum_score_events(df_t, "Total Score", 10))
-    all_evs.extend(generate_momentum_score_events(df_tm, "Time Score", 5))
-    all_evs.extend(generate_momentum_score_events(df_tm, "Time Score", 10))
-    all_evs.extend(generate_momentum_score_events(df_g, "Geography Score", 5))
-    all_evs.extend(generate_momentum_score_events(df_g, "Geography Score", 10))
-    all_evs.extend(generate_streak_events(df_t, "Total Score"))
-    all_evs.extend(generate_streak_events(df_tm, "Time Score"))
-    all_evs.extend(generate_streak_events(df_g, "Geography Score"))
     all_evs.extend(generate_score_threshold_streaks(df_t))
     all_evs.extend(generate_score_threshold_streaks(df_tm))
     all_evs.extend(generate_score_threshold_streaks(df_g))
