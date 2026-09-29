@@ -157,6 +157,10 @@ NEWS_STYLES = """
         .ws-broken-bubble { display: inline-block; background: rgba(192,57,43,0.12); color: #c0392b; font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 14px; margin-bottom: 12px; }
         .ws-broken-bubble b { font-weight: 800; }
         .ws-broken-nth { color: #8a3d36; font-weight: 700; }
+        /* Active Score Runs can stack several ws-blocks (one per player/
+           threshold) in the same card, unlike the single Win Streak block —
+           so give every block after the first a divider to separate them. */
+        .fc-run-block + .fc-run-block { border-top: 1px dashed rgba(0,0,0,0.15); margin-top: 14px; padding-top: 14px; }
 
         .fc-cat-total { background-color: #f7f0d9; }
         .fc-cat-total .fc-title { color: #a5760a; }
@@ -1133,72 +1137,6 @@ def prepare_geography_margins_data(df):
 # --- Logic ---
 def get_leader_state(d): return "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
 
-def generate_score_threshold_streaks(df):
-    if df.empty: return []
-    events = []
-    configs = [
-        {"cat": "Total Score", "fmt": "{p} Total Score", "th": [{"id": "tgt45", "lbl": ">45k", "chk": lambda s: s>45000, "min": 2, "typ": "hot"}, {"id": "tgt40", "lbl": ">40k", "chk": lambda s: s>40000, "min": 5, "typ": "hot"}, {"id": "tlt40", "lbl": "<40k", "chk": lambda s: s<40000, "min": 5, "typ": "cold"}, {"id": "tlt35", "lbl": "<35k", "chk": lambda s: s<35000, "min": 2, "typ": "cold"}]},
-        {"cat": "Time Score", "fmt": "{p} Time Score", "th": [{"id": "tmgt20", "lbl": ">20k", "chk": lambda s: s>20000, "min": 2, "typ": "hot"}, {"id": "time_lt_20k", "lbl": "<20k", "chk": lambda s: s<20000, "min": 5, "typ": "cold"}]},
-        {"cat": "Geography Score", "fmt": "{p} Geography Score", "th": [{"id": "ggt225", "lbl": ">22.5k", "chk": lambda s: s>22500, "min": 5, "typ": "hot"}, {"id": "geo_lt_225k", "lbl": "<22.5k", "chk": lambda s: s<22500, "min": 5, "typ": "cold"}]}
-    ]
-    stt = {}
-    completed_blocks = {}
-    for c in configs: 
-        cat = c['cat']
-        stt[cat] = {p: {t['id']: {'cur': 0, 'max': 0} for t in c['th']} for p in ["Michael", "Sarah"]}
-        completed_blocks[cat] = {p: {t['id']: [] for t in c['th']} for p in ["Michael", "Sarah"]}
-        
-    prev_date = None
-    for game_num, (idx, row) in enumerate(df.iterrows(), start=1):
-        date = row["Date"]
-        for c in configs:
-            cat = c['cat']
-            for p in ["Michael", "Sarah"]:
-                col = c['fmt'].format(p=p)
-                if col not in df.columns: continue
-                s = row[col]
-                for t in c['th']:
-                    tid = t['id']
-                    trk = stt[cat][p][tid]
-                    blocks = completed_blocks[cat][p][tid]
-                    
-                    if t['chk'](s):
-                        trk['cur'] += 1
-                        cu = trk['cur']
-                        mx = trk['max']
-                        
-                        if cu >= t['min']:
-                            past_blocks = [b for b in blocks if b['len'] >= cu]
-                            times_reached = len(past_blocks) + 1
-                            last_end = past_blocks[-1]['end_game'] if past_blocks else None
-                            last_reached_date = past_blocks[-1]['date'] if past_blocks else None
-                            games_since = (game_num - last_end) if last_end else None
-                            
-                            if cu > mx:
-                                sub = "new_record"
-                            elif cu == mx:
-                                sub = "matched_record"
-                            else:
-                                sub = "active"
-                                
-                            events.append({"date": date, "category": cat, "event_type": "score_streak", "subtype": sub, "player": p, "count": cu, "threshold_label": t['lbl'], "streak_type": t['typ'], "times_reached": times_reached, "days_since_last": games_since, "last_reached_date": last_reached_date})
-                            
-                        if cu > mx:
-                            trk['max'] = cu
-                    else:
-                        if trk['cur'] > 0:
-                            cu = trk['cur']
-                            mx = trk['max']
-                            blocks.append({'len': cu, 'end_game': game_num - 1, 'date': prev_date})
-                            
-                            if cu >= t['min'] or cu == mx or cu == mx - 1:
-                                sub = "denied_break" if cu == mx else ("denied_match" if cu == mx - 1 else "significant_break")
-                                if cu >= t['min'] or sub != "significant_break":
-                                    events.append({"date": date, "category": cat, "event_type": "score_streak_broken", "subtype": sub, "player": p, "count": cu, "record": mx, "threshold_label": t['lbl'], "streak_type": t['typ']})
-                        trk['cur'] = 0
-        prev_date = date
-    return events
-
 @st.cache_data
 def get_flag_html(name):
     # "United Nations" is the sentinel for a round that isn't revealed yet
@@ -2051,7 +1989,17 @@ def get_full_category_forecast(df, cat):
         th = cth[cat]
         cmax = {p: {t['id']: 0 for t in th} for p in ["Michael", "Sarah"]}
         crun = {p: {t['id']: 0 for t in th} for p in ["Michael", "Sarah"]}
+        # Completed runs per player/threshold, mirroring the Win Streak
+        # block's completed_blocks — needed to say "Nth time" and "Last Hit"
+        # for whichever run is still active, not just its current length.
+        completed = {p: {t['id']: [] for t in th} for p in ["Michael", "Sarah"]}
+        # A run that ends on the most recent game gets flagged, same as the
+        # Win Streak block's broken_today bubble.
+        broken_today = {}
+        last_date = df["Date"].iloc[-1] if len(df) else None
+        prev_date = None
         for _, r in df.iterrows():
+            date = r["Date"]
             for p in ["Michael", "Sarah"]:
                 col_name = f"{p} {cat}"
                 if col_name not in df.columns: continue
@@ -2060,17 +2008,74 @@ def get_full_category_forecast(df, cat):
                     tid = t['id']
                     if t['check'](sc): crun[p][tid] += 1
                     else:
-                        if crun[p][tid] > cmax[p][tid]: cmax[p][tid] = crun[p][tid]
+                        if crun[p][tid] > 0:
+                            blen = crun[p][tid]
+                            completed[p][tid].append({'len': blen, 'date': prev_date})
+                            if blen > cmax[p][tid]: cmax[p][tid] = blen
+                            if last_date is not None and date == last_date:
+                                times_ended = sum(1 for b in completed[p][tid] if b['len'] == blen)
+                                broken_today[(p, tid)] = {'len': blen, 'times_ended': times_ended}
                         crun[p][tid] = 0
+            prev_date = date
+
         acts = []
         for p in ["Michael", "Sarah"]:
+            color = "#221e8f" if p == "Michael" else "#8a005c"
             for t in th:
                 tid = t['id']
                 cur, rec = crun[p][tid], cmax[p][tid]
+                broken = broken_today.get((p, tid))
+                if cur <= 0 and not broken: continue
+                tcolor = "#e67e22" if ">" in tid else "#3498db"
+
+                parts = []
+                if broken:
+                    blen, times_ended = broken['len'], broken['times_ended']
+                    parts.append(f'<div class="ws-broken-bubble">\U0001f6d1 <span style="color:{color};">{p}</span>\'s '
+                                 f'<b>{blen}</b>-game {t["label"]} streak ended '
+                                 f'<span class="ws-broken-nth">&middot; {get_ordinal(times_ended)} time</span></div>')
+
                 if cur > 0:
-                     c = "#e67e22" if ">" in tid else "#3498db"
-                     rt = f"<span style='color:#27ae60; font-weight:700;'>New Record!</span>" if cur > rec else (f"<span style='color:#d35400; font-weight:700;'>Matches PB!</span>" if cur == rec else f"Matches PB in {rec - cur}")
-                     acts.append(f"<div class='fc-streak-item'><span class='fc-streak-name' style='color:{c}'>{p} {t['label']}</span> <span class='fc-streak-val'>{cur}</span> <span class='fc-streak-meta'>{rt}</span></div>")
+                    blocks = completed[p][tid]
+                    past_blocks = [b for b in blocks if b['len'] >= cur]
+                    times_reached = len(past_blocks) + 1
+                    last_block = past_blocks[-1] if past_blocks else None
+
+                    head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
+                            f'<span class="ws-count" style="color:{tcolor};">{cur}</span>'
+                            f'<div class="ws-player-block"><span class="ws-player-name" style="color:{color};">{p}</span>'
+                            f'<span class="ws-player-label">{t["label"]} Streak</span></div></div>')
+
+                    if times_reached == 1:
+                        # Never run this long at this threshold before — an
+                        # outright new best, nothing to compare it against yet.
+                        body = '<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span></div>'
+                    else:
+                        nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
+                        last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
+                        if last_block is not None and pd.notna(last_block['date']) and last_date is not None:
+                            days_ago = (last_date - last_block['date']).days
+                            since_val = "1d" if days_ago == 1 else f"{days_ago}d"
+                            date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
+                            last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
+                                         f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
+                        if cur >= rec:
+                            pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#27ae60;">PB!</div><div class="ws-stat-lbl">New Record</div></div>'
+                        else:
+                            pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cur}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
+                        # Of the past times this length was reached, how many kept
+                        # going past it (extended) vs stopped right there (ended).
+                        end_count = sum(1 for b in past_blocks if b['len'] == cur)
+                        ext_count = len(past_blocks) - end_count
+                        ext_html = (f'<div class="ws-stat"><div class="ws-stat-val">'
+                                    f'<span style="color:#27ae60;">{ext_count}</span><span class="ws-stat-sep">:</span>'
+                                    f'<span style="color:#c0392b;">{end_count}</span></div>'
+                                    f'<div class="ws-stat-lbl">Extended : Ended</div></div>')
+                        body = f'<div class="ws-stats-grid">{nth_html}{last_html}{pb_html}{ext_html}</div>'
+
+                    parts.append(f'<div class="ws-block">{head}{body}</div>')
+
+                acts.append(f'<div class="fc-run-block">{"".join(parts)}</div>')
         self_sh = "".join(acts)
     else:
         self_sh = ""
@@ -2129,13 +2134,6 @@ def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=No
             f'<div class="forecast-row">{"".join(run_cards)}</div>'
             '</div>')
     return html
-
-FEED_CATEGORIES = {
-    "Score Threshold Streaks": ["score_streak", "score_streak_broken"],
-}
-# Location / year / decade discoveries, control flips and rare appearances are
-# now covered by the round-by-round table at the top of each edition, so their
-# feed sections were removed.
 
 def render_round_strip(rounds):
     """Top-of-edition table. Per round: a slim header row (dimension value +
@@ -2306,434 +2304,10 @@ def render_round_strip(rounds):
             f'<thead><tr><th class="rt-round">Round</th><th class="rt-type">Score</th>{head}</tr></thead>'
             f'<tbody>{body}</tbody></table></div></div>')
 
-def render_daily_news(dt, evs, round_list=None):
-    ec, rh = len(evs), ""
+def render_daily_news(dt, round_list=None):
     day_id = f"day-{dt.strftime('%Y-%m-%d')}"
-    
-    def get_ordinal(n):
-        if 11 <= (n % 100) <= 13: suffix = 'th'
-        else: suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
-        return f"{n}{suffix}"
-
-    rmap = {
-        ('streak', 'new_record'): 20, ('streak', 'matched_record'): 21, ('streak', 'active'): 22, ('streak_broken', ''): 23,
-        ('score_streak', 'new_record'): 24, ('score_streak', 'matched_record'): 25, ('score_streak', 'active'): 26, ('score_streak_broken', ''): 27, 
-        ('discovery', 'new_continent'): 30, ('discovery', 'new_un_region'): 31, ('discovery', 'new_country'): 32, ('discovery', 'new_subdivision'): 33, ('decade_discovery', 'new_decade'): 34, ('year_discovery', 'new_year'): 35,
-        ('location_flip', 'continent'): 40, ('location_flip', 'region'): 41, ('location_flip', 'country'): 42, ('location_flip', 'subdivision'): 43, ('decade_flip', 'decade'): 44, ('year_flip', 'year'): 45,
-        ('rare_location', 'continent'): 50, ('rare_location', 'region'): 51, ('rare_location', 'country'): 52, ('rare_location', 'subdivision'): 53, ('rare_decade', 'decade'): 54, ('rare_year', 'year'): 55,
-        ('momentum_record_largest', ''): 62, ('momentum_score_top_10', ''): 63, ('momentum_score_bottom_10', ''): 64
-    }
-    
-    def gr(e):
-        t, s, w = e.get('event_type'), e.get('subtype', ''), e.get('window')
-        if t == 'flip': return 60 if w == 10 else 61
-        if t in ['streak_broken', 'score_streak_broken', 'momentum_record_largest', 'momentum_score_top_10', 'momentum_score_bottom_10']: s = ''
-        return rmap.get((t, s), 99)
-    
-    # Sort first by rank ascending
-    evs.sort(key=gr)
-
-    # Group events by category
-    type_to_cat = {t: c for c, types in FEED_CATEGORIES.items() for t in types}
-    events_by_sec = {c: [] for c in FEED_CATEGORIES.keys()}
-    for e in evs:
-        sec = type_to_cat.get(e.get('event_type'), "Other Updates")
-        if sec in events_by_sec:
-            events_by_sec[sec].append(e)
-        else:
-            if "Other Updates" not in events_by_sec: events_by_sec["Other Updates"] = []
-            events_by_sec["Other Updates"].append(e)
-
-    for sec_name in FEED_CATEGORIES.keys():
-        sec_evs = events_by_sec.get(sec_name, [])
-        if not sec_evs: continue
-        
-        rh += f'<div class="news-category-block"><div class="daily-section-header">{sec_name}</div>'
-
-        for e in sec_evs:
-            cat, et, ic, cs = e['category'], e.get('event_type'), "📰", e['category']
-            
-            if cat == "Total Score": ic, cs = "🏆", "Total"
-            elif cat == "Time Score": ic, cs = "⏱️", "Time"
-            elif cat == "Geography Score": ic, cs = "🌍", "Geo"
-            elif cat == "Discovery": ic, cs = "🗺️", "Map"
-            elif cat == "Year": ic, cs = "📅", "Year"
-            elif cat == "Decade": ic, cs = "🗓️", "Decade"
-            
-            def pc(n): return "p-michael" if n == "Michael" else ("p-sarah" if n == "Sarah" else "p-tie")
-            rc, ct = "row-winner-Tie", ""
-
-            if et == 'flip':
-                p, c, w = e['prev_state'], e['current_state'], e['window']
-                pv, cv = abs(e['prev_val']), abs(e['curr_val'])
-                days_held = e.get('days_held', 0)
-                
-                txt = "DROPS TO TIE" if c == "Tie" else ("BREAKS TIE" if p == "Tie" else "TAKES THE LEAD")
-                lead_info = f"Lead was {int(pv):,} pts → now {int(cv):,} pts"
-                
-                day_word = "day" if days_held == 1 else "days"
-                held_str = f"Ended a {days_held}-day run by {p.upper()}" if p != "Tie" else f"After being tied for {days_held} {day_word}"
-                
-                ct = f"""<div class="event-title">{w}-GAME AVG: {cs} Score &middot; {txt}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="arrow">➜</span><span class="player-name {pc(c)}">{c.upper()}</span></div>
-                         <div class="record-detail" style="margin-top:6px; font-size:13px;">
-                            <div>{lead_info}</div>
-                            <div style="color:#777; font-size:11.5px; font-weight:600; margin-top:3px;">{held_str}</div>
-                         </div>"""
-                rc = f"row-winner-{c}"
-            elif et == 'momentum_record_largest':
-                p, m, r, w = e['player'], e['margin'], e['rank'], e['window']
-                is_pb = r == 1
-                is_pb_tie = e.get('is_pb_tie', False)
-                
-                ic, rc = "🌊", "row-record-max"
-                ord_rank = get_ordinal(r)
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                at_badge = ""
-                if e.get('is_all_time_new'):
-                    at_badge = '<span class="all-time-badge">ALL-TIME RECORD</span>'
-                elif e.get('is_all_time_tie'):
-                    at_badge = '<span class="all-time-badge" style="background-color:#7f8c8d;">TIED ALL-TIME RECORD</span>'
-                
-                tt = "TIED RECORD MOMENTUM" if (is_pb and is_pb_tie) else ("NEW RECORD MOMENTUM" if is_pb else f"TOP 10 BEST RUN ({ord_rank})")
-                cl = "event-title-record-max"
-                
-                det_txt = f"Avg Margin: {int(m):,} pts &middot; Ranked {ord_rank} largest {w}-game average all-time"
-                if days:
-                    if days > 1:
-                        if is_pb and not is_pb_tie: det_txt += f" &middot; Best {w}-game run in all {days} games played"
-                        else: det_txt += f" &middot; Best {w}-game run in {days} games{ref_str}"
-                    else:
-                        det_txt += f" &middot; Best {w}-game run since yesterday"
-                
-                ct = f"""<div class="event-title {cl}">{w}-GAME AVG: {cs} Score &middot; {tt} {at_badge}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="record-detail">{det_txt}</span></div>"""
-            elif et in ['momentum_score_top_10', 'momentum_score_bottom_10']:
-                p, s, r, w = e['player'], e['score'], e['rank'], e['window']
-                is_top = et == 'momentum_score_top_10'
-                is_pb = r == 1
-                is_pb_tie = e.get('is_pb_tie', False)
-                ic = "👑" if (is_top and is_pb) else ("🏅" if is_top else ("📉" if is_pb else "⚠️"))
-                rc = "row-score-max" if is_top else "row-score-min"
-                ord_rank = get_ordinal(r)
-                days = e.get('days_since')
-                ref_date = e.get('ref_date')
-                ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                
-                if is_top:
-                    tt = "TIED ALL-TIME RECORD" if (is_pb and is_pb_tie) else ("NEW ALL-TIME RECORD" if is_pb else f"TOP 10 BEST AVG ({ord_rank})")
-                    cl = "event-title-score-max"
-                    det_txt = f"Avg Score: {int(s):,} pts &middot; Ranked {ord_rank} highest {w}-game average all-time"
-                else:
-                    tt = "TIED ALL-TIME WORST" if (is_pb and is_pb_tie) else ("NEW ALL-TIME WORST" if is_pb else f"BOTTOM 10 WORST AVG ({ord_rank} Worst)")
-                    cl = "event-title-score-min"
-                    det_txt = f"Avg Score: {int(s):,} pts &middot; Ranked {ord_rank} lowest {w}-game average all-time"
-
-                if days:
-                    if days > 1:
-                        if is_pb and not is_pb_tie:
-                            det_txt += f" &middot; Best avg in all {days} games played" if is_top else f" &middot; Worst avg in all {days} games played"
-                        else:
-                            det_txt += f" &middot; Best avg in {days} games{ref_str}" if is_top else f" &middot; Worst avg in {days} games{ref_str}"
-                    else:
-                        det_txt += f" &middot; Best avg since yesterday" if is_top else f" &middot; Worst avg since yesterday"
-                        
-                ct = f"""<div class="event-title {cl}">{w}-GAME AVG: {cs} Score &middot; {tt}</div>
-                         <div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span>
-                         <span class="record-detail">{det_txt}</span></div>"""
-            elif et == 'streak':
-                p, cnt, sub = e['player'], e['count'], e['subtype']
-                times = e.get('times_reached', 1)
-                days = e.get('days_since_last')
-                ref_date = e.get('last_reached_date')
-                
-                if sub == "new_record": 
-                    txt = "NEW RECORD STREAK"
-                    det = f"First time reaching <b>{cnt}</b> games"
-                elif sub == "matched_record": 
-                    txt = "MATCHED RECORD STREAK"
-                    det = f"Matches record of <b>{cnt}</b> games"
-                else: 
-                    txt = "ACTIVE STREAK"
-                    det = f"Reached <b>{cnt}</b> games"
-                    
-                if times > 1:
-                    det += f" &middot; {get_ordinal(times)} time"
-                    if days is not None:
-                        ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                        if days > 1:
-                            det += f" &middot; Last reached {days} games ago{ref_str}"
-                        else:
-                            det += f" &middot; Last reached yesterday{ref_str}"
-                        
-                ic, rc = "🔥", "row-streak"
-                ct = f"""<div class="event-title event-title-streak">{cs} &middot; {txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="streak-highlight">&middot; {det}</span></div>"""
-            elif et == 'streak_broken':
-                p, b, cnt, sub = e['player'], e['breaker'], e['count'], e['subtype']
-                ic, rc = "🛑", "row-broken"
-                det = f"snaps {p}'s <b>{cnt}</b>-game win streak."
-                if sub == 'denied_break': det += " One game short of a new record!"
-                ct = f"""<div class="event-title event-title-broken">{cs} &middot; STREAK SNAPPED</div><div class="change-visual"><span class="player-name {pc(b)}">{b.upper() if b != 'Tie' else 'TIE'}</span><span class="broken-detail">{det}</span></div>"""
-            elif et == 'score_streak':
-                p, cnt, sub, lbl, stype = e['player'], e['count'], e['subtype'], e['threshold_label'], e['streak_type']
-                times = e.get('times_reached', 1)
-                days = e.get('days_since_last')
-                ref_date = e.get('last_reached_date')
-                
-                ic, rc = ("🔥", "row-score-streak-hot") if stype == "hot" else ("❄️", "row-score-streak-cold")
-                title_cl = "event-title-hot" if stype == "hot" else "event-title-cold"
-                
-                if sub == "new_record": 
-                    txt = f"NEW RECORD {lbl.upper()} STREAK"
-                    det = f"First time reaching <b>{cnt}</b> games"
-                elif sub == "matched_record": 
-                    txt = f"MATCHED RECORD {lbl.upper()} STREAK"
-                    det = f"Matches record of <b>{cnt}</b> games"
-                else: 
-                    txt = f"ACTIVE {lbl.upper()} STREAK"
-                    det = f"Reached <b>{cnt}</b> games"
-                    
-                if times > 1:
-                    det += f" &middot; {get_ordinal(times)} time"
-                    if days is not None:
-                        ref_str = f" ({ref_date.strftime('%b %d, %Y').replace(' 0', ' ')})" if pd.notna(ref_date) else ""
-                        if days > 1:
-                            det += f" &middot; Last reached {days} games ago{ref_str}"
-                        else:
-                            det += f" &middot; Last reached yesterday{ref_str}"
-                        
-                ct = f"""<div class="event-title {title_cl}">{cs} &middot; {txt}</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="streak-highlight">&middot; {det}</span></div>"""
-            elif et == 'score_streak_broken':
-                p, cnt, sub, lbl = e['player'], e['count'], e['subtype'], e['threshold_label']
-                ic, rc = "🛑", "row-broken"
-                det = f"snaps their <b>{cnt}</b>-game streak of {lbl}."
-                if sub == 'denied_break': det += " One game short of a new record!"
-                elif sub == 'denied_match': det += " One game short of matching record!"
-                ct = f"""<div class="event-title event-title-broken">{cs} &middot; {lbl.upper()} STREAK SNAPPED</div><div class="change-visual"><span class="player-name {pc(p)}">{p.upper()}</span><span class="broken-detail">{det}</span></div>"""
-            elif et == 'discovery':
-                n, sub = e['name'], e['subtype']
-                
-                if sub in ["new_country", "new_subdivision", "new_un_region", "new_continent"]:
-                    txt = "NEW COUNTRY" if sub == "new_country" else ("NEW SUBDIVISION" if sub == "new_subdivision" else ("NEW UN REGION" if sub == "new_un_region" else "NEW CONTINENT"))
-                    
-                    if sub == "new_country": ic = get_flag_html(n)
-                    elif sub == "new_subdivision": ic = f"{get_flag_html(e.get('country', ''))} 📍"
-                    elif sub == "new_un_region": ic = "🌐"
-                    else: ic = "🌏"
-                    
-                    stats, lbls = e.get('perf', {}), {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
-                    
-                    sh = ""
-                    for m in ["Total", "Geography", "Time"]:
-                        w_name, w_margin = stats.get(m, ("Tie", 0))
-                        margin_str = f" (+{int(w_margin):,})" if w_name != "Tie" and w_margin > 0 else ""
-                        w_disp = "TIE" if w_name == "Tie" else w_name[0].upper()
-                        sh += f'<div class="stat-chip cat-{m.lower()} winner-{w_name.lower()}"><span class="stat-icon">{lbls[m][0]}</span> <div class="stat-content"><span class="stat-type">{lbls[m][1]}</span><span class="stat-winner {pc(w_name)}">{w_disp}{margin_str}</span></div></div>'
-                        
-                    det_txt = f'<span class="discovery-subtext">in {e.get("country", "")}</span>' if sub == "new_subdivision" else ""
-                    ct = f"""<div class="event-title event-title-discovery">{txt}</div><div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}</div><div class="discovery-stats-box">{sh}</div>"""
-                    rc = "row-discovery"
-            elif et == 'year_discovery':
-                n, stt = e['name'], e['perf']
-                txt, ic, rc = "NEW YEAR", "📅", "row-discovery"
-                
-                lbls = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
-                sh = ""
-                for m in ["Total", "Geography", "Time"]:
-                    w_name, w_margin = stt.get(m, ("Tie", 0))
-                    margin_str = f" (+{int(w_margin):,})" if w_name != "Tie" and w_margin > 0 else ""
-                    w_disp = "TIE" if w_name == "Tie" else w_name[0].upper()
-                    sh += f'<div class="stat-chip cat-{m.lower()} winner-{w_name.lower()}"><span class="stat-icon">{lbls[m][0]}</span> <div class="stat-content"><span class="stat-type">{lbls[m][1]}</span><span class="stat-winner {pc(w_name)}">{w_disp}{margin_str}</span></div></div>'
-                    
-                ct = f"""<div class="event-title event-title-discovery">{txt}</div><div class="change-visual"><span class="discovery-highlight">{n}</span></div><div class="discovery-stats-box">{sh}</div>"""
-            elif et == 'decade_discovery':
-                n, stt = e['name'], e['perf']
-                txt, ic, rc = "NEW DECADE", "🗓️", "row-discovery"
-                
-                lbls = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}
-                sh = ""
-                for m in ["Total", "Geography", "Time"]:
-                    w_name, w_margin = stt.get(m, ("Tie", 0))
-                    margin_str = f" (+{int(w_margin):,})" if w_name != "Tie" and w_margin > 0 else ""
-                    w_disp = "TIE" if w_name == "Tie" else w_name[0].upper()
-                    sh += f'<div class="stat-chip cat-{m.lower()} winner-{w_name.lower()}"><span class="stat-icon">{lbls[m][0]}</span> <div class="stat-content"><span class="stat-type">{lbls[m][1]}</span><span class="stat-winner {pc(w_name)}">{w_disp}{margin_str}</span></div></div>'
-                    
-                ct = f"""<div class="event-title event-title-discovery">{txt}</div><div class="change-visual"><span class="discovery-highlight">{n}</span></div><div class="discovery-stats-box">{sh}</div>"""
-            elif et in ['rare_location', 'rare_year', 'rare_decade']:
-                sub, n, gap = e['subtype'], e['name'], e['gap']
-                app_count = e.get('appearances', 0)
-                app_badge = f'<span style="font-size:12px; color:#888; font-weight:600; margin-left:10px; vertical-align:middle; background:#f0f0f0; padding:2px 6px; border-radius:4px;">Appearance #{app_count}</span>' if app_count > 1 else ""
-                
-                if sub == "country":
-                    ic = get_flag_html(n)
-                    lt = "COUNTRY"
-                    det_txt = ""
-                elif sub == "subdivision":
-                    ic = f"{get_flag_html(e.get('country', ''))} 📍"
-                    lt = "SUBDIVISION"
-                    det_txt = f'<span class="discovery-subtext">in {e.get("country", "")}</span>'
-                elif sub == "region":
-                    ic = "🌐"
-                    lt = "REGION"
-                    det_txt = ""
-                elif sub == "continent":
-                    ic = "🌏"
-                    lt = "CONTINENT"
-                    det_txt = ""
-                elif sub == "year":
-                    ic = "📅"
-                    lt = "YEAR"
-                    det_txt = ""
-                elif sub == "decade":
-                    ic = "🗓️"
-                    lt = "DECADE"
-                    det_txt = ""
-
-                rc = "row-discovery"
-                tt = f"RARE {lt} APPEARANCE"
-                rare_msg = f"Rare {sub} today! First time in {gap} games."
-                
-                overall_perf = e.get('overall_perf', {})
-                metrics = ["Total", "Geography", "Time"]
-                
-                sh = ""
-                if overall_perf:
-                    for m in metrics:
-                        mb = overall_perf[m]["Michael"]["before"]
-                        ma = overall_perf[m]["Michael"]["after"]
-                        sb = overall_perf[m]["Sarah"]["before"]
-                        sa = overall_perf[m]["Sarah"]["after"]
-                        
-                        after_diff = ma - sa
-                        w_after = "Michael" if after_diff > 0 else ("Sarah" if after_diff < 0 else "Tie")
-                        m_after = abs(after_diff)
-                        
-                        before_diff = mb - sb
-                        w_before = "Michael" if before_diff > 0 else ("Sarah" if before_diff < 0 else "Tie")
-                        m_before = abs(before_diff)
-                        
-                        if w_before == "Tie": was_str = "Tie"
-                        elif w_before == w_after: was_str = f"+{int(m_before):,}"
-                        else: was_str = f"{w_before[0]} +{int(m_before):,}"
-                        
-                        if w_after == "Tie": main_str = "TIE"
-                        else: main_str = f"{w_after[0].upper()} (+{int(m_after):,})"
-                        
-                        lbl = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}[m]
-                        
-                        sh += f'<div class="stat-chip cat-{m.lower()} winner-{w_after.lower()}"><span class="stat-icon">{lbl[0]}</span> <div class="stat-content"><span class="stat-type">OVERALL {lbl[1]} MARGIN</span><span class="stat-winner {pc(w_after)}">{main_str} <span style="font-size:10px; color:#888; font-weight:600; text-transform:none; margin-left:3px;">(was {was_str})</span></span></div></div>'
-                    sh = f'<div class="discovery-stats-box">{sh}</div>'
-                
-                ct = f"""<div class="event-title event-title-discovery">{cs} &middot; {tt}</div>
-                         <div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}{app_badge}</div>
-                         {sh}
-                         <div class="record-detail" style="color:#00838f; font-weight:600; margin-top:6px;">{rare_msg}</div>"""
-            elif et in ['location_flip', 'year_flip', 'decade_flip']:
-                sub, n = e.get('subtype', ''), e['name']
-                app_count = e.get('appearances', 0)
-                app_badge = f'<span style="font-size:12px; color:#888; font-weight:600; margin-left:10px; vertical-align:middle; background:#f0f0f0; padding:2px 6px; border-radius:4px;">Appearance #{app_count}</span>' if app_count > 1 else ""
-                
-                if et == 'location_flip':
-                    if sub == "country":
-                        ic = get_flag_html(n)
-                        lt = "COUNTRY"
-                        det_txt = ""
-                    elif sub == "subdivision":
-                        ic = f"{get_flag_html(e.get('country', ''))} 📍"
-                        lt = "SUBDIVISION"
-                        det_txt = f'<span class="discovery-subtext">in {e.get("country", "")}</span>'
-                    elif sub == "region":
-                        ic = "🌐"
-                        lt = "REGION"
-                        det_txt = ""
-                    elif sub == "continent":
-                        ic = "🌏"
-                        lt = "CONTINENT"
-                        det_txt = ""
-                    else:
-                        ic = "📍"
-                        lt = "LOCATION"
-                        det_txt = ""
-                elif et == 'year_flip':
-                    ic = "📅"
-                    lt = "YEAR"
-                    det_txt = ""
-                elif et == 'decade_flip':
-                    ic = "🗓️"
-                    lt = "DECADE"
-                    det_txt = ""
-
-                rc = "row-capture"
-                is_rare = e.get('is_rare', False)
-                gap = e.get('gap', 0)
-                
-                tt = f"RARE {lt} FLIP" if is_rare else f"CONTROL FLIP: {lt}"
-                rare_msg = f"Rare {sub} today! First time in {gap} games." if is_rare else ""
-                rare_html = f'<div class="record-detail" style="color:#00838f; font-weight:600; margin-top:6px;">{rare_msg}</div>' if is_rare else ""
-                
-                overall_perf = e.get('overall_perf', {})
-                metrics = ["Total", "Geography", "Time"]
-                
-                sh = ""
-                if overall_perf:
-                    for m in metrics:
-                        perf = overall_perf.get(m)
-                        if not perf: continue
-                        
-                        mb = perf["Michael"]["before"]
-                        ma = perf["Michael"]["after"]
-                        sb = perf["Sarah"]["before"]
-                        sa = perf["Sarah"]["after"]
-                        
-                        old_w = perf["old_leader"]
-                        new_w = perf["new_leader"]
-                        did_flip = perf["did_flip"]
-                        
-                        after_diff = ma - sa
-                        m_after = abs(after_diff)
-                        
-                        before_diff = mb - sb
-                        m_before = abs(before_diff)
-                        
-                        if old_w == "Tie": was_str = "Tie"
-                        elif old_w == new_w: was_str = f"+{int(m_before):,}"
-                        else: was_str = f"{old_w[0]} +{int(m_before):,}"
-                        
-                        if new_w == "Tie": main_str = "TIE"
-                        else: main_str = f"{new_w[0].upper()} (+{int(m_after):,})"
-                        
-                        lbl = {"Total": ("🏆", "Total"), "Geography": ("🌍", "Geo"), "Time": ("⏱️", "Time")}[m]
-                        
-                        dir_str = ""
-                        if did_flip:
-                            bg_col = "#221e8f" if new_w == "Michael" else ("#8a005c" if new_w == "Sarah" else "#999")
-                            old_char = old_w[0].upper() if old_w != 'Tie' else 'TIE'
-                            new_char = new_w[0].upper() if new_w != 'Tie' else 'TIE'
-                            dir_str = f"<span style='background:{bg_col}; color:white; font-size:9px; padding:2px 4px; border-radius:3px; margin-left:4px; font-weight:800;'>{old_char}➔{new_char}</span>"
-                            
-                        sh += f'<div class="stat-chip cat-{m.lower()} winner-{new_w.lower()}"><span class="stat-icon">{lbl[0]}</span> <div class="stat-content"><span class="stat-type">OVERALL {lbl[1]} MARGIN</span><span class="stat-winner {pc(new_w)}">{main_str} <span style="font-size:10px; color:#888; font-weight:600; text-transform:none; margin-left:3px; margin-right:2px;">(was {was_str})</span>{dir_str}</span></div></div>'
-                    sh = f'<div class="discovery-stats-box">{sh}</div>'
-                
-                ct = f"""<div class="event-title event-title-capture">{cs} &middot; {tt}</div>
-                         <div class="change-visual"><span class="discovery-highlight">{n}</span>{det_txt}{app_badge}</div>
-                         {sh}
-                         {rare_html}"""
-            rh += f"""<div class="event-row {rc}"><div class="category-box"><div class="cat-icon">{ic}</div><div class="cat-name">{cs}</div></div><div class="content-box">{ct}</div></div>"""
-            
-        rh += '</div>'
     strip_html = render_round_strip(round_list or [])
-    body = f'<div class="events-list">{rh}</div>' if rh else ""
-
-    round_card = f"""<div class="daily-card" id="{day_id}"><div class="daily-header daily-header-end"><span class="daily-badge">Round Recap</span></div>{strip_html}</div>"""
-
-    updates_badge = f"{ec} Updates" if ec else "No Updates"
-    updates_body = body if body else '<div style="text-align:center; padding:40px; color:#999; font-size: 14px;">No news events for this date.</div>'
-    updates_card = f"""<div class="daily-card" id="{day_id}-updates"><div class="daily-header"><span class="daily-date">Daily Updates</span><span class="daily-badge">{updates_badge}</span></div>{updates_body}</div>"""
-
-    return round_card, updates_card
+    return f"""<div class="daily-card" id="{day_id}"><div class="daily-header daily-header-end"><span class="daily-badge">Round Recap</span></div>{strip_html}</div>"""
 
 @st.cache_data
 def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
@@ -2754,45 +2328,27 @@ def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
     df_t = prepare_total_margins_data(_raw_data)
     df_tm = prepare_time_margins_data(_raw_data)
     df_g = prepare_geography_margins_data(_raw_data)
-    all_evs = []
-    all_evs.extend(generate_score_threshold_streaks(df_t))
-    all_evs.extend(generate_score_threshold_streaks(df_tm))
-    all_evs.extend(generate_score_threshold_streaks(df_g))
     round_updates = generate_round_updates(_raw_data)
-    return df_t, df_tm, df_g, all_evs, round_updates
+    return df_t, df_tm, df_g, round_updates
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
 raw_data = load_data(mtime=stats_mtime)
-# Momentum/streak/record tracking (df_t/df_tm/df_g/all_evs below) needs both
-# players' data to mean anything, so it keeps using the both-required `raw_data`.
+# Momentum/streak/record tracking (df_t/df_tm/df_g below) needs both players'
+# data to mean anything, so it keeps using the both-required `raw_data`.
 # Per-day rendering (score boxes, Actuals, bars) needs to work even when only
 # one player has submitted, so it uses this unfiltered version instead.
 raw_data_all = load_data(mtime=stats_mtime, require_both=False)
 if not raw_data_all.empty:
-    df_t, df_tm, df_g, all_evs, round_updates = _compute_daily_feed_data(raw_data, stats_mtime)
+    df_t, df_tm, df_g, round_updates = _compute_daily_feed_data(raw_data, stats_mtime)
 
     with st.sidebar:
         st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
         edit_toggle_slot = st.empty()  # filled in below, once the selected date's edit state is known
         st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
-        sf = st.multiselect("Filter Categories:", options=list(FEED_CATEGORIES.keys()), default=list(FEED_CATEGORIES.keys()))
 
-    # Collect requested event types based on sidebar selection
-    active_types = set()
-    for cat_name in sf:
-        active_types.update(FEED_CATEGORIES[cat_name])
-
-    # Filter events and group by date (keys normalized to Timestamp)
-    fe = [e for e in all_evs if e.get('event_type') in active_types]
-    ev_d = {}
-    for e in fe:
-        d = pd.Timestamp(e['date'])
-        ev_d.setdefault(d, []).append(e)
-
-    # An "edition" exists for every day that actually has round data, plus any
-    # day that has matching events. Round strip always shows (it is the recap).
+    # An "edition" exists for every day that actually has round data.
     scored_days = {d for d, rl in round_updates.items() if any(rr["m_round"] is not None for rr in rl)}
-    sd = sorted(set(ev_d.keys()) | scored_days, reverse=True)
+    sd = sorted(scored_days, reverse=True)
     sd_set = set(sd)
 
     # --- HEADER: the Edition Date IS the title now, and stays clickable ---
@@ -3677,12 +3233,12 @@ if not raw_data_all.empty:
     # df_t_asof/df_tm_asof/df_g_asof were already computed above, alongside sel_ts.
     st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat), unsafe_allow_html=True)
 
-    # --- BOTTOM: Round-by-round recap, then Updates (separate boxes) for the selected date ---
+    # --- BOTTOM: Round-by-round recap for the selected date ---
     if sel_ts in sd_set:
-        round_card, updates_card = render_daily_news(sel_ts, ev_d.get(sel_ts, []), round_updates.get(sel_ts, []))
-        feed_html = f'<div class="news-container">\n{round_card}\n{updates_card}\n</div>'
+        round_card = render_daily_news(sel_ts, round_updates.get(sel_ts, []))
+        feed_html = f'<div class="news-container">\n{round_card}\n</div>'
         st.markdown(feed_html, unsafe_allow_html=True)
     else:
-        st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No news events for this date.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No round data for this date.</div></div>', unsafe_allow_html=True)
 
 else: st.warning("Please ensure 'Timeguessr_Stats.csv' is in the 'Data' folder.")
