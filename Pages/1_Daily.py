@@ -57,7 +57,7 @@ NEWS_STYLES = """
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800;900&display=swap');
         
         html { scroll-behavior: smooth; }
-        .news-container { width: 100%; margin: 0 auto; padding: 40px 20px; box-sizing: border-box; }
+        .news-container { width: 100%; margin: 0 auto; padding: 40px 0; box-sizing: border-box; }
         /* the divider between Actuals and Michael/Sarah/Community defaults to a
            much larger margin than the rest of this page's tightened spacing —
            scoped to the main content area so the sidebar's own hr (styled
@@ -73,12 +73,7 @@ NEWS_STYLES = """
            dividers, matching the Michael / Sarah / Community / Actuals boxes
            above (plain pastel background per card, no white sub-sections). */
         .forecast-container { width: 100%; margin: -8px auto 28px auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
-        /* row 1: Total/Geo/Time Streaks; row 2: the same 3, Score Runs */
         .forecast-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        /* Round Scores + Percentile row, shown above the round recap instead,
-           pulled up to close the default block gap under the Michael / Sarah /
-           Community boxes above it */
-        .score-bars-row { margin-top: -16px; margin-bottom: 8px; }
         .forecast-card { border-radius: 12px; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
         .fc-header { padding: 16px 20px 8px 20px; display: flex; align-items: center; gap: 10px; }
         .fc-icon { font-size: 20px; }
@@ -110,7 +105,7 @@ NEWS_STYLES = """
 
         .fc-momentum-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 6px 8px 0 8px; }
         .fc-mom-box { padding: 9px 10px; text-align: center; }
-        .fc-mom-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .fc-mom-label { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 1px; }
         /* Momentum box: leader name + the exact average lead front and
            center (bold, big), then a compact 2-stat strip below (days
            they've held the average, and the margin needed to flip it). */
@@ -123,12 +118,31 @@ NEWS_STYLES = """
         .mom-stat-val { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 13px; color: #222; line-height: 1.2; }
         .mom-stat-lbl { font-family: 'Inter', sans-serif; font-size: 8.5px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 3px; }
         .fc-mom-empty { font-family: 'Inter', sans-serif; font-size: 11px; color: #999; font-style: italic; }
-        /* Flags a leader change in the rolling average — same "flip" story
-           the Momentum feed tells, surfaced right where the trend is shown. */
-        .mom-flip-bubble { display: inline-block; background: rgba(41,128,185,0.12); color: #2471a3; font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; padding: 4px 9px; border-radius: 12px; margin: 2px 0 6px 0; }
 
         .fc-streaks { padding: 10px 20px 16px 20px; flex-grow: 1; }
-        .fc-streaks-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .fc-streaks-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        /* A section title (momentum window label, "Win Streak", "Active
+           Score Runs") plus its status badge (flip / streak-ended), sitting
+           on the same line instead of a bubble below it — so a flip or a
+           streak ending never adds height, keeping the Total/Geo/Time cards
+           in a row the same height regardless of which of them has one
+           today. Margin that used to live on the title itself moves to this
+           row so spacing stays identical whether a badge is present or not.
+           The title is pinned to one line (ellipsis if a narrow card ever
+           squeezes it) and the badges never shrink, so a badge can't force
+           the title to wrap onto a second line and grow the row — that would
+           reintroduce the exact misalignment this whole approach avoids. */
+        .fc-section-title-row { display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .fc-mom-box .fc-section-title-row { margin-bottom: 6px; }
+        .fc-streaks .fc-section-title-row { justify-content: flex-start; margin-bottom: 10px; }
+        .fc-section-title-row .fc-streaks-title, .fc-section-title-row .fc-mom-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .fc-section-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+        /* A streak-ended badge is an SVG (not the 🛑 emoji) so its color can
+           be set per player via `currentColor` — emoji glyphs render in their
+           own fixed color and ignore CSS color entirely. The flip badge stays
+           emoji since it isn't tied to a single "stopped" player the same way. */
+        .fc-section-badge { display: inline-flex; line-height: 1; cursor: default; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.35)); }
+        .fc-section-badge.fc-badge-emoji { font-size: 19px; }
         .fc-streak-item { display: flex; align-items: center; justify-content: space-between; font-family: 'Inter', sans-serif; font-size: 12px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed rgba(0,0,0,0.12); }
         .fc-streak-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .fc-streak-name { font-weight: 600; color: #333; }
@@ -151,12 +165,8 @@ NEWS_STYLES = """
         .ws-stat-lbl { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px; }
         .ws-badge-row { border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 10px; text-align: center; }
         .ws-badge-record { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 13px; color: #27ae60; }
-        /* Pill flagging that yesterday's streak was snapped by today's game —
-           sits above the current (new) streak block, or alone if today was a
-           tie / the other side's own streak start with nothing yet to show. */
-        .ws-broken-bubble { display: inline-block; background: rgba(192,57,43,0.12); color: #c0392b; font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 14px; margin-bottom: 12px; }
-        .ws-broken-bubble b { font-weight: 800; }
-        .ws-broken-nth { color: #8a3d36; font-weight: 700; }
+        .ws-badge-sub { font-family: 'Inter', sans-serif; font-size: 10.5px; color: #767676; margin-top: 3px; }
+        .ws-badge-sub b { color: #333; font-weight: 700; }
         /* Active Score Runs can stack several ws-blocks (one per player/
            threshold) in the same card, unlike the single Win Streak block —
            so give every block after the first a divider to separate them. */
@@ -169,85 +179,21 @@ NEWS_STYLES = """
         .fc-cat-geo { background-color: #dcefdf; }
         .fc-cat-geo .fc-title { color: #1f8a4c; }
         
-        /* DAILY FEED / CATEGORY CARDS */
-        .daily-card { background: #fff; border: 1px solid #ddd; border-top: 4px solid #333; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); scroll-margin-top: 50px; overflow: hidden; }
-        .daily-header { background-color: #fcfcfc; padding: 16px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .daily-header-end { justify-content: flex-end; }
-        .daily-date { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 18px; color: #111; text-transform: uppercase; }
-        .daily-badge { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; background: #eee; color: #555; padding: 4px 10px; border: 1px solid #ccc; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
-        
-        .events-list { column-count: 2; column-gap: 24px; padding: 24px; background-color: #fafafa; }
-        .news-category-block { break-inside: avoid-column; page-break-inside: avoid; display: inline-block; width: 100%; background: #fff; border: 1px solid #eaeaea; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-        .daily-section-header { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700; color: #555; text-transform: uppercase; padding: 12px 20px; background-color: #f8f9fa; border-bottom: 1px solid #eee; letter-spacing: 1px; border-radius: 8px 8px 0 0; }
-        
-        .event-row { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: flex-start; gap: 20px; transition: background-color 0.2s; }
-        .event-row:last-child { border-bottom: none; border-radius: 0 0 8px 8px; }
-        
-        .row-winner-Michael { background-color: rgba(34, 30, 143, 0.03); border-left: 4px solid #221e8f; }
-        .row-winner-Sarah { background-color: rgba(138, 0, 92, 0.03); border-left: 4px solid #8a005c; }
-        .row-winner-Tie { background-color: #fafafa; border-left: 4px solid #999; }
-        .row-streak { background-color: #fffbf0; border-left: 4px solid #f1c40f; }
-        .row-broken { background-color: #fff5f5; border-left: 4px solid #c0392b; }
-        .row-discovery { background-color: #f0fbfd; border-left: 4px solid #00acc1; }
-        .row-capture { background-color: #fffaf0; border-left: 5px solid #f39c12; }
-        .row-record-max { background-color: #f6fff8; border-left: 5px solid #27ae60; }
-        .row-record-near { background-color: #fefefe; border-left: 5px solid #bdc3c7; }
-        .row-score-max { background-color: #fcf9ff; border-left: 5px solid #8e44ad; }
-        .row-score-min { background-color: #f7f9f9; border-left: 5px solid #95a5a6; }
-        .row-score-streak-hot { background-color: #fff5eb; border-left: 5px solid #ff5722; }
-        .row-score-streak-cold { background-color: #f4faff; border-left: 5px solid #3498db; }
-
-        .category-box { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 60px; min-width: 60px; text-align: center; margin-top: 4px; }
-        .cat-icon { font-size: 24px; margin-bottom: 6px; }
-        .cat-name { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #999; letter-spacing: 1px; }
-        .content-box { flex-grow: 1; }
-        
-        .event-title { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: #d63031; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .event-title-streak { color: #b7950b; }
-        .event-title-broken { color: #c0392b; }
-        .event-title-discovery { color: #00838f; }
-        .event-title-capture { color: #d35400; }
-        .event-title-record-max { color: #27ae60; }
-        .event-title-record-near { color: #7f8c8d; }
-        .event-title-score-max { color: #8e44ad; }
-        .event-title-score-min { color: #7f8c8d; }
-        .event-title-hot { color: #ff5722; }
-        .event-title-cold { color: #3498db; }
-
-        .change-visual { font-family: 'Poppins', sans-serif; font-size: 20px; line-height: 1.3; color: #333; display: block; }
-        .player-name { font-weight: 700; }
+        /* Player/community color tags, still used inside the round-by-round
+           table below. */
         .p-michael { color: #221e8f; }
         .p-sarah { color: #8a005c; }
         .p-tie { color: #666; }
         .p-community { color: #6c757d; }
-        .arrow { color: #ccc; margin: 0 8px; }
-        
-        .record-detail { color: #555; font-size: 14px; font-weight: 500; display: block; margin-top: 4px; }
-        .streak-highlight { color: #444; font-weight: 500; font-size: 16px; margin-left: 8px; }
-        .broken-detail { color: #666; font-weight: 400; font-size: 14px; margin-left: 8px; font-style: italic; }
-        .discovery-highlight { color: #006064; font-weight: 700; font-size: 18px; }
-        .discovery-subtext { font-size: 14px; color: #555; font-weight: 400; margin-left: 6px; }
-        .milestone-highlight { color: #6a1b9a; font-weight: 700; font-size: 18px; }
-        .all-time-badge { background-color: #2c3e50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-left: 8px; vertical-align: middle; }
-        
-        .discovery-stats-box { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .stat-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: white; border: 1px solid #e0e0e0; font-family: 'Inter', sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        .stat-chip.winner-michael { border-left: 3px solid #221e8f; }
-        .stat-chip.winner-sarah { border-left: 3px solid #8a005c; }
-        .stat-chip.winner-tie { border-left: 3px solid #999; }
-        .stat-chip.cat-total { background-color: #fffdf0; }
-        .stat-chip.cat-geography { background-color: #f0fff4; }
-        .stat-chip.cat-time { background-color: #f5f3ff; }
-        .stat-icon { font-size: 14px; }
-        .stat-content { display: flex; flex-direction: column; justify-content: center; }
-        .stat-type { font-size: 8px; font-weight: 800; color: #888; text-transform: uppercase; line-height: 1; margin-bottom: 2px; }
-        .stat-winner { font-size: 11px; font-weight: 800; text-transform: uppercase; line-height: 1; }
-        
-        /* ROUND-BY-ROUND TABLE (top of each edition): rounds = rows, dimensions = columns */
-        .round-strip { padding: 20px 24px; background: #ffffff; border-bottom: 1px solid #eee; }
-        .round-strip-title { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 14px; }
-        .rss-sub { font-weight: 500; text-transform: none; letter-spacing: 0; color: #999; font-size: 11px; margin-left: 8px; }
-        .round-table-wrap { overflow-x: auto; border: 1px solid #e8e8e8; border-radius: 8px; }
+
+        /* ROUND-BY-ROUND TABLE (top of each edition): rounds = rows,
+           dimensions = columns. The table IS the card — no padding gap and
+           no separate title bar between the frame and the table, so the
+           table's own header row sits flush against the frame instead of
+           looking like a table sitting inside a box. `overflow: hidden`
+           clips the table's square corners to the frame's rounded ones. */
+        .round-strip { background: #fff; border: 3px solid #333; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); scroll-margin-top: 50px; overflow: hidden; }
+        .round-table-wrap { overflow-x: auto; }
         .round-table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; }
         .round-table th { background: #f4f4f6; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #999; padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }
         .round-table td { padding: 8px 9px; border-bottom: 1px solid #f0f0f0; border-left: 1px solid #f4f4f4; vertical-align: top; font-size: 10px; }
@@ -409,7 +355,6 @@ NEWS_STYLES = """
 
         @media (max-width: 900px) {
             .forecast-row { grid-template-columns: 1fr; }
-            .events-list { column-count: 1; padding: 16px; }
         }
     </style>
 """
@@ -653,7 +598,7 @@ def half_bar_html(score, pattern=None, range_dict=GEOGRAPHY_RANGES):
         return f'''<div class="tg-bar-bg" style="position:relative;"><div style="position:absolute; left:0; width:{min_pct:.2f}%; height:100%; background:#db5049;"></div><div style="position:absolute; left:{min_pct:.2f}%; width:{max_pct - min_pct:.2f}%; height:100%; background:#d1d647;"></div><div style="position:absolute; left:{max_pct:.2f}%; width:{100 - max_pct:.2f}%; height:100%; background:#b0afaa;"></div></div>'''
     return '<div class="tg-bar-bg"><div class="tg-bar-fill" style="width:0%;"></div></div>'
 
-def generate_player_html(player_name, date_rows, players, highlight=False):
+def generate_player_html(player_name, date_rows, players, highlight=False, pct_data=None):
     if len(date_rows) == 0: return ""
     row_0 = date_rows.iloc[0]
     total_score = row_0.get(f"{player_name} Total Score")
@@ -678,12 +623,20 @@ def generate_player_html(player_name, date_rows, players, highlight=False):
     header = "#221e8f" if is_michael else "#8a005c"
     border = "border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);" if highlight else ""
 
-    html = [f'<div class="tg-container" style="background-color: {bg}; {border}"><div class="tg-header" style="color: {header};">{player_name}</div><div class="tg-total">{total_text}</div>']
+    # Same percentile stat shown in the (now-removed) Total/Geo/Time
+    # percentile bars, moved to sit right next to each score line here —
+    # a fixed-width bar so it lines up the same in every box.
+    pct_data = pct_data or {}
+    total_pct = mini_pct_bar_html((pct_data.get("Total Score") or {}).get(player_name), header)
+    geo_pct = mini_pct_bar_html((pct_data.get("Geography Score") or {}).get(player_name), header)
+    time_pct = mini_pct_bar_html((pct_data.get("Time Score") or {}).get(player_name), header)
+
+    html = [f'<div class="tg-container" style="background-color: {bg}; {border}"><div class="tg-header" style="color: {header};">{player_name}</div><div class="tg-total tg-score-line"><span>{total_text}</span>{total_pct}</div>']
 
     if geo_sum == 0 and time_sum == 0:
-        html.append('<div class="tg-sub">🌎 Geo: <b>???</b>/25,000</div><div class="tg-sub">📅 Time: <b>???</b>/25,000</div>')
+        html.append(f'<div class="tg-sub tg-score-line"><span>🌎 Geo: <b>???</b>/25,000</span>{geo_pct}</div><div class="tg-sub tg-score-line"><span>📅 Time: <b>???</b>/25,000</span>{time_pct}</div>')
     else:
-        html.append(f'<div class="tg-sub">🌎 Geo: <b>{int(geo_sum):,}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{int(time_sum):,}</b>/25,000</div>')
+        html.append(f'<div class="tg-sub tg-score-line"><span>🌎 Geo: <b>{int(geo_sum):,}</b>/25,000</span>{geo_pct}</div><div class="tg-sub tg-score-line"><span>📅 Time: <b>{int(time_sum):,}</b>/25,000</span>{time_pct}</div>')
 
     html.append('<div class="tg-rounds-wrapper">')
 
@@ -718,7 +671,7 @@ def generate_player_html(player_name, date_rows, players, highlight=False):
     html.append('</div></div>')
     return "\n".join(html)
 
-def generate_community_html(date_rows):
+def generate_community_html(date_rows, pct_data=None):
     if len(date_rows) == 0: return ""
     row_0 = date_rows.iloc[0]
     total_score = row_0.get("Community Average")
@@ -745,11 +698,18 @@ def generate_community_html(date_rows):
             geo_sum_est += geography_score(float(dist_m))
             have_geo_est = True
 
-    html = [f'<div class="tg-container" style="background-color: #e9ecef;"><div class="tg-header" style="color: #495057;">Community</div><div class="tg-total">{total_text}</div>']
+    community_color = "#495057"
+    pct_data = pct_data or {}
+    # Total Score percentile is skipped here — the community average IS the
+    # median by definition, so it's always exactly 50% and tells you nothing.
+    geo_pct = mini_pct_bar_html((pct_data.get("Geography Score") or {}).get("Community"), community_color)
+    time_pct = mini_pct_bar_html((pct_data.get("Time Score") or {}).get("Community"), community_color)
+
+    html = [f'<div class="tg-container" style="background-color: #e9ecef;"><div class="tg-header" style="color: {community_color};">Community</div><div class="tg-total">{total_text}</div>']
 
     geo_txt = f'"{int(geo_sum_est):,}"' if have_geo_est else '"???"'
     time_txt = f'"{int(time_sum_est):,}"' if have_time_est else '"???"'
-    html.append(f'<div class="tg-sub">🌎 Geo: <b>{geo_txt}</b>/25,000</div><div class="tg-sub">📅 Time: <b>{time_txt}</b>/25,000</div>')
+    html.append(f'<div class="tg-sub tg-score-line"><span>🌎 Geo: <b>{geo_txt}</b>/25,000</span>{geo_pct}</div><div class="tg-sub tg-score-line"><span>📅 Time: <b>{time_txt}</b>/25,000</span>{time_pct}</div>')
 
     html.append('<div class="tg-rounds-wrapper">')
 
@@ -863,11 +823,13 @@ def render_score_bars(date_rows):
         "Time Score": hbar_group(m_time_seg, s_time_seg, c_time_seg),
     }
 
-def render_percentile_bars(date_rows):
+def compute_snapshot_percentiles(date_rows):
     """Where each player (and the community) ranked that day: Total uses
     TimeGuessr's own Percentile stat (community fixed at the 50th, since the
     community average defines the median); Time/Geo use the Years/Location
-    percentile stats instead, with the community's own Years/Location average."""
+    percentile stats instead, with the community's own Years/Location average.
+    Raw values (not HTML) — consumed as the small percentile bar shown next
+    to each score line in the Michael/Sarah/Community boxes."""
     if len(date_rows) == 0: return {}
     row_0 = date_rows.iloc[0]
 
@@ -875,42 +837,20 @@ def render_percentile_bars(date_rows):
         v = row_0.get(col)
         return float(v) * mult if pd.notna(v) else None
 
-    def pct_bar(label, color, value):
-        pct = 0.0 if value is None else max(0.0, min(100.0, value))
-        val_txt = "&mdash;" if value is None else f"{pct:.0f}%"
-        return (f'<div class="hbar-row"><span class="hbar-lbl" style="color:{color};">{label}</span>'
-                f'<div class="pct-bar-track"><div class="pct-bar-fill" style="width:{pct:.1f}%; background-color:{color};"></div></div>'
-                f'<span class="hbar-lbl" style="width:32px; color:{color};">{val_txt}</span></div>')
-
-    def build(m_val, s_val, c_val):
-        return (f'<div class="hbar-group pct-bar-group"><div class="bar-section-title">Percentile</div>'
-                f'{pct_bar("M", "#221e8f", m_val)}{pct_bar("S", "#8a005c", s_val)}{pct_bar("C", "#6c757d", c_val)}</div>')
-
     return {
-        "Total Score": build(num("Michael Percentile", 100), num("Sarah Percentile", 100), 50.0),
-        "Time Score": build(num("Michael Years"), num("Sarah Years"), num("Community Years Average")),
-        "Geography Score": build(num("Michael Location"), num("Sarah Location"), num("Community Location Average")),
+        "Total Score": {"Michael": num("Michael Percentile", 100), "Sarah": num("Sarah Percentile", 100), "Community": 50.0},
+        "Time Score": {"Michael": num("Michael Years"), "Sarah": num("Sarah Years"), "Community": num("Community Years Average")},
+        "Geography Score": {"Michael": num("Michael Location"), "Sarah": num("Sarah Location"), "Community": num("Community Location Average")},
     }
 
-def compute_top_percentile_category(date_rows):
-    """Whichever of Total/Geography/Time has the higher Michael+Sarah average
-    percentile for this date gets the same red-outline "leader" highlight the
-    Michael/Sarah boxes give the higher total score."""
-    if len(date_rows) == 0: return None
-    row_0 = date_rows.iloc[0]
-
-    def avg(col_m, col_s, mult=1):
-        m, s = row_0.get(col_m), row_0.get(col_s)
-        if pd.isna(m) or pd.isna(s): return None
-        return (float(m) + float(s)) / 2 * mult
-
-    avgs = {
-        "Total Score": avg("Michael Percentile", "Sarah Percentile", 100),
-        "Geography Score": avg("Michael Location", "Sarah Location"),
-        "Time Score": avg("Michael Years", "Sarah Years"),
-    }
-    avgs = {k: v for k, v in avgs.items() if v is not None}
-    return max(avgs, key=avgs.get) if avgs else None
+def mini_pct_bar_html(value, color):
+    """A fixed-width percentile bar + value, sized the same everywhere it's
+    used (Michael/Sarah/Community, Total/Geo/Time) regardless of each box's
+    own round-score bars, which flex to fill their row instead."""
+    pct = 0.0 if value is None else max(0.0, min(100.0, value))
+    val_txt = "&mdash;" if value is None else f"{pct:.0f}%"
+    return (f'<span class="tg-pct-wrap"><span class="tg-pct-bar"><span class="tg-pct-fill" style="width:{pct:.1f}%; background:{color};"></span></span>'
+            f'<span class="tg-pct-val" style="color:{color};">{val_txt}</span></span>')
 
 def _ordinal(n):
     suf = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
@@ -1069,6 +1009,22 @@ def compute_score_percentile_stats(df_asof, sel_ts, cat):
             result["_all"] = all_info
     return result if result else None
 
+def render_score_headline(stats):
+    """Michael's and Sarah's actual scores front and center at the top of the
+    Score card — the same treatment (and the same spot, just above the
+    percentile block) as the Wins card's win-margin headline, just showing
+    both players' raw scores instead of a single margin."""
+    if not stats:
+        return ""
+    parts = []
+    for p, color in [("Michael", "#221e8f"), ("Sarah", "#8a005c")]:
+        s = stats.get(p)
+        if not s: continue
+        parts.append(f'<span style="color:{color};">{p}</span> <b>{s["score"]:,.0f}</b>')
+    if not parts:
+        return ""
+    return f'<div class="wm-win-size">{" &middot; ".join(parts)}</div>'
+
 def render_score_percentile_block(stats):
     if not stats:
         return ""
@@ -1113,6 +1069,11 @@ body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
 .tg-bar-fill { height:10px; border-radius:10px; background:#db5049; }
 .tg-score-note { font-size:18px; margin:0 0 7px 0; white-space: nowrap; }
 .tg-score-note small { color:#444; }
+.tg-score-line { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; }
+.tg-pct-wrap { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; margin-left:auto; }
+.tg-pct-bar { display:inline-block; width:46px; height:8px; background:rgba(0,0,0,0.15); border-radius:6px; overflow:hidden; }
+.tg-pct-fill { display:block; height:100%; border-radius:6px; }
+.tg-pct-val { font-size:12px; font-weight:700; width:30px; text-align:right; }
 </style>
 """
 
@@ -1810,18 +1771,51 @@ def get_ordinal(n):
 
 def leader_color(l): return "#221e8f" if l == "Michael" else ("#8a005c" if l == "Sarah" else "#999")
 
+def render_stop_badge(player, tip):
+    """A "streak ended" badge, colored by whose streak it was — an inline SVG
+    octagon rather than the 🛑 emoji, since emoji glyphs render in their own
+    fixed color and ignore CSS `color` entirely, which an emoji can't do."""
+    color = leader_color(player)
+    return (f'<span class="fc-section-badge" style="color:{color};" title="{tip}">'
+            f'<svg viewBox="0 0 24 24" width="19" height="19">'
+            f'<path fill="currentColor" d="M8.5 2h7L21 7.5v9L15.5 22h-7L3 16.5v-9L8.5 2z"/>'
+            f'<rect x="11" y="6.5" width="2" height="7" rx="1" fill="white"/>'
+            f'<circle cx="12" cy="16.5" r="1.25" fill="white"/></svg></span>')
+
+def new_pb_badge_html(cur, prev_block):
+    """The "New Personal Best" badge every streak/run block shows the first
+    time a length is ever reached (times_reached == 1) — also says what the
+    old record was, when it spanned, and by how much it just got beaten,
+    when there was a previous record to beat (prev_block is None for the
+    very first streak of its kind, nothing to compare against yet)."""
+    if not prev_block:
+        sub = ""
+    else:
+        prev_best = prev_block['len']
+        start, end = prev_block.get('start_date'), prev_block.get('date')
+        span = ""
+        if pd.notna(start) and pd.notna(end):
+            s_str = start.strftime('%b %d, %Y').replace(' 0', ' ')
+            if start == end:
+                span = f" &middot; {s_str}"
+            else:
+                e_str = end.strftime('%b %d, %Y').replace(' 0', ' ')
+                span = f" &middot; {s_str} &ndash; {e_str}"
+        sub = f'<div class="ws-badge-sub">Old record was <b>{prev_best}</b>{span} &middot; beaten by <b>+{cur - prev_best}</b></div>'
+    return f'<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span>{sub}</div>'
+
 def render_momentum_box(df, window, label):
     """A rolling-average momentum box: yesterday's reading, today's shift,
     and where that leaves the average — front and center — then how many
     days running the same player has held that average, and the swing still
     needed to flip it."""
     if len(df) < window:
-        return f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div><div class="fc-mom-empty">Not enough data</div></div>'
+        return f'<div class="fc-mom-box"><div class="fc-section-title-row"><span class="fc-mom-label">{label}</span></div><div class="fc-mom-empty">Not enough data</div></div>'
 
     roll = df["Score Diff"].rolling(window=window).mean()
     r = roll.iloc[-1]
     if pd.isna(r):
-        return f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div><div class="fc-mom-empty">Not enough data</div></div>'
+        return f'<div class="fc-mom-box"><div class="fc-section-title-row"><span class="fc-mom-label">{label}</span></div><div class="fc-mom-empty">Not enough data</div></div>'
 
     leader = get_leader_state(r)
     color = leader_color(leader)
@@ -1846,8 +1840,10 @@ def render_momentum_box(df, window, label):
         shift_html = f'<div class="mom-avg-val" style="color:{color};">{abs(r):,.0f}</div><div class="mom-avg-unit">avg lead (first reading)</div>'
 
     # If the leader changed today, flag it and say how long the run that
-    # just ended lasted — same story the Momentum feed tells, surfaced here.
-    flip_html = ""
+    # just ended lasted — same story the Momentum feed tells, surfaced here
+    # as a badge next to the window label (not a bubble in the body) so it
+    # never adds height and knocks the Total/Geo/Time cards out of alignment.
+    flip_badge_html = ""
     if pd.notna(prev_r):
         prev_leader = get_leader_state(prev_r)
         if prev_leader != leader:
@@ -1859,14 +1855,15 @@ def render_momentum_box(df, window, label):
             if prev_leader == "Tie":
                 flip_text = f"broke a {run_len}-{unit} tie"
             elif leader == "Tie":
-                flip_text = f"ended {prev_leader}'s {run_len}-{unit} run &mdash; now tied"
+                flip_text = f"ended {prev_leader}&#39;s {run_len}-{unit} run — now tied"
             else:
-                flip_text = f"ended {prev_leader}'s {run_len}-{unit} run"
-            flip_html = f'<div class="mom-flip-bubble">\U0001f504 Flipped &middot; {flip_text}</div>'
+                flip_text = f"ended {prev_leader}&#39;s {run_len}-{unit} run"
+            flip_badge_html = f'<span class="fc-section-badge fc-badge-emoji" title="Flipped · {flip_text}">\U0001f504</span>'
+    label_row = f'<div class="fc-section-title-row"><span class="fc-mom-label">{label}</span>{flip_badge_html}</div>'
 
     if leader == "Tie":
-        return (f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div>'
-                f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>{shift_html}{flip_html}</div>')
+        return (f'<div class="fc-mom-box">{label_row}'
+                f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>{shift_html}</div>')
 
     # How many consecutive most-recent days this same player has led the
     # rolling average — walk backward from today until the leader changes.
@@ -1888,23 +1885,101 @@ def render_momentum_box(df, window, label):
     else:
         swing_val, swing_lbl = f"&lt;{abs(b):,.0f}", f"{opponent} loss flips it"
 
-    return (f'<div class="fc-mom-box"><div class="fc-mom-label">{label}</div>'
+    return (f'<div class="fc-mom-box">{label_row}'
             f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>'
-            f'{shift_html}{flip_html}'
+            f'{shift_html}'
             f'<div class="mom-stats-row">'
             f'<div class="mom-stat"><div class="mom-stat-val">{days_controlled}d</div><div class="mom-stat-lbl">Controlled</div></div>'
             f'<div class="mom-stat"><div class="mom-stat-val" style="color:{opp_color};">{swing_val}</div><div class="mom-stat-lbl">{swing_lbl}</div></div>'
             f'</div></div>')
 
+def render_rolling_avg_run_block(df, window, label):
+    """The Win Streak block's exact treatment (flame + big count + player,
+    then Nth-time/last-hit/PB/extended-vs-ended stats), applied to "how many
+    days running has this player held the lead in the N-game rolling
+    average" instead of "how many games running has this player won" — the
+    same days_controlled figure the momentum box shows as a small stat, but
+    with its own history (PB, how many times reached, when last reached)."""
+    if len(df) < window: return ""
+    roll = df["Score Diff"].rolling(window=window).mean()
+    dates = df["Date"]
+
+    ms, sw, cs = {"Michael": 0, "Sarah": 0}, None, 0
+    completed_blocks, prev_date = {"Michael": [], "Sarah": []}, None
+    start_date = None
+    for i in range(len(df)):
+        r = roll.iloc[i]
+        if pd.isna(r): continue
+        date = dates.iloc[i]
+        w = get_leader_state(r)
+        # A tie breaks an active streak rather than being skipped over —
+        # same convention as the Win Streak block.
+        if w == sw and w != "Tie": cs += 1
+        else:
+            if sw and sw != "Tie" and cs > 0:
+                completed_blocks[sw].append({'len': cs, 'date': prev_date, 'start_date': start_date})
+            sw, cs = w, (1 if w != "Tie" else 0)
+            start_date = date if w != "Tie" else None
+        if w != "Tie" and cs > ms[w]: ms[w] = cs
+        prev_date = date
+
+    if not sw or sw == "Tie" or cs <= 0: return ""
+
+    color = "#221e8f" if sw == "Michael" else "#8a005c"
+    rec = ms[sw]
+    past_blocks = [b for b in completed_blocks[sw] if b['len'] >= cs]
+    times_reached = len(past_blocks) + 1
+    last_block = past_blocks[-1] if past_blocks else None
+
+    head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
+            f'<span class="ws-count" style="color:{color};">{cs}</span>'
+            f'<div class="ws-player-block"><span class="ws-player-name" style="color:{color};">{sw}</span>'
+            f'<span class="ws-player-label">{label} Streak</span></div></div>')
+
+    if times_reached == 1:
+        # rec (ms[sw]) already equals cs by this point — it's updated live as
+        # the current run grows — so the true previous best is the longest
+        # completed block, excluding this still-active run.
+        prev_block = max(completed_blocks[sw], key=lambda b: b['len'], default=None)
+        body = new_pb_badge_html(cs, prev_block)
+    else:
+        nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
+        last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
+        if last_block is not None and pd.notna(last_block['date']) and prev_date is not None:
+            days_ago = (prev_date - last_block['date']).days
+            since_val = "1d" if days_ago == 1 else f"{days_ago}d"
+            date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
+            last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
+                         f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
+        # Reaching this branch (times_reached > 1) means an earlier run
+        # already got this far, so cs can equal rec here but never exceed
+        # it — always a tie of the existing record, never a new one.
+        if cs >= rec:
+            pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#d35400;">Tied!</div><div class="ws-stat-lbl">Record Tied</div></div>'
+        else:
+            pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cs}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
+        end_count = sum(1 for b in past_blocks if b['len'] == cs)
+        ext_count = len(past_blocks) - end_count
+        ext_html = (f'<div class="ws-stat"><div class="ws-stat-val">'
+                    f'<span style="color:#27ae60;">{ext_count}</span><span class="ws-stat-sep">:</span>'
+                    f'<span style="color:#c0392b;">{end_count}</span></div>'
+                    f'<div class="ws-stat-lbl">Extended : Ended</div></div>')
+        body = f'<div class="ws-stats-grid">{nth_html}{last_html}{pb_html}{ext_html}</div>'
+
+    return f'<div class="fc-run-block"><div class="ws-block">{head}{body}</div></div>'
+
 def get_full_category_forecast(df, cat):
     if len(df) < 5: return None
     mom5_html = render_momentum_box(df, 5, "5-Game Avg")
     mom10_html = render_momentum_box(df, 10, "10-Game Avg")
+    mom5_run_html = render_rolling_avg_run_block(df, 5, "5-Game")
+    mom10_run_html = render_rolling_avg_run_block(df, 10, "10-Game")
 
     n_rows = len(df)
     ms, sw, cs = {"Michael": 0, "Sarah": 0}, None, 0
     completed_blocks, prev_date = {"Michael": [], "Sarah": []}, None
     broken_today = None
+    start_date = None
     for game_num, (_, r) in enumerate(df.iterrows(), start=1):
         d, date = r["Score Diff"], r["Date"]
         w = "Michael" if d > 0 else ("Sarah" if d < 0 else "Tie")
@@ -1913,25 +1988,30 @@ def get_full_category_forecast(df, cat):
         if w == sw and w != "Tie": cs += 1
         else:
             if sw and sw != "Tie" and cs > 0:
-                completed_blocks[sw].append({'len': cs, 'end_game': game_num - 1, 'date': prev_date})
+                completed_blocks[sw].append({'len': cs, 'end_game': game_num - 1, 'date': prev_date, 'start_date': start_date})
                 # Only flag it if this break happened on the most recent
                 # game — i.e. today's result is what ended yesterday's streak.
                 if game_num == n_rows: broken_today = {"player": sw, "len": cs}
             sw, cs = w, (1 if w != "Tie" else 0)
+            start_date = date if w != "Tie" else None
         if w != "Tie" and cs > ms[w]: ms[w] = cs
         prev_date = date
 
-    broken_html = ""
+    # A just-ended streak is flagged as a small badge next to the "Win
+    # Streak" section title (tooltip only) rather than a bubble in the body,
+    # so it never adds height to the card — keeps the Total/Geo/Time cards
+    # in a row lined up regardless of whether one of them happens to have a
+    # streak end today.
+    vs_broken_badge_html = ""
     if broken_today:
         bp, blen = broken_today["player"], broken_today["len"]
         # completed_blocks[bp] already includes this break (appended above),
         # so a plain count of same-length endings gives the "Nth time" directly.
         times_ended = sum(1 for b in completed_blocks[bp] if b['len'] == blen)
-        bcolor = "#221e8f" if bp == "Michael" else "#8a005c"
-        broken_html = (f'<div class="ws-broken-bubble">\U0001f6d1 <span style="color:{bcolor};">{bp}</span>\'s '
-                       f'<b>{blen}</b>-game streak ended <span class="ws-broken-nth">&middot; {get_ordinal(times_ended)} time</span></div>')
+        tip = f"{bp}&#39;s {blen}-game win streak ended · {get_ordinal(times_ended)} time"
+        vs_broken_badge_html = render_stop_badge(bp, tip)
 
-    vs_sh = broken_html
+    vs_sh = ""
     if sw and sw != "Tie" and cs > 0:
         rec = ms[sw]
         color = "#221e8f" if sw == "Michael" else "#8a005c"
@@ -1942,7 +2022,12 @@ def get_full_category_forecast(df, cat):
         past_blocks = [b for b in completed_blocks[sw] if b['len'] >= cs]
         times_reached = len(past_blocks) + 1
         last_block = past_blocks[-1] if past_blocks else None
-        is_record = cs == rec
+        # Reaching this branch at all (times_reached > 1) means some earlier
+        # completed run already got this far, so cs can equal rec here but
+        # never exceed it — a genuinely new max always has times_reached == 1
+        # and takes the "New Personal Best" branch above instead. So this is
+        # always a tie of the existing record, never a new one.
+        is_tied_record = cs == rec
 
         head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
                 f'<span class="ws-count" style="color:{color};">{cs}</span>'
@@ -1950,9 +2035,9 @@ def get_full_category_forecast(df, cat):
                 f'<span class="ws-player-label">Win Streak</span></div></div>')
 
         if times_reached == 1:
-            # Never reached this length before, so it's a new PB outright —
-            # nothing to compare it against yet.
-            body = '<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span></div>'
+            # Never reached this length before, so it's a new PB outright.
+            prev_block = max(completed_blocks[sw], key=lambda b: b['len'], default=None)
+            body = new_pb_badge_html(cs, prev_block)
         else:
             nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
             last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
@@ -1962,8 +2047,8 @@ def get_full_category_forecast(df, cat):
                 date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
                 last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
                              f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
-            if is_record:
-                pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#27ae60;">PB!</div><div class="ws-stat-lbl">New Record</div></div>'
+            if is_tied_record:
+                pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#d35400;">Tied!</div><div class="ws-stat-lbl">Record Tied</div></div>'
             else:
                 pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cs}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
             # Of the past times this length was reached, how many kept going
@@ -1980,7 +2065,7 @@ def get_full_category_forecast(df, cat):
         vs_sh += f'<div class="ws-block">{head}{body}</div>'
 
     cth = {
-        "Total Score": [{"id": ">45k", "label": ">45k", "check": lambda s: s > 45000}, {"id": ">40k", "label": ">40k", "check": lambda s: s > 40000}, {"id": "<40k", "label": "<40k", "check": lambda s: s < 40000}, {"id": "<35k", "label": "<35k", "check": lambda s: s < 35000}],
+        "Total Score": [{"id": ">42.5k", "label": ">42.5k", "check": lambda s: s > 42500}, {"id": "<42.5k", "label": "<42.5k", "check": lambda s: s < 42500}],
         "Time Score": [{"id": ">20k", "label": ">20k", "check": lambda s: s > 20000}, {"id": "<20k", "label": "<20k", "check": lambda s: s < 20000}],
         "Geography Score": [{"id": ">22.5k", "label": ">22.5k", "check": lambda s: s > 22500}, {"id": "<22.5k", "label": "<22.5k", "check": lambda s: s < 22500}]
     }
@@ -1993,6 +2078,7 @@ def get_full_category_forecast(df, cat):
         # block's completed_blocks — needed to say "Nth time" and "Last Hit"
         # for whichever run is still active, not just its current length.
         completed = {p: {t['id']: [] for t in th} for p in ["Michael", "Sarah"]}
+        run_start = {p: {t['id']: None for t in th} for p in ["Michael", "Sarah"]}
         # A run that ends on the most recent game gets flagged, same as the
         # Win Streak block's broken_today bubble.
         broken_today = {}
@@ -2006,11 +2092,13 @@ def get_full_category_forecast(df, cat):
                 sc = r[col_name]
                 for t in th:
                     tid = t['id']
-                    if t['check'](sc): crun[p][tid] += 1
+                    if t['check'](sc):
+                        if crun[p][tid] == 0: run_start[p][tid] = date
+                        crun[p][tid] += 1
                     else:
                         if crun[p][tid] > 0:
                             blen = crun[p][tid]
-                            completed[p][tid].append({'len': blen, 'date': prev_date})
+                            completed[p][tid].append({'len': blen, 'date': prev_date, 'start_date': run_start[p][tid]})
                             if blen > cmax[p][tid]: cmax[p][tid] = blen
                             if last_date is not None and date == last_date:
                                 times_ended = sum(1 for b in completed[p][tid] if b['len'] == blen)
@@ -2019,127 +2107,137 @@ def get_full_category_forecast(df, cat):
             prev_date = date
 
         acts = []
+        # Same header-badge treatment as the Win Streak block above — a run
+        # ending today never adds height to the card.
+        self_broken_badges = []
         for p in ["Michael", "Sarah"]:
             color = "#221e8f" if p == "Michael" else "#8a005c"
             for t in th:
                 tid = t['id']
                 cur, rec = crun[p][tid], cmax[p][tid]
                 broken = broken_today.get((p, tid))
-                if cur <= 0 and not broken: continue
-                tcolor = "#e67e22" if ">" in tid else "#3498db"
-
-                parts = []
                 if broken:
                     blen, times_ended = broken['len'], broken['times_ended']
-                    parts.append(f'<div class="ws-broken-bubble">\U0001f6d1 <span style="color:{color};">{p}</span>\'s '
-                                 f'<b>{blen}</b>-game {t["label"]} streak ended '
-                                 f'<span class="ws-broken-nth">&middot; {get_ordinal(times_ended)} time</span></div>')
+                    tip = f"{p}&#39;s {blen}-game {t['label']} streak ended · {get_ordinal(times_ended)} time"
+                    self_broken_badges.append(render_stop_badge(p, tip))
+                if cur <= 0: continue
+                tcolor = "#e67e22" if ">" in tid else "#3498db"
 
-                if cur > 0:
-                    blocks = completed[p][tid]
-                    past_blocks = [b for b in blocks if b['len'] >= cur]
-                    times_reached = len(past_blocks) + 1
-                    last_block = past_blocks[-1] if past_blocks else None
+                blocks = completed[p][tid]
+                past_blocks = [b for b in blocks if b['len'] >= cur]
+                times_reached = len(past_blocks) + 1
+                last_block = past_blocks[-1] if past_blocks else None
 
-                    head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
-                            f'<span class="ws-count" style="color:{tcolor};">{cur}</span>'
-                            f'<div class="ws-player-block"><span class="ws-player-name" style="color:{color};">{p}</span>'
-                            f'<span class="ws-player-label">{t["label"]} Streak</span></div></div>')
+                head = (f'<div class="ws-main"><span class="ws-flame">\U0001f525</span>'
+                        f'<span class="ws-count" style="color:{tcolor};">{cur}</span>'
+                        f'<div class="ws-player-block"><span class="ws-player-name" style="color:{color};">{p}</span>'
+                        f'<span class="ws-player-label">{t["label"]} Streak</span></div></div>')
 
-                    if times_reached == 1:
-                        # Never run this long at this threshold before — an
-                        # outright new best, nothing to compare it against yet.
-                        body = '<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span></div>'
+                if times_reached == 1:
+                    # Never run this long at this threshold before — an
+                    # outright new best.
+                    prev_block = max(blocks, key=lambda b: b['len'], default=None)
+                    body = new_pb_badge_html(cur, prev_block)
+                else:
+                    nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
+                    last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
+                    if last_block is not None and pd.notna(last_block['date']) and last_date is not None:
+                        days_ago = (last_date - last_block['date']).days
+                        since_val = "1d" if days_ago == 1 else f"{days_ago}d"
+                        date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
+                        last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
+                                     f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
+                    # As in the Win Streak block: reaching this branch means
+                    # an earlier run already got this far, so cur can equal
+                    # rec here but never exceed it — that's always a tie, not
+                    # a new record (a genuine new max takes the "New Personal
+                    # Best" branch above via times_reached == 1).
+                    if cur >= rec:
+                        pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#d35400;">Tied!</div><div class="ws-stat-lbl">Record Tied</div></div>'
                     else:
-                        nth_html = f'<div class="ws-stat"><div class="ws-stat-val">{get_ordinal(times_reached)}</div><div class="ws-stat-lbl">Time</div></div>'
-                        last_html = '<div class="ws-stat"><div class="ws-stat-val">&mdash;</div><div class="ws-stat-lbl">Last Hit</div></div>'
-                        if last_block is not None and pd.notna(last_block['date']) and last_date is not None:
-                            days_ago = (last_date - last_block['date']).days
-                            since_val = "1d" if days_ago == 1 else f"{days_ago}d"
-                            date_str = last_block['date'].strftime('%b %d, %Y').replace(' 0', ' ')
-                            last_html = (f'<div class="ws-stat"><div class="ws-stat-val">{since_val}</div>'
-                                         f'<div class="ws-stat-sub">{date_str}</div><div class="ws-stat-lbl">Last Hit</div></div>')
-                        if cur >= rec:
-                            pb_html = '<div class="ws-stat"><div class="ws-stat-val" style="color:#27ae60;">PB!</div><div class="ws-stat-lbl">New Record</div></div>'
-                        else:
-                            pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cur}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
-                        # Of the past times this length was reached, how many kept
-                        # going past it (extended) vs stopped right there (ended).
-                        end_count = sum(1 for b in past_blocks if b['len'] == cur)
-                        ext_count = len(past_blocks) - end_count
-                        ext_html = (f'<div class="ws-stat"><div class="ws-stat-val">'
-                                    f'<span style="color:#27ae60;">{ext_count}</span><span class="ws-stat-sep">:</span>'
-                                    f'<span style="color:#c0392b;">{end_count}</span></div>'
-                                    f'<div class="ws-stat-lbl">Extended : Ended</div></div>')
-                        body = f'<div class="ws-stats-grid">{nth_html}{last_html}{pb_html}{ext_html}</div>'
+                        pb_html = f'<div class="ws-stat"><div class="ws-stat-val">+{rec - cur}</div><div class="ws-stat-sub">PB is {rec}</div><div class="ws-stat-lbl">To Tie</div></div>'
+                    # Of the past times this length was reached, how many kept
+                    # going past it (extended) vs stopped right there (ended).
+                    end_count = sum(1 for b in past_blocks if b['len'] == cur)
+                    ext_count = len(past_blocks) - end_count
+                    ext_html = (f'<div class="ws-stat"><div class="ws-stat-val">'
+                                f'<span style="color:#27ae60;">{ext_count}</span><span class="ws-stat-sep">:</span>'
+                                f'<span style="color:#c0392b;">{end_count}</span></div>'
+                                f'<div class="ws-stat-lbl">Extended : Ended</div></div>')
+                    body = f'<div class="ws-stats-grid">{nth_html}{last_html}{pb_html}{ext_html}</div>'
 
-                    parts.append(f'<div class="ws-block">{head}{body}</div>')
-
-                acts.append(f'<div class="fc-run-block">{"".join(parts)}</div>')
+                acts.append(f'<div class="fc-run-block"><div class="ws-block">{head}{body}</div></div>')
         self_sh = "".join(acts)
+        self_broken_badges_html = "".join(self_broken_badges)
     else:
         self_sh = ""
+        self_broken_badges_html = ""
     return {"category": cat, "mom5_html": mom5_html, "mom10_html": mom10_html,
-            "vs_streak_html": vs_sh, "self_streak_html": self_sh}
+            "mom5_run_html": mom5_run_html, "mom10_run_html": mom10_run_html,
+            "vs_streak_html": vs_sh, "self_streak_html": self_sh,
+            "vs_broken_badge_html": vs_broken_badge_html, "self_broken_badges_html": self_broken_badges_html}
 
 FORECAST_ICONS = {"Total Score": "🏆", "Time Score": "⏱️", "Geography Score": "🌍"}
 FORECAST_BORDERS = {"Total Score": "fc-cat-total", "Time Score": "fc-cat-time", "Geography Score": "fc-cat-geo"}
 FORECAST_PREFIX = {"Total Score": "Total", "Time Score": "Time", "Geography Score": "Geography"}
 FORECAST_ORDER = ["Total Score", "Geography Score", "Time Score"]
 
-def render_score_bars_cards(bars_by_cat, highlight_cat=None):
-    """The Round Scores + Percentile bars — a per-round M/S/C comparison for
-    the selected date — shown as their own Total/Geo/Time row, placed above
-    the round recap and below the Michael/Sarah/Community boxes. Styled to
-    match those boxes: plain pastel card, a bold plain-text title, and the
-    same red "leader" outline — here given to whichever of the three has the
-    higher Michael+Sarah average percentile."""
-    cards = []
-    for cat in FORECAST_ORDER:
-        bars_html = bars_by_cat.get(cat, "")
-        if not bars_html: continue
-        ic, bc = FORECAST_ICONS.get(cat, "📊"), FORECAST_BORDERS.get(cat, "")
-        outline = ' style="border: 3px solid #db5049; box-shadow: 0 0 15px rgba(219,80,73,0.4);"' if cat == highlight_cat else ""
-        cards.append(f"""<div class="forecast-card score-card {bc}"{outline}><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{FORECAST_PREFIX.get(cat, cat)}</span></div>{bars_html}</div>""")
-    if not cards:
-        return ""
-    return f'<div class="forecast-row score-bars-row">{"".join(cards)}</div>'
-
-def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=None):
+def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=None, bars_by_cat=None):
     empty = '<div style="font-size:11px; color:#999; font-style:italic;">{}</div>'
     win_margin_by_cat = win_margin_by_cat or {}
     score_pct_by_cat = score_pct_by_cat or {}
+    bars_by_cat = bars_by_cat or {}
 
     by_cat = {f['category']: f for f in fs_list if f}
-    wins_cards, run_cards = [], []
+    wins_cards, momentum_cards, score_cards = [], [], []
     for cat in FORECAST_ORDER:
         f = by_cat.get(cat)
         if not f: continue
         ic, bc, px = FORECAST_ICONS.get(cat, "📊"), FORECAST_BORDERS.get(cat, ""), FORECAST_PREFIX.get(cat, cat)
         # Wins: the size of the win front and center, then the Win Percentile
-        # block, then the momentum averages and the active win streak — all
-        # one player measured against the other, whether over one game or a
-        # rolling window.
+        # block, then the active win streak — all in one card now.
+        # A streak ending today is flagged as a badge sitting right next to
+        # the "Win Streak" title — in line with the section it's about,
+        # instead of the card header — and never adds height, so it can't
+        # knock the Total/Geo/Time cards out of alignment.
         wm_headline_html = render_win_headline(win_margin_by_cat.get(cat))
         wm_html = render_win_margin_block(win_margin_by_cat.get(cat))
-        wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-momentum-grid">{f['mom5_html']}{f['mom10_html']}</div><div class="fc-streaks"><div class="fc-streaks-title">Win Streak</div>{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
-        # Score: each player's own percentile against their own history up
-        # top, then their active run against a fixed score threshold below —
-        # both self-comparison only, the opponent never factors in.
+        vs_badges = f'<div class="fc-section-badges">{f["vs_broken_badge_html"]}</div>' if f["vs_broken_badge_html"] else ""
+        vs_title_row = f'<div class="fc-section-title-row"><span class="fc-streaks-title">Win Streak</span>{vs_badges}</div>'
+        wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-streaks">{vs_title_row}{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
+        # Rolling Average: the 5-/10-game momentum boxes, then how many days
+        # running each window's lead has held — the same "Controlled" figure
+        # shown in the momentum box, but given the Win Streak block's full
+        # treatment (PB, Nth time reached, last hit, extended vs ended).
+        mom_runs_html = f['mom5_run_html'] + f['mom10_run_html']
+        mom_title_row = '<div class="fc-section-title-row"><span class="fc-streaks-title">Rolling Avg Streak</span></div>'
+        momentum_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Rolling Avg</span></div><div class="fc-momentum-grid">{f['mom5_html']}{f['mom10_html']}</div><div class="fc-streaks">{mom_title_row}{mom_runs_html or empty.format('No active streak.')}</div></div>""")
+        # Score: Michael's/Sarah's actual scores front and center (same spot
+        # as the Wins card's win headline), then the per-round M/S/C
+        # comparison bars, then each player's own score percentile against
+        # their own history, then their active run against a fixed score
+        # threshold — all in one card now, no separate "leader" outline on
+        # any of it.
+        sh_html = render_score_headline(score_pct_by_cat.get(cat))
+        rs_html = bars_by_cat.get(cat, "")
         sp_html = render_score_percentile_block(score_pct_by_cat.get(cat))
-        run_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Score</span></div>{sp_html}<div class="fc-streaks"><div class="fc-streaks-title">Active Score Runs</div>{f['self_streak_html'] or empty.format('No active runs.')}</div></div>""")
+        self_badges = f'<div class="fc-section-badges">{f["self_broken_badges_html"]}</div>' if f["self_broken_badges_html"] else ""
+        self_title_row = f'<div class="fc-section-title-row"><span class="fc-streaks-title">Active Score Runs</span>{self_badges}</div>'
+        score_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Score</span></div>{sh_html}{rs_html}{sp_html}<div class="fc-streaks">{self_title_row}{f['self_streak_html'] or empty.format('No active runs.')}</div></div>""")
 
     html = ('<div class="forecast-container">'
+            f'<div class="forecast-row">{"".join(score_cards)}</div>'
+            f'<div class="forecast-row">{"".join(momentum_cards)}</div>'
             f'<div class="forecast-row">{"".join(wins_cards)}</div>'
-            f'<div class="forecast-row">{"".join(run_cards)}</div>'
             '</div>')
     return html
 
-def render_round_strip(rounds):
+def render_round_strip(rounds, dom_id=None):
     """Top-of-edition table. Per round: a slim header row (dimension value +
     appearance count + Rare/New marker with rounds-since-last) sitting above 3
     score-type rows (Total, Geography, Time). Rounds ordered by number, then by
-    score type."""
+    score type. This is the whole "Round Recap" section — a single standalone
+    card, not a card nested inside another card."""
     if not rounds or not any(dr.get("tracked")
                              for rd in rounds for mr in rd["metric_rows"] for dr in mr["dims"]):
         return ""
@@ -2298,16 +2396,15 @@ def render_round_strip(rounds):
             body += f'<tr class="rt-mrow{alt}">{type_cell}{cells}</tr>'
 
     head = "".join(f'<th>{dr["label"]}</th>' for dr in dims0)
-    return (f'<div class="round-strip"><div class="round-strip-title">Round-by-Round'
-            f'<span class="rss-sub">each round, split Total &rarr; Geography &rarr; Time, across every standing</span></div>'
+    id_attr = f' id="{dom_id}"' if dom_id else ""
+    return (f'<div class="round-strip"{id_attr}>'
             f'<div class="round-table-wrap"><table class="round-table">'
             f'<thead><tr><th class="rt-round">Round</th><th class="rt-type">Score</th>{head}</tr></thead>'
             f'<tbody>{body}</tbody></table></div></div>')
 
 def render_daily_news(dt, round_list=None):
     day_id = f"day-{dt.strftime('%Y-%m-%d')}"
-    strip_html = render_round_strip(round_list or [])
-    return f"""<div class="daily-card" id="{day_id}"><div class="daily-header daily-header-end"><span class="daily-badge">Round Recap</span></div>{strip_html}</div>"""
+    return render_round_strip(round_list or [], dom_id=day_id)
 
 @st.cache_data
 def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
@@ -2383,11 +2480,10 @@ if not raw_data_all.empty:
     df_tm_asof = df_tm[df_tm["Date"] <= sel_ts]
     df_g_asof = df_g[df_g["Date"] <= sel_ts]
 
-    # Comparison bars (Round Scores / Percentile) inherently compare Michael vs
-    # Sarah — if only one of them played, there is nothing meaningful to show,
-    # so this is filled in below only once both are confirmed present.
+    # Round Scores comparison bars inherently compare Michael vs Sarah — if
+    # only one of them played, there is nothing meaningful to show, so this
+    # is filled in below only once both are confirmed present.
     bars_by_cat = {}
-    top_pct_cat = None
 
     # Win-margin stats (size of win + its percentile) per category, shown at
     # the top of each Wins card further down — computed here since df_*_asof
@@ -2493,14 +2589,12 @@ if not raw_data_all.empty:
         is_today = selected_date == datetime.date.today()
         both_played = p_state["Michael"]['has_g'] and p_state["Sarah"]['has_g']
 
-        # Round Scores / Percentile comparison bars inherently compare Michael vs
-        # Sarah — only meaningful once both have actually played.
+        # Round Scores comparison bars inherently compare Michael vs Sarah —
+        # only meaningful once both have actually played. (Percentile now
+        # lives in the Michael/Sarah/Community boxes instead, next to each
+        # score line.)
         if not date_rows.empty and both_played:
             bars_by_cat = render_score_bars(date_rows)
-            pct_by_cat = render_percentile_bars(date_rows)
-            for _cat in bars_by_cat:
-                bars_by_cat[_cat] += pct_by_cat.get(_cat, "")
-            top_pct_cat = compute_top_percentile_category(date_rows)
 
         # --- Single shared Edit toggle for the whole page (Actuals + Michael +
         # Sarah + Community), rendered at the top of the sidebar Settings panel
@@ -2754,7 +2848,7 @@ if not raw_data_all.empty:
                         my_total = row_for_stats.get(f"{p_name} Total Score") if row_for_stats is not None else None
                         other_total = row_for_stats.get(f"{other} Total Score") if row_for_stats is not None else None
                         highlight = pd.notna(my_total) and pd.notna(other_total) and my_total > other_total
-                        box_html = generate_player_html(p_name, date_rows, ["Michael", "Sarah"], highlight=highlight)
+                        box_html = generate_player_html(p_name, date_rows, ["Michael", "Sarah"], highlight=highlight, pct_data=compute_snapshot_percentiles(date_rows))
                         components_html(f'{DAILY_SNAPSHOT_CSS}{box_html}', height=450, scrolling=True)
                         continue
                     for r in range(1, 6):
@@ -2870,7 +2964,7 @@ if not raw_data_all.empty:
             # --- COMMUNITY ROUNDS ---
             with community_col:
               if community_fields_disabled:
-                box_html = generate_community_html(date_rows)
+                box_html = generate_community_html(date_rows, pct_data=compute_snapshot_percentiles(date_rows))
                 components_html(f'{DAILY_SNAPSHOT_CSS}{box_html}', height=450, scrolling=True)
               else:
                 for r in range(1, 6):
@@ -3071,11 +3165,6 @@ if not raw_data_all.empty:
         community_round_input = st.session_state.get('_comm_rounds', {})
         community_stats_input = st.session_state.get('_comm_stats', {'avg': '', 'yrs': '', 'loc': ''})
 
-        # Round Scores / Percentile cards: below the Michael / Sarah / Community boxes.
-        score_bars_html = render_score_bars_cards(bars_by_cat, top_pct_cat)
-        if score_bars_html:
-            st.markdown(score_bars_html, unsafe_allow_html=True)
-
         # --- Single shared Submit button for the whole page ---
         def _to_float_generic(s):
             s = (s or "").strip()
@@ -3231,7 +3320,7 @@ if not raw_data_all.empty:
 
     # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
     # df_t_asof/df_tm_asof/df_g_asof were already computed above, alongside sel_ts.
-    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat), unsafe_allow_html=True)
+    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat, bars_by_cat), unsafe_allow_html=True)
 
     # --- BOTTOM: Round-by-round recap for the selected date ---
     if sel_ts in sd_set:
