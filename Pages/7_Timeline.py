@@ -112,6 +112,17 @@ def _bar_color(diff):
 _yr_df = data[[col_year, "Michael Time Score", "Sarah Time Score"]].copy()
 for _c in _yr_df.columns:
     _yr_df[_c] = pd.to_numeric(_yr_df[_c], errors="coerce")
+# Fall back to the (Min)+(Max) midpoint when the exact Time Score isn't known
+# (early days only recorded the emoji-tier bounds) — same convention as
+# Daily/Year-Go, so a round contributes a best-guess value to the per-bin
+# average below instead of silently dropping out of it (pandas' .mean()
+# skips NaN, which would otherwise exclude incomplete rounds here while
+# Daily/Year-Go count them).
+for _p in ["Michael", "Sarah"]:
+    _base, _lo, _hi = f"{_p} Time Score", f"{_p} Time Score (Min)", f"{_p} Time Score (Max)"
+    if _lo in data.columns and _hi in data.columns:
+        _est = (pd.to_numeric(data[_lo], errors="coerce") + pd.to_numeric(data[_hi], errors="coerce")) / 2
+        _yr_df[_base] = _yr_df[_base].where(_yr_df[_base].notna(), _est)
 _yr_df = _yr_df.dropna(subset=[col_year])
 _yr_df[col_year] = _yr_df[col_year].astype(int)
 

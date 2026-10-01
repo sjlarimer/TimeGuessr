@@ -490,6 +490,7 @@ def get_flag_emoji(country_name):
 
 @st.cache_data
 def load_map_subdivisions(mtime):
+    import pycountry
     _ = mtime  # cache-busting key only
     path = "./Data/Custom_World_Map_New.json"
     if not os.path.exists(path):
@@ -503,7 +504,31 @@ def load_map_subdivisions(mtime):
         name = str(props.get('NAME', '')).strip()
         if iso3 and name:
             iso_to_names.setdefault(iso3, set()).add(name)
-    return {iso: sorted(names) for iso, names in iso_to_names.items() if len(names) > 1}
+
+    # A country only gets a dropdown at all once it has more than one raw
+    # shape/name — unrelated to the self-naming fix below, that's the
+    # existing bar for "there's an actual choice worth presenting" and stays
+    # exactly as it always has.
+    iso3_country_name = {}
+    result = {}
+    for iso, names in iso_to_names.items():
+        if len(names) <= 1:
+            continue
+        # Some countries carry a pseudo-subdivision standing in for "the rest
+        # of the mainland, no specific subdivision tracked" — named either
+        # after the country's own ISO3 code (Norway's "NOR", Finland's "FIN")
+        # or spelled out in full. That's exactly what leaving the Subdivision
+        # dropdown blank already means, so it's dropped from the option list
+        # here rather than offered as a selectable subdivision in its own
+        # right — blank is the only way to indicate "no subdivision" for a
+        # country like this.
+        if iso not in iso3_country_name:
+            c = pycountry.countries.get(alpha_3=iso)
+            iso3_country_name[iso] = c.name.strip().lower() if c else None
+        real_names = {n for n in names if n != iso and n.lower() != iso3_country_name[iso]}
+        if real_names:
+            result[iso] = sorted(real_names)
+    return result
 
 def country_to_iso3(country_name):
     import pycountry
@@ -2693,6 +2718,13 @@ if not raw_data_all.empty:
                 @st.fragment
                 def _actuals_editor():
                     year_data, rows = {}, {}
+                    # Every city previously typed anywhere in the Actuals
+                    # history — the City field below suggests these filtered
+                    # to whatever's typed so far, but picking one is never
+                    # required; typing a brand-new city still works.
+                    all_cities = (sorted(act_df['City'].dropna().astype(str).str.strip().unique())
+                                  if not act_df.empty and 'City' in act_df.columns else [])
+                    all_cities = [c for c in all_cities if c]
                     act_cols = st.columns(5)
                     for r in range(1, 6):
                         with act_cols[r - 1]:
@@ -2705,7 +2737,16 @@ if not raw_data_all.empty:
                             c_val = row.get('City', '')
 
                             y = st.text_input("Year", value=y_val, key=f"ay_{r}_{selected_date}", disabled=not edit_act)
-                            cit = st.text_input("City", value=c_val, key=f"acity_{r}_{selected_date}", disabled=not edit_act)
+                            # The current value might be a city that's never been
+                            # recorded anywhere else — always keep it selectable
+                            # as the default even if it's not in `all_cities`.
+                            city_options = all_cities if (not c_val or c_val in all_cities) else sorted(set(all_cities) | {c_val})
+                            c_val_idx = city_options.index(c_val) if c_val in city_options else None
+                            cit = st.selectbox(
+                                "City", city_options, index=c_val_idx,
+                                accept_new_options=True, filter_mode="prefix",
+                                key=f"acity_{r}_{selected_date}", disabled=not edit_act
+                            ) or ""
 
                             # Build country list from config; float countries matching typed city to top
                             typed_city_for_country = (cit or "").strip().lower()

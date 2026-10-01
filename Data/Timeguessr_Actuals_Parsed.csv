@@ -840,7 +840,7 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1162,4,Helsinki,,Finland,1971
 1162,5,Pearl Harbor,Hawaii,United States,1941
 1163,1,Venice,Veneto,Italy,1970
-1163,2,Kiev,,Ukraine,1961
+1163,2,Kyiv,,Ukraine,1961
 1163,3,Belfast,Northern Ireland,United Kingdom,2007
 1163,4,Seoul,,South Korea,1984
 1163,5,Philadelphia,Pennsylvania,United States,1948
@@ -1024,8 +1024,8 @@ Timeguessr Day,Timeguessr Round,City,Subdivision,Country,Year
 1216,3,New Delhi,Delhi,India,1963
 1216,4,Kampala,,Uganda,2018
 1216,5,Rome,Lazio,Italy,1960
-1217,1,Oslo,NOR,Norway,1953
+1217,1,Oslo,,Norway,1953
 1217,2,Taipei,,Taiwan,2007
-1217,3,Kiev,,Ukraine,1942
+1217,3,Kyiv,,Ukraine,1942
 1217,4,Bern,Espace Mittelland,Switzerland,1992
 1217,5,Washington DC,District of Columbia,United States,1968

@@ -129,23 +129,35 @@ data = load_timeline_data(stats_mtime)
 
 col_year = "Year"
 
+def _estimate_score(df, player, metric):
+    """A player's exact round score for `metric` ("Geography Score" or "Time
+    Score"), falling back to the (Min)+(Max) midpoint when the exact value
+    isn't known (early days only recorded the emoji-tier bounds) — the same
+    rule Daily's generate_round_updates() applies, so the two pages agree on
+    incomplete rounds instead of one counting them and the other dropping
+    them (this is what previously made them disagree on who "controls" a
+    given decade whenever the shared-rounds margin was small)."""
+    base = f"{player} {metric}"
+    exact = pd.to_numeric(df[base], errors="coerce") if base in df.columns else pd.Series(float("nan"), index=df.index)
+    lo, hi = f"{base} (Min)", f"{base} (Max)"
+    if lo in df.columns and hi in df.columns:
+        est = (pd.to_numeric(df[lo], errors="coerce") + pd.to_numeric(df[hi], errors="coerce")) / 2
+        return exact.where(exact.notna(), est)
+    return exact
+
 def _score_columns(df, mode):
-    """(michael_series, sarah_series) for the selected score mode, matching
-    the Electoral College page's own fallback: prefer the precomputed Round
-    Score column for Total, else fall back to Geography + Time."""
+    """(michael_series, sarah_series) for the selected score mode. Geography
+    and Time Score use the estimate fallback above; Total Score is always
+    that same estimated Geography + Time rather than the raw precomputed
+    Round Score column, since that column doesn't reflect the estimate."""
+    m_geo, s_geo = _estimate_score(df, "Michael", "Geography Score"), _estimate_score(df, "Sarah", "Geography Score")
+    m_time, s_time = _estimate_score(df, "Michael", "Time Score"), _estimate_score(df, "Sarah", "Time Score")
     if mode == "Total Score":
-        if "Michael Round Score" in df.columns and "Sarah Round Score" in df.columns:
-            return df["Michael Round Score"], df["Sarah Round Score"]
-        return (
-            pd.to_numeric(df["Michael Geography Score"], errors="coerce").fillna(0)
-            + pd.to_numeric(df["Michael Time Score"], errors="coerce").fillna(0),
-            pd.to_numeric(df["Sarah Geography Score"], errors="coerce").fillna(0)
-            + pd.to_numeric(df["Sarah Time Score"], errors="coerce").fillna(0),
-        )
+        return m_geo + m_time, s_geo + s_time
     elif mode == "Geography Score":
-        return df["Michael Geography Score"], df["Sarah Geography Score"]
+        return m_geo, s_geo
     else:
-        return df["Michael Time Score"], df["Sarah Time Score"]
+        return m_time, s_time
 
 # ==========================================
 # SHARED: per-year / per-decade / per-digit / grand-total Time Score rollups,
