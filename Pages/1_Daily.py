@@ -476,17 +476,20 @@ COUNTRY_ALIASES = {
     "Bosnia & Herzegovina": "Bosnia and Herzegovina",
 }
 
-def get_flag_emoji(country_name):
+def get_flag_url(country_name):
     import pycountry
-    fallback = '<img src="https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg" width="20" style="vertical-align:middle;"/>'
-    if not country_name or pd.isna(country_name): return fallback
+    fallback_url = "https://twemoji.maxcdn.com/v/latest/svg/1f1fa-1f1f3.svg"
+    if not country_name or pd.isna(country_name): return fallback_url
     name_str = COUNTRY_ALIASES.get(country_name.strip(), country_name.strip())
     try:
         country = pycountry.countries.lookup(name_str)
         code = country.alpha_2.upper()
         codepoints = "-".join([f"1f1{format(ord(c) - ord('A') + 0xE6, 'x')}" for c in code])
-        return f'<img src="https://twemoji.maxcdn.com/v/latest/svg/{codepoints}.svg" width="20" style="vertical-align:middle;"/>'
-    except LookupError: return fallback
+        return f"https://twemoji.maxcdn.com/v/latest/svg/{codepoints}.svg"
+    except LookupError: return fallback_url
+
+def get_flag_emoji(country_name):
+    return f'<img src="{get_flag_url(country_name)}" width="20" style="vertical-align:middle;"/>'
 
 @st.cache_data
 def load_map_subdivisions(mtime):
@@ -2528,6 +2531,7 @@ if not raw_data_all.empty:
 
     # --- Score Submission (Actuals + Michael / Sarah / Community, merged from
     #     the old Score Submission page) ---
+    both_played = False
     if selected_date:
         # Calculate Day
         reference_date = datetime.date(2025, 10, 28)
@@ -2682,21 +2686,28 @@ if not raw_data_all.empty:
                     actual_rounds_data[r] = {'year': y_val if valid_y else None, 'year_valid': valid_y}
 
                     if mask_actuals:
-                        flag_html = get_flag_emoji("United Nations")
+                        flag_url = get_flag_url("United Nations")
                         city_disp = sub_country = year_disp = "???"
                     else:
-                        flag_html = get_flag_emoji(c_def_raw) if c_def_raw else get_flag_emoji("United Nations")
+                        flag_url = get_flag_url(c_def_raw) if c_def_raw else get_flag_url("United Nations")
                         sub_country = c_def_raw or "—"
                         if pd.notna(s_def) and str(s_def).strip(): sub_country = f"{s_def}, {sub_country}"
                         city_disp = c_val or "—"
                         year_disp = y_val or "—"
 
-                    round_cards.append(f'''<div style="flex:1; min-width:140px; background:rgba(255,255,255,0.55); border-radius:8px; padding:10px 12px; text-align:center;">
+                    # The flag sits as a faint, oversized watermark behind the round's
+                    # text instead of a small icon of its own — a separate absolutely
+                    # positioned <img> rather than a CSS background-image so its
+                    # opacity can be lowered without also fading the card's own
+                    # background colour.
+                    round_cards.append(f'''<div style="position:relative; flex:1; min-width:140px; background:rgba(255,255,255,0.55); border-radius:8px; padding:10px 12px; text-align:center; overflow:hidden;">
+        <img src="{flag_url}" style="position:absolute; top:50%; left:50%; width:110px; height:110px; transform:translate(-50%,-50%); opacity:0.16; object-fit:cover; pointer-events:none;"/>
+        <div style="position:relative;">
         <div class="bar-section-title" style="margin-bottom:6px;">Round {r}</div>
-        <div style="font-size:1.4em; line-height:1;">{flag_html}</div>
-        <div style="font-family:'Poppins', sans-serif; font-weight:800; color:#222; font-size:15px; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{city_disp}</div>
+        <div style="font-family:'Poppins', sans-serif; font-weight:800; color:#222; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{city_disp}</div>
         <div style="font-family:'Inter', sans-serif; color:#767676; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{sub_country}</div>
-        <div style="font-family:'Poppins', sans-serif; color:#db5049; font-weight:700; font-size:12px; margin-top:5px;">📅 {year_disp}</div>
+        <div style="font-family:'Poppins', sans-serif; color:#db5049; font-weight:800; font-size:15px; margin-top:5px;">{year_disp}</div>
+        </div>
     </div>''')
 
                 # Flat pastel background, no border accent / drop shadow — matches
@@ -3357,18 +3368,23 @@ if not raw_data_all.empty:
                     st.success("Saved!")
                     st.rerun()
 
-    st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
+    # Momentum/forecast cards and the round-by-round recap all compare Michael
+    # vs Sarah, so they stay hidden until both have actually played that day —
+    # only the Actuals bar and the Michael/Sarah/Community boxes above are
+    # shown for a day with just one player's submission.
+    if both_played:
+        st.markdown('<a href="#top" class="back-to-top">↑</a>', unsafe_allow_html=True)
 
-    # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
-    # df_t_asof/df_tm_asof/df_g_asof were already computed above, alongside sel_ts.
-    st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat, bars_by_cat), unsafe_allow_html=True)
+        # --- MIDDLE: Total / Time / Geo momentum boxes, each with its M/S/C bars ---
+        # df_t_asof/df_tm_asof/df_g_asof were already computed above, alongside sel_ts.
+        st.markdown(render_forecast_section([get_full_category_forecast(df_t_asof, "Total Score"), get_full_category_forecast(df_tm_asof, "Time Score"), get_full_category_forecast(df_g_asof, "Geography Score")], win_margin_by_cat, score_pct_by_cat, bars_by_cat), unsafe_allow_html=True)
 
-    # --- BOTTOM: Round-by-round recap for the selected date ---
-    if sel_ts in sd_set:
-        round_card = render_daily_news(sel_ts, round_updates.get(sel_ts, []))
-        feed_html = f'<div class="news-container">\n{round_card}\n</div>'
-        st.markdown(feed_html, unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No round data for this date.</div></div>', unsafe_allow_html=True)
+        # --- BOTTOM: Round-by-round recap for the selected date ---
+        if sel_ts in sd_set:
+            round_card = render_daily_news(sel_ts, round_updates.get(sel_ts, []))
+            feed_html = f'<div class="news-container">\n{round_card}\n</div>'
+            st.markdown(feed_html, unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="news-container"><div style="text-align:center; padding:50px; color:#666; font-size: 18px;">No round data for this date.</div></div>', unsafe_allow_html=True)
 
 else: st.warning("Please ensure 'Timeguessr_Stats.csv' is in the 'Data' folder.")
