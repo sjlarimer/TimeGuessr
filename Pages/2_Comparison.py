@@ -635,87 +635,12 @@ def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> st
         return '-'
     return start_date if start_date == end_date else compact_date_range_str(start_date, end_date)
 
-def generate_streak_thresholds(michael_scores: pd.Series, sarah_scores: pd.Series, bin_size: int, ceiling: int) -> List[int]:
-    """Generate streak thresholds based on bin size."""
-    streak_thresholds = []
-    current_upper = ceiling
-
-    while current_upper > 0:
-        current_lower = max(current_upper - bin_size, 0)
-        
-        # Check if there's any data in this range
-        if current_upper == ceiling:
-            michael_has_data = (michael_scores >= current_lower).any()
-            sarah_has_data = (sarah_scores >= current_lower).any()
-        else:
-            michael_has_data = ((michael_scores >= current_lower) & (michael_scores < current_upper)).any()
-            sarah_has_data = ((sarah_scores >= current_lower) & (sarah_scores < current_upper)).any()
-        
-        if michael_has_data or sarah_has_data:
-            michael_all_above = (michael_scores >= current_lower).all()
-            michael_all_below = (michael_scores < current_lower).all()
-            sarah_all_above = (sarah_scores >= current_lower).all()
-            sarah_all_below = (sarah_scores < current_lower).all()
-            
-            if not ((michael_all_above and sarah_all_above) or (michael_all_below and sarah_all_below)):
-                streak_thresholds.append(current_lower)
-        
-        current_upper = current_lower
-        if current_lower == 0:
-            break
-
-    return streak_thresholds
-
 def create_streaks_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
                              michael_dates: pd.Series, sarah_dates: pd.Series,
-                             bin_size: int, date_format: str, ceiling: int, 
-                             change_threshold: int = 5000) -> str:
+                             date_format: str, change_threshold: int = 5000) -> str:
     """Create complete streaks table HTML."""
-    streak_thresholds = generate_streak_thresholds(michael_scores, sarah_scores, bin_size, ceiling)
-    
     rows = []
-    
-    # Above threshold streaks
-    for threshold in streak_thresholds:
-        michael_streak, michael_start, michael_end = calculate_streak_with_dates(
-            michael_scores.values, michael_dates, threshold, above=True, date_format=date_format)
-        sarah_streak, sarah_start, sarah_end = calculate_streak_with_dates(
-            sarah_scores.values, sarah_dates, threshold, above=True, date_format=date_format)
-        
-        label = format_bucket_label(threshold, threshold + bin_size, bin_size).replace("Scores ", "Above ")
-        if threshold % 1000 == 0:
-            label = f"Above {threshold//1000}k"
-        else:
-            label = f"Above {threshold/1000:.1f}k"
-        
-        michael_dates_str = format_streak_dates(michael_streak, michael_start, michael_end)
-        sarah_dates_str = format_streak_dates(sarah_streak, sarah_start, sarah_end)
-        
-        rows.append(create_table_row(label, str(michael_streak), str(sarah_streak), 
-                                     michael_dates_str.replace('<br/>', ' '), 
-                                     sarah_dates_str.replace('<br/>', ' '), 
-                                     date_format))
-    
-    # Below threshold streaks
-    for threshold in reversed(streak_thresholds):
-        michael_streak, michael_start, michael_end = calculate_streak_with_dates(
-            michael_scores.values, michael_dates, threshold, above=False, date_format=date_format)
-        sarah_streak, sarah_start, sarah_end = calculate_streak_with_dates(
-            sarah_scores.values, sarah_dates, threshold, above=False, date_format=date_format)
-        
-        if threshold % 1000 == 0:
-            label = f"Below {threshold//1000}k"
-        else:
-            label = f"Below {threshold/1000:.1f}k"
-        
-        michael_dates_str = format_streak_dates(michael_streak, michael_start, michael_end)
-        sarah_dates_str = format_streak_dates(sarah_streak, sarah_start, sarah_end)
-        
-        rows.append(create_table_row(label, str(michael_streak), str(sarah_streak),
-                                     michael_dates_str.replace('<br/>', ' '),
-                                     sarah_dates_str.replace('<br/>', ' '),
-                                     date_format))
-    
+
     # Cumulative average streaks
     michael_mean = michael_scores.mean()
     sarah_mean = sarah_scores.mean()
@@ -1285,14 +1210,14 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
     """Overlapping step histogram: for every integer threshold X in [x_start, ceiling],
     how many days had a score >= X (or <= X when reverse=True), where x_start is the
     nearest multiple of 5,000 at or below the combined minimum score across all series.
-    `series_list` is a list of (scores: pd.Series, name: str, color: str)."""
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
     fig = go.Figure()
 
-    non_empty = [(s, n, c) for s, n, c in series_list if len(s) > 0]
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
     if not non_empty:
         return fig
 
-    all_scores = pd.concat([s for s, _, _ in non_empty]).dropna()
+    all_scores = pd.concat([s for s, _, _, _ in non_empty]).dropna()
     x_start = max(0, int(np.floor(all_scores.min() / 5000) * 5000)) if not all_scores.empty else 0
     x_vals = np.arange(x_start, ceiling + 1, 1)
 
@@ -1309,16 +1234,35 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
         # Days with Score >= X
         return len(sorted_scores) - np.searchsorted(sorted_scores, x_vals, side='left')
 
+    def most_recent_dates(scores, dates, counts):
+        # Rank days by how soon they qualify as the threshold tightens: for ">= X" the
+        # highest scores qualify first (sort descending), for "<= X" the lowest scores
+        # qualify first (ascending). counts[i] is exactly how many ranked days qualify
+        # at x_vals[i], so a running max of date over that ranking, indexed by count,
+        # gives the most recent qualifying day at every threshold.
+        valid = scores.notna()
+        s = scores[valid].to_numpy()
+        d = pd.to_datetime(dates[valid]).to_numpy().astype('datetime64[ns]').astype('int64')
+        order = np.argsort(s) if reverse else np.argsort(-s)
+        running_max = np.maximum.accumulate(d[order])
+        result = np.full(len(x_vals), '—', dtype=object)
+        has_any = counts > 0
+        recent_ts = pd.to_datetime(running_max[counts[has_any] - 1])
+        result[has_any] = recent_ts.strftime('%b %d, %Y')
+        return result
+
     op_symbol = '≤' if reverse else '≥'
 
-    for scores, name, color in non_empty:
+    for scores, dates, name, color in non_empty:
         if len(scores) > 0:
             counts = day_counts(scores)
+            recent_dates = most_recent_dates(scores, dates, counts)
             sorted_scores = np.sort(scores.dropna().to_numpy())
             total = len(sorted_scores)
             # Percentile rank of the threshold itself (% of days at or below X) —
             # a stable definition independent of which direction is being plotted.
             percentile = np.searchsorted(sorted_scores, x_vals, side='right') / total * 100
+            customdata = np.stack([percentile.astype(object), recent_dates], axis=1)
             fig.add_trace(go.Scatter(
                 x=x_vals,
                 y=counts,
@@ -1327,8 +1271,9 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
                 line=dict(color=color, width=3, shape='hv'),
                 fill='tozeroy',
                 fillcolor=hex_to_rgba(color, 0.4),
-                customdata=percentile,
-                hovertemplate=f'{label} {op_symbol} ' + '%{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata:.1f}<extra></extra>'
+                customdata=customdata,
+                hovertemplate=(f'{label} {op_symbol} ' + '%{x:,.0f}<br>Days: %{y}<br>Percentile: %{customdata[0]:.1f}'
+                                '<br>Most Recent: %{customdata[1]}<extra></extra>')
             ))
 
             median_val = scores.median()
@@ -1411,32 +1356,51 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
         breakpoints = np.unique(scores_arr[~np.isnan(scores_arr)])
         breakpoints = breakpoints[(breakpoints >= x_start) & (breakpoints <= ceiling)]
         if len(breakpoints) == 0:
-            return np.zeros(len(x_vals), dtype=int)
+            return np.zeros(len(x_vals), dtype=int), np.full(len(x_vals), '—', dtype=object)
 
-        f_vals = np.array([
-            calculate_streak_with_dates(scores_arr, dates, v, above=not reverse)[0]
-            for v in breakpoints
-        ])
+        if reverse:
+            # score <= v  <=>  -score >= -v, so negate both sides to reuse the
+            # inclusive >= comparison (calculate_streak_with_dates's above=False
+            # is a strict <, which would wrongly exclude days scoring exactly v).
+            streak_info = [
+                calculate_streak_with_dates(-scores_arr, dates, -v, above=True)
+                for v in breakpoints
+            ]
+        else:
+            streak_info = [
+                calculate_streak_with_dates(scores_arr, dates, v, above=True)
+                for v in breakpoints
+            ]
+        f_vals = np.array([length for length, _, _ in streak_info])
+        # calculate_streak_with_dates already picks the most recent occurrence among
+        # ties, so this is the most recent date range achieving that streak length.
+        f_ranges = np.array([
+            start if start == end else f'{start} - {end}'
+            for _, start, end in streak_info
+        ], dtype=object)
 
         result = np.zeros(len(x_vals), dtype=int)
+        range_result = np.full(len(x_vals), '—', dtype=object)
         if reverse:
             # Longest streak with score <= X is non-decreasing in X, constant at f(v) for
             # X in [v, next breakpoint) — use the largest breakpoint <= X.
             idx = np.searchsorted(breakpoints, x_vals, side='right')
             valid = idx > 0
             result[valid] = f_vals[idx[valid] - 1]
+            range_result[valid] = f_ranges[idx[valid] - 1]
         else:
             # Longest streak with score >= X is non-increasing in X, constant at f(v) for
             # X in (prev breakpoint, v] — use the smallest breakpoint >= X.
             idx = np.searchsorted(breakpoints, x_vals, side='left')
             valid = idx < len(breakpoints)
             result[valid] = f_vals[idx[valid]]
-        return result
+            range_result[valid] = f_ranges[idx[valid]]
+        return result, range_result
 
     op_symbol = '≤' if reverse else '≥'
 
     for scores, dates, name, color in non_empty:
-        y_vals = streak_curve(scores, dates)
+        y_vals, range_vals = streak_curve(scores, dates)
         fig.add_trace(go.Scatter(
             x=x_vals,
             y=y_vals,
@@ -1445,7 +1409,9 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
             line=dict(color=color, width=3, shape='hv'),
             fill='tozeroy',
             fillcolor=hex_to_rgba(color, 0.4),
-            hovertemplate=f'{label} {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days<extra></extra>'
+            customdata=range_vals,
+            hovertemplate=(f'{label} {op_symbol} ' + '%{x:,.0f}<br>Longest Streak: %{y} days'
+                            '<br>Most Recent: %{customdata}<extra></extra>')
         ))
 
     fig.update_layout(
@@ -2079,10 +2045,6 @@ def self_generate_buckets(time_scores: pd.Series, geo_scores: pd.Series,
     return buckets
 
 
-def self_generate_streak_thresholds(bin_size: int, ceiling: int) -> List[int]:
-    return list(range(ceiling, 0, -bin_size))
-
-
 def self_create_scores_stats_table(time_scores: pd.Series, geo_scores: pd.Series,
                                     time_dates: pd.Series, geo_dates: pd.Series,
                                     bin_size: int, ceiling: int,
@@ -2135,41 +2097,8 @@ def self_create_scores_stats_table(time_scores: pd.Series, geo_scores: pd.Series
 
 def self_create_scores_streaks_table(time_scores: pd.Series, geo_scores: pd.Series,
                                       time_dates: pd.Series, geo_dates: pd.Series,
-                                      bin_size: int, ceiling: int,
                                       date_format: str = "%b %d, %Y", change_threshold: int = 5000) -> str:
-    thresholds = self_generate_streak_thresholds(bin_size, ceiling)
     rows = []
-    for threshold in thresholds:
-        if len(time_scores) > 0 and (time_scores >= threshold).all() and len(geo_scores) > 0 and (geo_scores >= threshold).all():
-            continue
-        t_s = t_st = t_en = g_s = g_st = g_en = 0, "", ""
-        if len(time_scores) > 0:
-            t_s, t_st, t_en = calculate_streak_with_dates(time_scores.values, time_dates, threshold, above=True, date_format=date_format)
-        else:
-            t_s, t_st, t_en = 0, "", ""
-        if len(geo_scores) > 0:
-            g_s, g_st, g_en = calculate_streak_with_dates(geo_scores.values, geo_dates, threshold, above=True, date_format=date_format)
-        else:
-            g_s, g_st, g_en = 0, "", ""
-        if t_s == 0 and g_s == 0:
-            continue
-        label = f"Above {threshold//1000}k" if threshold % 1000 == 0 else f"Above {threshold/1000:.1f}k"
-        rows.append(self_create_table_row(label, str(t_s), str(g_s),
-                                          format_streak_dates(t_s, t_st, t_en).replace('<br/>', ' '),
-                                          format_streak_dates(g_s, g_st, g_en).replace('<br/>', ' '), date_format))
-    for threshold in reversed(thresholds):
-        if len(time_scores) > 0 and (time_scores < threshold).all() and len(geo_scores) > 0 and (geo_scores < threshold).all():
-            continue
-        t_s, t_st, t_en = (calculate_streak_with_dates(time_scores.values, time_dates, threshold, above=False, date_format=date_format)
-                            if len(time_scores) > 0 else (0, "", ""))
-        g_s, g_st, g_en = (calculate_streak_with_dates(geo_scores.values, geo_dates, threshold, above=False, date_format=date_format)
-                            if len(geo_scores) > 0 else (0, "", ""))
-        if t_s == 0 and g_s == 0:
-            continue
-        label = f"Below {threshold//1000}k" if threshold % 1000 == 0 else f"Below {threshold/1000:.1f}k"
-        rows.append(self_create_table_row(label, str(t_s), str(g_s),
-                                          format_streak_dates(t_s, t_st, t_en).replace('<br/>', ' '),
-                                          format_streak_dates(g_s, g_st, g_en).replace('<br/>', ' '), date_format))
     t_a, t_as, t_ae = (calculate_cumulative_avg_streak(time_scores, time_dates, above=True, date_format=date_format)
                         if len(time_scores) > 0 else (0, "", ""))
     g_a, g_as, g_ae = (calculate_cumulative_avg_streak(geo_scores, geo_dates, above=True, date_format=date_format)
@@ -2753,8 +2682,13 @@ if comp_type == 'Cross':
         col1, col2 = st.columns(2)
         with col1:
             st.plotly_chart(create_cumulative_histogram(
-                [(michael_scores, 'Michael', COLORS['michael']), (sarah_scores, 'Sarah', COLORS['sarah'])], ceiling
+                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling
             ), use_container_width=True, key="cumulative_histogram_chart")
+            st.plotly_chart(create_cumulative_histogram(
+                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=True
+            ), use_container_width=True, key="cumulative_histogram_chart_reverse")
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(create_stats_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
                                                 bin_size, date_format, ceiling), unsafe_allow_html=True)
@@ -2766,9 +2700,13 @@ if comp_type == 'Cross':
                 [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
                  (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling
             ), use_container_width=True, key="streak_score_histogram_chart")
+            st.plotly_chart(create_streak_score_histogram(
+                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=True
+            ), use_container_width=True, key="streak_score_histogram_chart_reverse")
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(create_streaks_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
-                                                  bin_size, date_format, ceiling, change_threshold),
+                                                  date_format, change_threshold),
                         unsafe_allow_html=True)
 
     else:
@@ -2800,6 +2738,8 @@ if comp_type == 'Cross':
         # days matters, not their order.
         michael_margins = margin_original.loc[margin_original["Score Diff"] > 0, "Score Diff"]
         sarah_margins = -margin_original.loc[margin_original["Score Diff"] < 0, "Score Diff"]
+        michael_margin_dates = margin_original.loc[michael_margins.index, "Date"]
+        sarah_margin_dates = margin_original.loc[sarah_margins.index, "Date"]
 
         # The streak histogram needs actual day-to-day adjacency, so it can't use
         # the win-only series above (that silently skips every day the OTHER
@@ -2830,7 +2770,8 @@ if comp_type == 'Cross':
         mcol1, mcol2 = st.columns(2)
         with mcol1:
             st.plotly_chart(create_cumulative_histogram(
-                [(michael_margins, 'Michael', COLORS['michael']), (sarah_margins, 'Sarah', COLORS['sarah'])],
+                [(michael_margins, michael_margin_dates, 'Michael', COLORS['michael']),
+                 (sarah_margins, sarah_margin_dates, 'Sarah', COLORS['sarah'])],
                 margin_ceiling, label="Margin"
             ), use_container_width=True, key="margin_cumulative_histogram_chart")
         with mcol2:
@@ -2912,9 +2853,15 @@ else:
         col1, col2 = st.columns(2)
         with col1:
             st.plotly_chart(create_cumulative_histogram(
-                [(time_scores_clean, 'Time', COLORS['time']), (geo_scores_clean, 'Geography', COLORS['geography'])],
+                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
+                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])],
                 streak_ceiling
             ), use_container_width=True, key="self_cumulative_histogram_chart")
+            st.plotly_chart(create_cumulative_histogram(
+                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
+                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])],
+                streak_ceiling, reverse=True
+            ), use_container_width=True, key="self_cumulative_histogram_chart_reverse")
             st.markdown(self_create_scores_stats_table(
                 time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
                 bin_size=bin_size, ceiling=streak_ceiling
@@ -2928,10 +2875,14 @@ else:
                 [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
                  (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])], streak_ceiling
             ), use_container_width=True, key="self_streak_score_histogram_chart")
+            st.plotly_chart(create_streak_score_histogram(
+                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
+                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])], streak_ceiling, reverse=True
+            ), use_container_width=True, key="self_streak_score_histogram_chart_reverse")
             st.subheader("Score Streaks")
             st.markdown(self_create_scores_streaks_table(
                 time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
-                bin_size=bin_size, ceiling=streak_ceiling, change_threshold=change_threshold
+                change_threshold=change_threshold
             ), unsafe_allow_html=True)
 
     else:

@@ -48,40 +48,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-_YG_HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">'
-
 with st.sidebar:
     st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
-
-    _win_mode_cur = st.session_state.get('yg_win', 'Simple')
-    _wc1, _wc2 = st.columns(2)
-    with _wc1:
-        if st.button("Simple", key="yg_btn_simple", use_container_width=True,
-                     type="primary" if _win_mode_cur == "Simple" else "secondary"):
-            st.session_state['yg_win'] = 'Simple'
-            st.rerun()
-    with _wc2:
-        if st.button("Count", key="yg_btn_count", use_container_width=True,
-                     type="primary" if _win_mode_cur == "Count" else "secondary"):
-            st.session_state['yg_win'] = 'Count'
-            st.rerun()
-
-    st.markdown(_YG_HR, unsafe_allow_html=True)
-
-    _game_mode_cur = st.session_state.get('yg_mode', 'Regular')
-    _mc1, _mc2 = st.columns(2)
-    with _mc1:
-        if st.button("Regular", key="yg_btn_regular", use_container_width=True,
-                     type="primary" if _game_mode_cur == "Regular" else "secondary"):
-            st.session_state['yg_mode'] = 'Regular'
-            st.rerun()
-    with _mc2:
-        if st.button("Bonus", key="yg_btn_bonus", use_container_width=True,
-                     type="primary" if _game_mode_cur == "Bonus" else "secondary"):
-            st.session_state['yg_mode'] = 'Bonus'
-            st.rerun()
-
-    st.markdown(_YG_HR, unsafe_allow_html=True)
 
     _score_mode_cur = st.session_state.get('yg_score', 'Time Score')
     _sc1, _sc2, _sc3 = st.columns(3)
@@ -101,8 +69,6 @@ with st.sidebar:
             st.session_state['yg_score'] = 'Time Score'
             st.rerun()
 
-win_mode = st.session_state.get('yg_win', 'Simple')
-game_mode = st.session_state.get('yg_mode', 'Regular')
 score_mode = st.session_state.get('yg_score', 'Time Score')
 _score_mode_label = {"Total Score": "total score", "Geography Score": "geography score", "Time Score": "time score"}[score_mode]
 _score_pts_label = {"Total Score": "pts", "Geography Score": "geo pts", "Time Score": "time pts"}[score_mode]
@@ -244,8 +210,8 @@ _grand_stats = {
 
 # ──────────────────────────────────────────────────────────────────────────────
 # All years (1900-2029), each classified by who scored more total points there
-# across the rounds both played (this is what decides ownership everywhere,
-# regardless of win_mode) plus a "Margin" — the actual difference between the
+# across the rounds both played (this is what decides ownership everywhere)
+# plus a "Margin" — the actual difference between the
 # two players' total summed scores for that year, used by the Year Results
 # table's Lead column.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -292,10 +258,9 @@ def _winner_of(cnt, m_sum, s_sum):
 # CONTIGUITY — the actual scoring goal for this board: the largest block of
 # same-controlled year squares that touch edge-to-edge (not diagonally).
 # Built from the 13x10 grid of year cells (row = decade, col = last digit),
-# indexed 0..12 / 0..9. In Bonus mode the decade cells (col -1), digit cells
-# (row -1), and the All-Time corner (-1,-1) join the grid too, so a block can
-# bridge two years through a header square they both touch; in Regular mode
-# those header cells are left out and never participate.
+# indexed 0..12 / 0..9. The decade cells (col -1), digit cells (row -1), and
+# the All-Time corner (-1,-1) join the grid too, so a block can bridge two
+# years through a header square they both touch.
 # ──────────────────────────────────────────────────────────────────────────────
 _grid_owner = {}
 for _, _gr in _year_df_all.iterrows():
@@ -304,35 +269,28 @@ for _, _gr in _year_df_all.iterrows():
     _gcol = (_gyr - _GRID_START) % 10
     _grid_owner[(_grow, _gcol)] = _gr["Winner"]
 
-_header_counts = {}
-if game_mode == "Bonus":
-    for _dec_row in range(_DECADE_ROWS):
-        _decade = _GRID_START + _dec_row * 10
-        if _decade in _decade_stats.index:
-            _dr = _decade_stats.loc[_decade]
-            _grid_owner[(_dec_row, -1)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
-            _header_counts[(_dec_row, -1)] = int(_dr["count"])
-        else:
-            _grid_owner[(_dec_row, -1)] = "third"
-    for _dig in range(10):
-        if _dig in _digit_stats.index:
-            _dr = _digit_stats.loc[_dig]
-            _grid_owner[(-1, _dig)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
-            _header_counts[(-1, _dig)] = int(_dr["count"])
-        else:
-            _grid_owner[(-1, _dig)] = "third"
-    _grid_owner[(-1, -1)] = _winner_of(_grand_stats["count"], _grand_stats["michael_sum"], _grand_stats["sarah_sum"])
+for _dec_row in range(_DECADE_ROWS):
+    _decade = _GRID_START + _dec_row * 10
+    if _decade in _decade_stats.index:
+        _dr = _decade_stats.loc[_decade]
+        _grid_owner[(_dec_row, -1)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
+    else:
+        _grid_owner[(_dec_row, -1)] = "third"
+for _dig in range(10):
+    if _dig in _digit_stats.index:
+        _dr = _digit_stats.loc[_dig]
+        _grid_owner[(-1, _dig)] = _winner_of(_dr["count"], _dr["michael_sum"], _dr["sarah_sum"])
+    else:
+        _grid_owner[(-1, _dig)] = "third"
+_grid_owner[(-1, -1)] = _winner_of(_grand_stats["count"], _grand_stats["michael_sum"], _grand_stats["sarah_sum"])
 
-_ALL_TIME_COUNT = int(_grand_stats["count"])
+# Flat points a block earns for touching each kind of header cell — no
+# multiplier, just addition on top of the block's real year count.
+_DECADE_POINTS = 2
+_DIGIT_POINTS = 2
+_ALL_TIME_POINTS = 4
 
-# A block earns up to three separate multipliers depending on which header
-# cells it touches — see _connected_blocks below for the formula. The flat
-# 2x for touching the All-Time corner is that same formula's own limit: a
-# block "covering" every decade (or every digit) sums to the All-Time count
-# itself, so 1 + all_time/all_time = 2.
-_ALL_TIME_MULTIPLIER = 2
-
-def _connected_blocks(grid, owner_key, header_counts=None, all_time_count=0, values=None):
+def _connected_blocks(grid, owner_key):
     """Every 4-connected (up/down/left/right) block of cells controlled by
     owner_key within `grid` (a {(row, col): owner} dict), as
     {"real", "effective", "positions"} dicts sorted by effective size,
@@ -341,33 +299,12 @@ def _connected_blocks(grid, owner_key, header_counts=None, all_time_count=0, val
     Reused for the live board and for each timeline snapshot below, so both
     agree on what counts as "contiguous".
 
-    In Bonus mode `grid` also carries header cells (decade rows at col -1,
-    digit columns at row -1, the corner at (-1,-1)) so a block can bridge
-    through them. A header cell is not itself a "year" though, so it doesn't
-    add to the block's "real" total — instead it feeds one of three
-    multipliers applied to the block's "effective" size:
-      - Decade multiplier: 1 + (sum of `header_counts` for every decade
-        header the block touches) / all_time_count — e.g. a block spanning
-        the 1950s and 1960s headers, which occurred 85 and 136 times against
-        969 all-time, multiplies by 1 + (85+136)/969.
-      - Last-digit multiplier: the same formula, summed over digit headers
-        the block touches instead.
-      - All-time multiplier: a flat 2x if the block touches the corner cell.
-    Each defaults to 1 when the block touches none of that kind of header,
-    and all three multiply together (not stack additively), rounded to the
-    nearest whole number at the end.
-
-    `header_counts` maps a header cell's (row, col) to how many rounds (both
-    played) landed in it — decade cells at col -1, digit cells at row -1 —
-    and `all_time_count` is the grand-total count those are a share of.
-    Left as None/0 outside Bonus mode, where `grid` never carries header
-    cells anyway.
-
-    `values` optionally maps a real year cell's (row, col) to how much it
-    contributes to the block's "real" total — Count mode passes each year's
-    appearance count there so a block is worth the sum of how many times its
-    years came up rather than a plain count; left as None (Simple mode) every
-    real cell is worth 1."""
+    `grid` also carries header cells (decade rows at col -1, digit columns
+    at row -1, the corner at (-1,-1)) so a block can bridge through them. A
+    header cell is not itself a "year" though, so it doesn't add to the
+    block's "real" total — instead each one touched adds flat points to the
+    block's "effective" size: +2 per decade header, +2 per digit header, +4
+    for the All-Time corner."""
     _seen = set()
     _blocks = []
     for _pos, _owner in grid.items():
@@ -376,37 +313,35 @@ def _connected_blocks(grid, owner_key, header_counts=None, all_time_count=0, val
         _stack = [_pos]
         _seen.add(_pos)
         _real = 0
-        _decade_sum = 0
-        _digit_sum = 0
+        _decade_cnt = 0
+        _digit_cnt = 0
         _corner_touched = False
         _positions = set()
         while _stack:
             _r, _c = _stack.pop()
             _positions.add((_r, _c))
             if _r >= 0 and _c >= 0:
-                _real += (values.get((_r, _c), 1) if values is not None else 1)
+                _real += 1
             elif _r == -1 and _c == -1:
                 _corner_touched = True
             elif _c == -1:
-                _decade_sum += header_counts.get((_r, _c), 0) if header_counts else 0
+                _decade_cnt += 1
             else:
-                _digit_sum += header_counts.get((_r, _c), 0) if header_counts else 0
+                _digit_cnt += 1
             for _dr, _dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 _nxt = (_r + _dr, _c + _dc)
                 if grid.get(_nxt) == owner_key and _nxt not in _seen:
                     _seen.add(_nxt)
                     _stack.append(_nxt)
-        _decade_mult = 1 + (_decade_sum / all_time_count) if (_decade_sum and all_time_count) else 1
-        _digit_mult = 1 + (_digit_sum / all_time_count) if (_digit_sum and all_time_count) else 1
-        _corner_mult = _ALL_TIME_MULTIPLIER if _corner_touched else 1
-        _effective = int(round(_real * _decade_mult * _digit_mult * _corner_mult))
+        _effective = (_real + _decade_cnt * _DECADE_POINTS + _digit_cnt * _DIGIT_POINTS
+                      + (_ALL_TIME_POINTS if _corner_touched else 0))
         _blocks.append({"real": _real, "effective": _effective, "positions": _positions})
     return sorted(_blocks, key=lambda b: b["effective"], reverse=True)
 
 def _key_cell_kind(pos):
     """"year" for a real year cell, "decade" for a decade-row header, or
     None for a digit/corner header — those are never reported as key cells,
-    only years and (in Bonus mode) decades are."""
+    only years and decades are."""
     _r, _c = pos
     if _r >= 0 and _c >= 0:
         return "year"
@@ -414,28 +349,27 @@ def _key_cell_kind(pos):
         return "decade"
     return None
 
-def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, blocks):
-    """Years (and, in Bonus mode, decades) that are load-bearing for
-    owner_key's OWN current largest block — the number shown on their
-    scoreboard card. Two kinds are reported, both requiring an actual
-    structural change (a split or a bridge), never a plain single-cell
-    edge gain/loss — see the per-section notes below for how that's
-    enforced for real years, decade headers, digit headers and the
-    All-Time corner alike, since all four are just nodes in the same
-    connectivity graph:
+def _find_key_cells(grid, owner_key, blocks):
+    """Years (and decades) that are load-bearing for owner_key's OWN current
+    largest block — the number shown on their scoreboard card. Two kinds are
+    reported, both requiring an actual structural change (a split or a
+    bridge), never a plain single-cell edge gain/loss — see the per-section
+    notes below for how that's enforced for real years, decade headers,
+    digit headers and the All-Time corner alike, since all four are just
+    nodes in the same connectivity graph:
       - "holding": a cell inside owner_key's largest block whose removal
         would actually fragment that block into separate pieces (a true
         cut vertex) — not a leaf on the block's edge, whose removal would
         only shed that one cell and leave the rest just as connected as
-        before (a real drop in size, perhaps, if it was carrying a header
-        multiplier, but not a "hold").
+        before (a real drop in size, perhaps, if it was carrying header
+        points, but not a "hold").
       - "merging": a cell owner_key does NOT control that touches 2+ of
         their existing distinct blocks — winning it would fuse those
         blocks into one, either growing the current largest (if one of
         the fused blocks was already it) or forming a new one big enough
         to replace it. A cell touching only one existing block is a plain
         extension, not a bridge, and is excluded even if it happens to
-        also flip a header multiplier.
+        also add header points.
     Either way, only reported if the resulting structural change actually
     moves owner_key's own max (a bridge that's still smaller than their
     existing largest block doesn't move their number, so it's skipped).
@@ -451,7 +385,7 @@ def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, bloc
     # cell: vacate it, re-flood, and check whether the block's OTHER cells
     # (real or header) now land in 2+ separate blocks. A single remaining
     # fragment means the cell was just a leaf on the edge — its own weight
-    # (and any header multiplier it alone carried) disappears with it, but
+    # (and any header points it alone carried) disappears with it, but
     # nothing was actually held together, so it's excluded either way.
     for _b in blocks:
         if _b["effective"] != _orig_max:
@@ -465,7 +399,7 @@ def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, bloc
                 continue
             _grid_copy = dict(grid)
             _grid_copy[_pos] = "__vacant__"
-            _new_blocks = _connected_blocks(_grid_copy, owner_key, header_counts, all_time_count, values)
+            _new_blocks = _connected_blocks(_grid_copy, owner_key)
             _fragments_touched = sum(1 for _nb in _new_blocks if _nb["positions"] & _remaining)
             if _fragments_touched < 2:
                 continue
@@ -498,7 +432,7 @@ def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, bloc
             continue
         _grid_copy = dict(grid)
         _grid_copy[_pos] = owner_key
-        _new_blocks = _connected_blocks(_grid_copy, owner_key, header_counts, all_time_count, values)
+        _new_blocks = _connected_blocks(_grid_copy, owner_key)
         _new_max = _new_blocks[0]["effective"] if _new_blocks else 0
         if _new_max - _orig_max > 0:
             _results.append({"pos": _pos, "kind": _kind, "action": "merging", "impact": _new_max - _orig_max})
@@ -510,34 +444,19 @@ def _find_key_cells(grid, owner_key, header_counts, all_time_count, values, bloc
 # "another block".
 _MIN_NOTABLE_BLOCK = 4
 
-# Count mode: each real year cell is worth its "Count" (how many rounds both
-# played landed on that year) rather than a flat 1. Built once here so the
-# live board and the "Other" totals below agree on each year's value.
-_year_appearance_grid = {}
-for _, _gr in _year_df_all.iterrows():
-    _gyr = int(_gr["Year"])
-    _year_appearance_grid[((_gyr - _GRID_START) // 10, (_gyr - _GRID_START) % 10)] = _gr["Count"]
-
-_block_values = _year_appearance_grid if win_mode == "Count" else None
-
-_michael_blocks = _connected_blocks(_grid_owner, "michael", header_counts=_header_counts, all_time_count=_ALL_TIME_COUNT, values=_block_values)
-_sarah_blocks = _connected_blocks(_grid_owner, "sarah", header_counts=_header_counts, all_time_count=_ALL_TIME_COUNT, values=_block_values)
+_michael_blocks = _connected_blocks(_grid_owner, "michael")
+_sarah_blocks = _connected_blocks(_grid_owner, "sarah")
 _MICHAEL_BLOCK = _michael_blocks[0]["effective"] if _michael_blocks else 0
 _SARAH_BLOCK = _sarah_blocks[0]["effective"] if _sarah_blocks else 0
-_michael_key_cells = _find_key_cells(_grid_owner, "michael", _header_counts, _ALL_TIME_COUNT, _block_values, _michael_blocks)
-_sarah_key_cells = _find_key_cells(_grid_owner, "sarah", _header_counts, _ALL_TIME_COUNT, _block_values, _sarah_blocks)
+_michael_key_cells = _find_key_cells(_grid_owner, "michael", _michael_blocks)
+_sarah_key_cells = _find_key_cells(_grid_owner, "sarah", _sarah_blocks)
 _michael_block_real = _michael_blocks[0]["real"] if _michael_blocks else 0
 _sarah_block_real = _sarah_blocks[0]["real"] if _sarah_blocks else 0
 
-# "Other" is whatever's left outside the (real, unmultiplied) largest block —
-# a leftover year count in Simple mode, or leftover appearance count in Count
-# mode — never the multiplied "effective" score.
-if win_mode == "Count":
-    _michael_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "michael", "Count"].sum())
-    _sarah_total_available = float(_year_df_all.loc[_year_df_all["Winner"] == "sarah", "Count"].sum())
-else:
-    _michael_total_available = _YEAR_WIN_COUNTS["michael"]
-    _sarah_total_available = _YEAR_WIN_COUNTS["sarah"]
+# "Other" is whatever's left outside the (real, header-point-free) largest
+# block — a leftover year count — never the header-boosted "effective" score.
+_michael_total_available = _YEAR_WIN_COUNTS["michael"]
+_sarah_total_available = _YEAR_WIN_COUNTS["sarah"]
 _MICHAEL_OTHER = int(round(_michael_total_available - _michael_block_real))
 _SARAH_OTHER = int(round(_sarah_total_available - _sarah_block_real))
 _michael_other_blocks = [b["effective"] for b in _michael_blocks[1:] if b["effective"] >= _MIN_NOTABLE_BLOCK]
@@ -584,24 +503,14 @@ st.markdown("""
 
 _bar_total = _TOTAL_YEARS if _TOTAL_YEARS > 0 else 1
 
-# Bonus mode's header multipliers (and Count mode's per-year weighting) make
-# "% of board" meaningless — a block's effective size can run well past the
-# actual 130 squares, or not correspond to a count of squares at all. Show it
-# instead as a share of the true ceiling for the current settings: owning
-# every year at once maxes out real (every appearance, or all 130 years) and
-# — in Bonus mode — every header multiplier simultaneously (2x decade x 2x
-# digit x 2x all-time = 8x), since owning literally everything trivially
-# wins every decade and every digit too.
-_MAX_REAL = _ALL_TIME_COUNT if win_mode == "Count" else _TOTAL_YEARS
-_MAX_MULTIPLIER = _ALL_TIME_MULTIPLIER ** 3 if game_mode == "Bonus" else 1
-_MAX_WEIGHTED_TOTAL = max(_MAX_REAL * _MAX_MULTIPLIER, 1)
+# The header points make "% of board" meaningless — a block's effective size
+# can run past the actual 130 squares. Show it instead as a share of the true
+# ceiling: owning every year at once maxes out real (all 130 years) and every
+# header cell simultaneously (13 decades + 10 digits + the all-time corner).
+_MAX_WEIGHTED_TOTAL = max(_TOTAL_YEARS + _DECADE_ROWS * _DECADE_POINTS + 10 * _DIGIT_POINTS + _ALL_TIME_POINTS, 1)
 
 def _block_pct_html(block_size):
-    if win_mode == "Count":
-        return f"{block_size / _MAX_WEIGHTED_TOTAL * 100:.1f}% of max appearances"
-    if game_mode == "Bonus":
-        return f"{block_size / _MAX_WEIGHTED_TOTAL * 100:.1f}% of max points"
-    return f"{block_size / _bar_total * 100:.1f}% of board"
+    return f"{block_size / _MAX_WEIGHTED_TOTAL * 100:.1f}% of max points"
 
 # Top bar: contiguous-block comparison, Michael vs Sarah only.
 _cb_total = (_MICHAEL_BLOCK + _SARAH_BLOCK) or 1
@@ -801,11 +710,7 @@ st.markdown(f'<div class="year-grid-card"><div class="year-grid">{"".join(_cells
 # _find_key_cells above for the exact rule.
 # ──────────────────────────────────────────────────────────────────────────────
 def _impact_label(n):
-    if win_mode == "Count":
-        return f"+{n:,} appearance" + ("s" if n != 1 else "")
-    if game_mode == "Bonus":
-        return f"+{n:,} pt" + ("s" if n != 1 else "")
-    return f"+{n:,} year" + ("s" if n != 1 else "")
+    return f"+{n:,} pt" + ("s" if n != 1 else "")
 
 def _key_chip_html(rec, player, player_name):
     _pos = rec["pos"]
@@ -900,20 +805,13 @@ else:
 # OVER TIME — same shape as the Electoral College page's EV timeline: replay
 # every round chronologically, re-run the same contiguity logic after each
 # date's rounds land, and emit a point whenever either side's largest block
-# size actually changes. In Bonus mode the plotted value is the header
-# multiplier's "points" score rather than a plain block size, so the section
-# is titled accordingly.
+# size actually changes. The plotted value is the header-boosted "points"
+# score, not a plain block size.
 # ──────────────────────────────────────────────────────────────────────────────
-if game_mode == "Bonus":
-    _over_time_title = "Points Over Time"
-elif win_mode == "Count":
-    _over_time_title = "Appearances Over Time"
-else:
-    _over_time_title = "Largest Block Over Time"
-st.markdown(f'<div class="section-header">{_over_time_title}</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Points Over Time</div>', unsafe_allow_html=True)
 
 @st.cache_data
-def calculate_year_timeline(df_json, mode, bonus, weight_by_count):
+def calculate_year_timeline(df_json, mode):
     _df = pd.read_json(io.StringIO(df_json), orient='split')
     _df['Date'] = pd.to_datetime(_df['Date'], errors='coerce')
     _df['_yr'] = pd.to_numeric(_df[col_year], errors='coerce')
@@ -927,10 +825,6 @@ def calculate_year_timeline(df_json, mode, bonus, weight_by_count):
     _m_sum, _s_sum, _cnt, _winner = {}, {}, {}, {}
 
     def _compute_winner(yr):
-        # Ownership is decided by total points scored across rounds both
-        # played, regardless of win_mode — only the per-square *weight* used
-        # below (Count mode's appearance count vs. Simple mode's flat 1)
-        # differs between modes.
         if _cnt.get(yr, 0) == 0:
             return "third"
         ms, ss = _m_sum.get(yr, 0), _s_sum.get(yr, 0)
@@ -973,32 +867,21 @@ def calculate_year_timeline(df_json, mode, bonus, weight_by_count):
             _winner[_yr] = _compute_winner(_yr)
         _last_date = _date
 
-        _grid, _values = {}, {}
+        _grid = {}
         for _yr in range(_year_lo, _year_hi):
             _w = _winner.get(_yr, "third")
             _pos = ((_yr - _GRID_START) // 10, (_yr - _GRID_START) % 10)
             _grid[_pos] = _w
-            if weight_by_count:
-                _values[_pos] = _cnt.get(_yr, 0)
 
-        _header_counts, _all_time_count = None, 0
-        if bonus:
-            _header_counts = {}
-            for _dec_row in range(_DECADE_ROWS):
-                _decade = _year_lo + _dec_row * 10
-                _dec_years = range(_decade, _decade + 10)
-                _grid[(_dec_row, -1)] = _rollup_winner(_dec_years)
-                _header_counts[(_dec_row, -1)] = sum(_cnt.get(_y, 0) for _y in _dec_years)
-            for _dig in range(10):
-                _dig_years = range(_year_lo + _dig, _year_hi, 10)
-                _grid[(-1, _dig)] = _rollup_winner(_dig_years)
-                _header_counts[(-1, _dig)] = sum(_cnt.get(_y, 0) for _y in _dig_years)
-            _grid[(-1, -1)] = _rollup_winner(range(_year_lo, _year_hi))
-            _all_time_count = sum(_cnt.values())
+        for _dec_row in range(_DECADE_ROWS):
+            _decade = _year_lo + _dec_row * 10
+            _grid[(_dec_row, -1)] = _rollup_winner(range(_decade, _decade + 10))
+        for _dig in range(10):
+            _grid[(-1, _dig)] = _rollup_winner(range(_year_lo + _dig, _year_hi, 10))
+        _grid[(-1, -1)] = _rollup_winner(range(_year_lo, _year_hi))
 
-        _block_vals = _values if weight_by_count else None
-        _m_grid_blocks = _connected_blocks(_grid, "michael", _header_counts, _all_time_count, _block_vals)
-        _s_grid_blocks = _connected_blocks(_grid, "sarah", _header_counts, _all_time_count, _block_vals)
+        _m_grid_blocks = _connected_blocks(_grid, "michael")
+        _s_grid_blocks = _connected_blocks(_grid, "sarah")
         _m_block = _m_grid_blocks[0]["effective"] if _m_grid_blocks else 0
         _s_block = _s_grid_blocks[0]["effective"] if _s_grid_blocks else 0
 
@@ -1022,7 +905,7 @@ def calculate_year_timeline(df_json, mode, bonus, weight_by_count):
     return _tl
 
 _df_json = data.to_json(orient='split', date_format='iso')
-_year_timeline = calculate_year_timeline(_df_json, score_mode, game_mode == "Bonus", win_mode == "Count")
+_year_timeline = calculate_year_timeline(_df_json, score_mode)
 
 if not _year_timeline.empty and len(_year_timeline) > 1:
     _tl = _year_timeline.copy()
@@ -1087,7 +970,7 @@ if not _year_timeline.empty and len(_year_timeline) > 1:
         yaxis=dict(
             showgrid=True, gridcolor='#ede9e4', gridwidth=1, showline=False,
             tickfont=dict(color='#696761', size=11), automargin=False,
-            title=dict(text=("Points" if game_mode == "Bonus" else "Appearances" if win_mode == "Count" else "Years"), font=dict(color='#696761', size=11)),
+            title=dict(text="Points", font=dict(color='#696761', size=11)),
             rangemode='tozero',
         ),
         hoverlabel=dict(bgcolor='white', font_size=12, bordercolor='#d9d7cc'),

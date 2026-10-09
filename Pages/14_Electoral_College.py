@@ -312,7 +312,7 @@ def calculate_state_results(df, score_mode):
 # EV Timeline
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data
-def calculate_ev_timeline(df_json, score_mode, is_tg):
+def calculate_ev_timeline(df_json, score_mode):
     """
     Returns a DataFrame with columns:
         Date, michael_votes, sarah_votes, tied_votes, third_votes, total_votes
@@ -381,19 +381,11 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
             c[state_winner.get(state, 'third')] += 1
         return c
 
-    def tally(is_tg_mode):
+    def tally():
         ev = {'michael': 0, 'sarah': 0, 'tied': 0, 'third': 0}
-        if is_tg_mode:
-            for state in ELECTORAL_VOTES:
-                mr = state_m_rounds.get(state, 0)
-                sr = state_s_rounds.get(state, 0)
-                w  = state_winner.get(state, 'third')
-                ev[w] += mr + sr
-            # Unplayed states have 0 rounds; add nothing — they just stay in 'third' with 0
-        else:
-            for state, votes in ELECTORAL_VOTES.items():
-                w = state_winner.get(state, 'third')
-                ev[w] += votes
+        for state, votes in ELECTORAL_VOTES.items():
+            w = state_winner.get(state, 'third')
+            ev[w] += votes
         return ev
 
     rows = []
@@ -433,14 +425,8 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
         for state in changed_states:
             state_winner[state] = compute_winner(state)
 
-        current_ev = tally(is_tg)
-
-        # Dynamic threshold: for TG mode, total votes = sum of rounds played so far
-        if is_tg:
-            total_so_far = sum(current_ev.values())
-            current_threshold = total_so_far // 2 + 1
-        else:
-            current_threshold = 270
+        current_ev = tally()
+        current_threshold = 270
 
         if current_ev != prev_ev:
             _sc = count_states()
@@ -474,7 +460,7 @@ def calculate_ev_timeline(df_json, score_mode, is_tg):
 # Timelapse: per-day snapshots of the full board
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data
-def build_timelapse_frames(df_json, score_mode, is_tg):
+def build_timelapse_frames(df_json, score_mode):
     """Replay US rounds chronologically, emitting one snapshot per day on which
     any round was played. Each snapshot carries the full per-state winner map so
     the choropleth and scoreboard can be redrawn for that moment in time."""
@@ -549,7 +535,7 @@ def build_timelapse_frames(df_json, score_mode, is_tg):
     return frames
 
 
-def frame_to_state_results(frame, is_tg_college):
+def frame_to_state_results(frame):
     """Turn one timelapse snapshot into a state_results-shaped DataFrame."""
     recs = []
     for stt, ev_ct in ELECTORAL_VOTES.items():
@@ -564,17 +550,14 @@ def frame_to_state_results(frame, is_tg_college):
     sr_df['abbrev']       = sr_df['State'].map(STATE_ABBREV)
     sr_df['color']        = sr_df['Winner'].map(WIN_COLORS)
     sr_df['winner_label'] = sr_df['Winner'].map(WIN_LABELS)
-    if is_tg_college:
-        sr_df['Votes'] = ((sr_df['Michael_Rounds'] + sr_df['Sarah_Rounds']).astype(int)) / 2 + 2
-    else:
-        sr_df['Votes'] = sr_df['EV'].astype(int)
+    sr_df['Votes'] = sr_df['EV'].astype(int)
     return sr_df
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared renderers (used by both the live view and the timelapse)
 # ──────────────────────────────────────────────────────────────────────────────
-def build_ev_map(state_results, is_tg_college, score_mode="Total Score"):
+def build_ev_map(state_results, score_mode="Total Score"):
     fig = go.Figure()
 
     # A state is "solid" once its all-time margin is safe by more than a single
@@ -587,7 +570,6 @@ def build_ev_map(state_results, is_tg_college, score_mode="Total Score"):
     def hover_for(row, winner_key):
         mr, sr    = int(row['Michael_Rounds']), int(row['Sarah_Rounds'])
         ms, ss    = int(row['Michael_Score']),  int(row['Sarah_Score'])
-        votes_val = int(row['Votes'])
         ev_val    = int(row['EV'])
         if winner_key == 'third':
             detail = "Not yet played"
@@ -597,8 +579,7 @@ def build_ev_map(state_results, is_tg_college, score_mode="Total Score"):
             detail = f"Michael: {ms:,} pts ({mr} rounds) · Sarah: {ss:,} pts ({sr} rounds)"
         else:
             detail = f"Sarah: {ss:,} pts ({sr} rounds) · Michael: {ms:,} pts ({mr} rounds)"
-        vote_line = (f"Rounds (votes): <b>{votes_val:,}</b>" if is_tg_college
-                     else f"Electoral Votes: <b>{ev_val}</b>")
+        vote_line = f"Electoral Votes: <b>{ev_val}</b>"
         close = ""
         if winner_key in ('michael', 'sarah'):
             close = "<br>Solid — margin beyond one round" if row['_solid'] else "<br>Leaning — margin within one round"
@@ -674,8 +655,8 @@ def build_ev_map(state_results, is_tg_college, score_mode="Total Score"):
     return fig
 
 
-def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
-                         show_popular=True, score_mode="Total Score"):
+def render_ev_scoreboard(state_results, show_popular=True, score_mode="Total Score"):
+    vote_label = "Electoral Votes"
     TOTAL_VOTES = int(state_results['Votes'].sum())
     ev = {k: int(state_results.loc[state_results['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
     threshold = TOTAL_VOTES // 2 + 1
@@ -683,9 +664,7 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
                       else 'sarah' if ev['sarah'] >= threshold
                       else None)
 
-    threshold_desc = (f"{threshold:,} {vote_label_s} needed to win · {TOTAL_VOTES:,} total"
-                      if is_tg_college else
-                      f"270 electoral votes needed to win · {TOTAL_VOTES:,} total")
+    threshold_desc = f"270 electoral votes needed to win · {TOTAL_VOTES:,} total"
 
     bar_total = TOTAL_VOTES if TOTAL_VOTES > 0 else 1
     # Split each player's EV into "solid" (margin safe by > one round) and
@@ -804,8 +783,8 @@ def render_ev_scoreboard(state_results, is_tg_college, vote_label, vote_label_s,
     return ev, TOTAL_VOTES, threshold, overall_winner
 
 
-def render_ev_legend(vote_label_s):
-    tied_label = f"Tied (no {vote_label_s} awarded)"
+def render_ev_legend():
+    tied_label = "Tied (no electoral votes awarded)"
     st.markdown(f"""
 <div class="ec-legend">
   <span class="ec-legend-item">
@@ -838,7 +817,7 @@ def _plotly_js_bundle():
     return get_plotlyjs()
 
 
-def build_timelapse_payload(frames, is_tg_college, score_mode):
+def build_timelapse_payload(frames, score_mode):
     """Flatten the frame snapshots into a compact JSON payload the browser-side
     player consumes: one map + scoreboard that it updates in place per frame.
 
@@ -869,7 +848,7 @@ def build_timelapse_payload(frames, is_tg_college, score_mode):
 
     out = []
     for i, fr in enumerate(frames):
-        sr = frame_to_state_results(fr, is_tg_college)
+        sr = frame_to_state_results(fr)
         winners = list(sr['Winner'])
         solid_flags = [is_solid(fr['states'][state_order[j]]) for j in range(len(state_order))]
         codes = [cc(winners[j], solid_flags[j]) for j in range(len(state_order))]
@@ -910,8 +889,7 @@ def build_timelapse_payload(frames, is_tg_college, score_mode):
         'frames':    out,
         'colors':    colors,
         'lean':      [light['michael'], light['sarah']],
-        'is_tg':     bool(is_tg_college),
-        'vote_label': "Rounds" if is_tg_college else "Electoral Votes",
+        'vote_label': "Electoral Votes",
         'frame_ms':  450,
     }
 
@@ -1048,7 +1026,7 @@ def render_timelapse_player(payload):
 <script>
 const D = __DATA__;
 const F = D.frames, N = F.length, C = D.colors;
-const VL = D.vote_label, IS_TG = D.is_tg;
+const VL = D.vote_label;
 
 function scale(colors){
   const n = colors.length, s = [];
@@ -1203,21 +1181,6 @@ _HR = '<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 
 with st.sidebar:
     st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
 
-    college_mode = st.session_state.get('ec_mode', 'Electoral College')
-    _mc1, _mc2 = st.columns(2)
-    with _mc1:
-        if st.button("Electoral", key="ec_btn_ec", use_container_width=True,
-                     type="primary" if college_mode == "Electoral College" else "secondary"):
-            st.session_state['ec_mode'] = 'Electoral College'
-            st.rerun()
-    with _mc2:
-        if st.button("TimeGuessr", key="ec_btn_tg", use_container_width=True,
-                     type="primary" if college_mode == "TimeGuessr College" else "secondary"):
-            st.session_state['ec_mode'] = 'TimeGuessr College'
-            st.rerun()
-
-    st.markdown(_HR, unsafe_allow_html=True)
-
     score_mode = st.session_state.get('ec_score', 'Total Score')
     _sc1, _sc2, _sc3 = st.columns(3)
     with _sc1:
@@ -1258,19 +1221,8 @@ state_results['abbrev']       = state_results['State'].map(STATE_ABBREV)
 state_results['color']        = state_results['Winner'].map(WIN_COLORS)
 state_results['winner_label'] = state_results['Winner'].map(WIN_LABELS)
 
-is_tg_college = (college_mode == "TimeGuessr College")
-if is_tg_college:
-    state_results['Votes'] = ((state_results['Michael_Rounds'] + state_results['Sarah_Rounds']).astype(int)) / 2 + 2
-    vote_label   = "Rounds"
-    vote_label_s = "rounds"
-    mode_emoji   = "⏱️"
-    mode_title   = "TimeGuessr College"
-else:
-    state_results['Votes'] = state_results['EV'].astype(int)
-    vote_label   = "Electoral Votes"
-    vote_label_s = "electoral votes"
-    mode_emoji   = "🗳️"
-    mode_title   = "Electoral College"
+state_results['Votes'] = state_results['EV'].astype(int)
+vote_label = "Electoral Votes"
 
 TOTAL_VOTES = int(state_results['Votes'].sum())
 ev = {k: int(state_results.loc[state_results['Winner'] == k, 'Votes'].sum()) for k in WIN_COLORS}
@@ -1282,7 +1234,7 @@ overall_winner = ('michael' if ev['michael'] >= threshold
 # ──────────────────────────────────────────────────────────────────────────────
 # Header
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown(f"## {mode_emoji} {mode_title}")
+st.markdown("## 🗳️ Electoral College")
 score_mode_label = {"Total Score": "total score", "Geography Score": "geography score", "Time Score": "time score"}[score_mode]
 st.markdown(
     f'<p style="color:#696761;font-size:0.87rem;margin-top:-0.4rem;margin-bottom:0.8rem;">'
@@ -1295,7 +1247,7 @@ st.markdown(
 # Timelapse controls
 # ──────────────────────────────────────────────────────────────────────────────
 df_json = filtered_data.to_json(orient='split', date_format='iso')
-frames = build_timelapse_frames(df_json, score_mode, is_tg_college)
+frames = build_timelapse_frames(df_json, score_mode)
 
 _tl_on = st.session_state.get('ec_timelapse', False)
 with st.sidebar:
@@ -1320,18 +1272,18 @@ tl_active = _tl_on
 # that changed hands, so the map no longer blinks.
 # ──────────────────────────────────────────────────────────────────────────────
 if tl_active and len(frames) >= 2:
-    render_timelapse_player(build_timelapse_payload(frames, is_tg_college, score_mode))
+    render_timelapse_player(build_timelapse_payload(frames, score_mode))
     st.stop()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Live view (up to date)
 # ──────────────────────────────────────────────────────────────────────────────
 ev, TOTAL_VOTES, threshold, overall_winner = render_ev_scoreboard(
-    state_results, is_tg_college, vote_label, vote_label_s, show_popular=True, score_mode=score_mode
+    state_results, show_popular=True, score_mode=score_mode
 )
-st.plotly_chart(build_ev_map(state_results, is_tg_college, score_mode),
+st.plotly_chart(build_ev_map(state_results, score_mode),
                 use_container_width=True, key="ec_map")
-render_ev_legend(vote_label_s)
+render_ev_legend()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EV Timeline
@@ -1340,7 +1292,7 @@ st.markdown(f'<div class="section-header">{vote_label} Over Time</div>', unsafe_
 
 # Serialize filtered_data → JSON for cache-safe passing
 df_json = filtered_data.to_json(orient='split', date_format='iso')
-timeline = calculate_ev_timeline(df_json, score_mode, is_tg_college)
+timeline = calculate_ev_timeline(df_json, score_mode)
 
 if not timeline.empty and len(timeline) > 1:
 
@@ -1402,27 +1354,11 @@ if not timeline.empty and len(timeline) > 1:
     ))
 
     # Threshold line
-    if is_tg_college and 'threshold' in tl.columns:
-        fig_tl.add_trace(go.Scatter(
-            x=tl['round_num'], y=pd.to_numeric(tl['threshold']),
-            customdata=tl['Date'],
-            mode='lines',
-            line=dict(color='#696761', width=1.5, dash='dot', shape='hv'),
-            name='Threshold',
-            hovertemplate='<b>Threshold</b>: %{y:,}<br>Round %{x:,} · %{customdata|%b %d, %Y}<extra></extra>',
-        ))
-        fig_tl.add_annotation(
-            x=int(tl['round_num'].iloc[-1]), y=float(pd.to_numeric(tl['threshold']).iloc[-1]),
-            text=f"  {int(pd.to_numeric(tl['threshold']).iloc[-1]):,} to win",
-            showarrow=False, font=dict(color='#696761', size=11, family='Arial'),
-            xanchor='left', yanchor='middle',
-        )
-    else:
-        fig_tl.add_hline(
-            y=270, line_dash='dot', line_color='#696761', line_width=1.5,
-            annotation_text='270 to win', annotation_position='right',
-            annotation_font_color='#696761', annotation_font_size=11,
-        )
+    fig_tl.add_hline(
+        y=270, line_dash='dot', line_color='#696761', line_width=1.5,
+        annotation_text='270 to win', annotation_position='right',
+        annotation_font_color='#696761', annotation_font_size=11,
+    )
 
     last_row = tl.iloc[-1]
     for player, col, yshift in [('michael', COLORS['michael'], 8), ('sarah', COLORS['sarah'], -14),
@@ -1687,10 +1623,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if is_tg_college:
-    footnote = f"TimeGuessr College · votes = rounds played per state · {TOTAL_VOTES:,} total rounds · {threshold:,} needed to win"
-else:
-    footnote = f"2024 apportionment · 538 total electoral votes · 270 needed to win · Tied states award no electoral votes"
+footnote = "2024 apportionment · 538 total electoral votes · 270 needed to win · Tied states award no electoral votes"
 
 st.markdown(
     f"<div style='margin-top:1.5rem;color:#b0a89e;font-size:0.72rem;text-align:center;'>{footnote}</div>",
