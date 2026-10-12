@@ -5,6 +5,7 @@ from background import set_random_sarah_background
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from pathlib import Path
 from typing import Tuple, List, Dict
 import time
@@ -100,11 +101,143 @@ CUSTOM_STYLES = """
             color: #3a3935 !important;
             border-color: #8f8d85 !important;
         }
-        /* Plotly chart rounded container */
+        /* Plotly chart rounded container — same border/radius/spacing as the
+           Momentum box and other HTML cards (COLORS['bg_plot'] = #d9d7cc) */
         div[data-testid="stPlotlyChart"] {
             border-radius: 12px !important;
-            border: 1px solid #e8e6da !important;
+            border: 1px solid #d9d7cc !important;
             overflow: hidden !important;
+            margin-top: 20px !important;
+        }
+        /* Cumulative Average Streak card: a real bordered container (not just
+           a plotly card) so its mode toggle + slider can sit inside the same
+           box as the chart, top-right, instead of floating above it. */
+        .st-key-cumavg_streak_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        /* The chart nested inside already has the card's own border/background,
+           so drop its separate card styling to avoid a box-in-a-box look. */
+        .st-key-cumavg_streak_box div[data-testid="stPlotlyChart"] {
+            border: none !important;
+            margin-top: 0 !important;
+        }
+        /* Combined ≥X / ≤X box: two related charts side by side in one card,
+           each keeping its own in-chart title, with an Above/Below toggle. */
+        .st-key-threshold_pair_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        .st-key-threshold_pair_box div[data-testid="stPlotlyChart"] {
+            border: none !important;
+            margin-top: 0 !important;
+        }
+        /* Compact mode toggle buttons within a card header — plain black/white,
+           overriding Streamlit's default red primary color */
+        .st-key-cumavg_streak_toggle button,
+        .st-key-threshold_pair_toggle button {
+            padding: 2px 14px !important;
+            min-height: 0 !important;
+            font-size: 12px !important;
+        }
+        .st-key-cumavg_streak_toggle button[kind="primary"],
+        .st-key-threshold_pair_toggle button[kind="primary"] {
+            background-color: #3a3935 !important;
+            color: #eae8dc !important;
+            border-color: #3a3935 !important;
+        }
+        .st-key-cumavg_streak_toggle button[kind="secondary"],
+        .st-key-threshold_pair_toggle button[kind="secondary"] {
+            background-color: #eae8dc !important;
+            color: #3a3935 !important;
+            border-color: #8f8d85 !important;
+        }
+        .st-key-cumavg_streak_toggle button[kind="secondary"]:hover,
+        .st-key-threshold_pair_toggle button[kind="secondary"]:hover {
+            background-color: #d9d7cc !important;
+            color: #3a3935 !important;
+            border-color: #696761 !important;
+        }
+        /* Any card-header slider (container key ending "_slider") — plain
+           black/white instead of Streamlit's default red track fill/thumb.
+           A single attribute-contains selector instead of one clause per
+           key, so a new "..._slider" container picks this up automatically. */
+        div[class*="st-key-"][class*="_slider"] div[data-baseweb="slider"] [role="slider"] {
+            background-color: #3a3935 !important;
+            border-color: #3a3935 !important;
+            box-shadow: none !important;
+        }
+        /* The track's filled/unfilled split is painted as a two-color
+           linear-gradient (background-image, not background-color) on this
+           specific div (identified by its inline height), so it needs its
+           own targeted override — flattened to one plain gray bar. Earlier
+           this used a broad "> div > div" selector that also (wrongly)
+           painted a gray box behind the min/max tick labels below it. */
+        div[class*="st-key-"][class*="_slider"] div[data-baseweb="slider"] div[style*="0.25rem"] {
+            background-image: none !important;
+            background-color: #c8c6bb !important;
+        }
+        div[class*="st-key-"][class*="_slider"] div[data-testid="stSliderTickBar"],
+        div[class*="st-key-"][class*="_slider"] div[data-testid="stSliderTickBar"] div {
+            background-color: transparent !important;
+        }
+        div[class*="st-key-"][class*="_slider"] div[data-testid="stSliderTickBar"] p,
+        div[class*="st-key-"][class*="_slider"] div[data-testid="stSliderThumbValue"] p {
+            color: #696761 !important;
+            background-color: transparent !important;
+        }
+        /* Main chart box — wraps the top scatter/rolling-average chart so its
+           own rolling-window slider can sit top-right, inside the same card. */
+        .st-key-main_chart_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        .st-key-main_chart_box div[data-testid="stPlotlyChart"] {
+            border: none !important;
+            margin-top: 0 !important;
+        }
+        /* Momentum box — now a real container (not raw HTML) so the games
+           slider can live inside it alongside the title/score summary. */
+        .st-key-momentum_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        /* Full-width Score Distribution box, matching the other cards */
+        .st-key-score_dist_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        .st-key-score_dist_box div[data-testid="stPlotlyChart"] {
+            border: none !important;
+            margin-top: 0 !important;
+        }
+        /* Combined Instability / Stability box: two related charts side by
+           side in one card, each keeping its own in-chart title. */
+        .st-key-stability_pair_box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eae8dc;
+            border-radius: 12px;
+            border: 1px solid #d9d7cc;
+        }
+        .st-key-stability_pair_box div[data-testid="stPlotlyChart"] {
+            border: none !important;
+            margin-top: 0 !important;
         }
     </style>
 """
@@ -402,79 +535,6 @@ def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series,
 
     return 0, "", ""
 
-def calculate_cumulative_avg_streak(scores: pd.Series, dates: pd.Series, 
-                                   above: bool = True, 
-                                   date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
-    """Calculate longest streak relative to cumulative average."""
-    if len(scores) == 0:
-        return 0, "", ""
-    
-    scores_array = scores.values if hasattr(scores, 'values') else scores
-    max_streak = 0
-    current_streak = 0
-    max_start_idx = 0
-    max_end_idx = 0
-    current_start_idx = 0
-
-    for i in range(len(scores_array)):
-        cumulative_avg = scores_array[:i+1].mean()
-        condition = (above and scores_array[i] >= cumulative_avg) or (not above and scores_array[i] < cumulative_avg)
-        
-        if condition:
-            if current_streak == 0:
-                current_start_idx = i
-            current_streak += 1
-
-            if current_streak > max_streak or (current_streak == max_streak and i > max_end_idx):
-                max_streak = current_streak
-                max_start_idx = current_start_idx
-                max_end_idx = i
-        else:
-            current_streak = 0
-
-    if max_streak > 0:
-        start_date = dates.iloc[max_start_idx].strftime(date_format)
-        end_date = dates.iloc[max_end_idx].strftime(date_format)
-        return max_streak, start_date, end_date
-
-    return 0, "", ""
-
-def calculate_score_change_streak(scores: np.ndarray, dates: pd.Series, 
-                                  threshold: float, mode: str = "change", 
-                                  date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
-    """Calculate streak based on daily score changes."""
-    if len(scores) < 2:
-        return 0, "", ""
-
-    max_streak = 0
-    current_streak = 0
-    max_start_idx = 0
-    max_end_idx = 0
-    current_start_idx = 0
-
-    for i in range(1, len(scores)):
-        diff = abs(scores[i] - scores[i - 1])
-        condition = (mode == "change" and diff >= threshold) or (mode == "stable" and diff <= threshold)
-
-        if condition:
-            if current_streak == 0:
-                current_start_idx = i - 1
-            current_streak += 1
-
-            if current_streak > max_streak or (current_streak == max_streak and i > max_end_idx):
-                max_streak = current_streak
-                max_start_idx = current_start_idx
-                max_end_idx = i
-        else:
-            current_streak = 0
-
-    if max_streak > 0:
-        start_date = dates.iloc[max_start_idx].strftime(date_format)
-        end_date = dates.iloc[max_end_idx].strftime(date_format)
-        return max_streak, start_date, end_date
-
-    return 0, "", ""
-
 def format_bucket_label(lower: int, upper: int, bin_size: int, is_top: bool = False) -> str:
     """Format bucket label based on range."""
     if is_top:
@@ -486,54 +546,30 @@ def format_bucket_label(lower: int, upper: int, bin_size: int, is_top: bool = Fa
         upper_str = f"{upper//1000}k" if upper % 1000 == 0 else f"{upper/1000:.1f}k"
         return f"Scores {lower_str}-{upper_str}"
 
-def generate_buckets(michael_scores: pd.Series, sarah_scores: pd.Series, 
-                    michael_dates: pd.Series, sarah_dates: pd.Series,
-                    bin_size: int, date_format: str, ceiling: int) -> List[Dict]:
-    """Generate score buckets with counts and dates."""
-    buckets = []
-    current_upper = ceiling
+def compute_modal_bucket(scores: pd.Series, ceiling: int, bin_size: int) -> str:
+    """Label (without the leading 'Scores ') of the bucket of width `bin_size`,
+    anchored from `ceiling` the same way `create_score_histogram` buckets its
+    bars, that contains the most scores — i.e. the tallest bar's range."""
+    scores_arr = scores.dropna().to_numpy()
+    if len(scores_arr) == 0:
+        return "-"
+    best_count = -1
+    best_label = "-"
+    for lower, upper, is_top in generate_bucket_edges(ceiling, bin_size):
+        count = int((scores_arr >= lower).sum()) if is_top else int(((scores_arr >= lower) & (scores_arr < upper)).sum())
+        if count > best_count:
+            best_count = count
+            best_label = format_bucket_label(lower, upper, bin_size, is_top)
+    return best_label.replace("Scores ", "", 1) if best_count > 0 else "-"
 
-    while current_upper > 0:
-        current_lower = max(current_upper - bin_size, 0)
-        
-        # Calculate masks
-        if current_upper == ceiling:
-            michael_mask = michael_scores >= current_lower
-            sarah_mask = sarah_scores >= current_lower
-        else:
-            michael_mask = (michael_scores >= current_lower) & (michael_scores < current_upper)
-            sarah_mask = (sarah_scores >= current_lower) & (sarah_scores < current_upper)
-        
-        michael_count = michael_mask.sum()
-        sarah_count = sarah_mask.sum()
-        
-        # Only include bucket if either player has scores in it
-        if michael_count > 0 or sarah_count > 0:
-            michael_date = michael_dates[michael_mask].max().strftime(date_format) if michael_count > 0 else '-'
-            sarah_date = sarah_dates[sarah_mask].max().strftime(date_format) if sarah_count > 0 else '-'
-            
-            label = format_bucket_label(current_lower, current_upper, bin_size, current_upper == ceiling)
-            
-            buckets.append({
-                'label': label,
-                'michael_count': michael_count,
-                'michael_date': michael_date,
-                'sarah_count': sarah_count,
-                'sarah_date': sarah_date
-            })
-        
-        current_upper = current_lower
-        if current_lower == 0:
-            break
-
-    return buckets
-
-def create_table_row(label: str, michael_val: str, sarah_val: str, 
-                    michael_date: str, sarah_date: str, date_format: str,
-                    border: bool = True, compare_values: bool = True) -> str:
+def create_table_row(label: str, michael_val: str, sarah_val: str,
+                    border: bool = True, compare_values: bool = True,
+                    michael_color: str = None, sarah_color: str = None) -> str:
     """Create HTML table row with proper styling."""
+    michael_color = michael_color or COLORS['michael']
+    sarah_color = sarah_color or COLORS['sarah']
     border_style = "border-bottom: 1px solid #d9d7cc;" if border else ""
-    
+
     # Value comparison for bolding
     michael_bold = ""
     sarah_bold = ""
@@ -545,88 +581,58 @@ def create_table_row(label: str, michael_val: str, sarah_val: str,
             sarah_bold = "font-weight: bold;" if s_val > m_val else ""
         except:
             pass
-    
-    # Date comparison for bolding
-    michael_date_bold, sarah_date_bold = get_date_bold_style(michael_date, sarah_date, date_format)
-    
+
     return f"""<tr style="{border_style}">
         <td style="padding: 8px; color: #696761;">{label}</td>
-        <td style="padding: 8px; text-align: center; color: {COLORS['michael']}; {michael_bold}">{michael_val}</td>
-        <td style="padding: 8px; text-align: center; color: {COLORS['sarah']}; {sarah_bold}">{sarah_val}</td>
-        <td style="padding: 8px; text-align: center; color: {COLORS['michael']}; font-size: 11px; {michael_date_bold}">{michael_date}</td>
-        <td style="padding: 8px; text-align: center; color: {COLORS['sarah']}; font-size: 11px; {sarah_date_bold}">{sarah_date}</td>
+        <td style="padding: 8px; text-align: center; color: {michael_color}; {michael_bold}">{michael_val}</td>
+        <td style="padding: 8px; text-align: center; color: {sarah_color}; {sarah_bold}">{sarah_val}</td>
     </tr>"""
 
 def create_stats_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
-                           michael_dates: pd.Series, sarah_dates: pd.Series,
-                           bin_size: int, date_format: str, ceiling: int) -> str:
-    """Create complete statistics table HTML."""
+                           date_format: str, title: str = "",
+                           col1_label: str = "Michael", col2_label: str = "Sarah",
+                           col1_color: str = None, col2_color: str = None) -> str:
+    """Create complete statistics table HTML. When given, `title` is rendered
+    inside the same bordered card as the table (Momentum-box style), rather
+    than as a separate header element above it. `col1_label`/`col2_label`
+    (and matching colors) let this be reused for Time vs Geography on the
+    Self page, not just Michael vs Sarah."""
+    col1_color = col1_color or COLORS['michael']
+    col2_color = col2_color or COLORS['sarah']
     # Check if we have any data
     if len(michael_scores) == 0 and len(sarah_scores) == 0:
         return "<p>No data available for the selected date range.</p>"
-    
+
     # Calculate statistics
-    michael_sum = michael_scores.sum() if len(michael_scores) > 0 else 0
-    sarah_sum = sarah_scores.sum() if len(sarah_scores) > 0 else 0
-    michael_mean = michael_scores.mean() if len(michael_scores) > 0 else 0
-    sarah_mean = sarah_scores.mean() if len(sarah_scores) > 0 else 0
     michael_std = michael_scores.std() if len(michael_scores) > 0 else 0
     sarah_std = sarah_scores.std() if len(sarah_scores) > 0 else 0
-    michael_median = michael_scores.median() if len(michael_scores) > 0 else 0
-    sarah_median = sarah_scores.median() if len(sarah_scores) > 0 else 0
-    michael_min = michael_scores.min() if len(michael_scores) > 0 else 0
-    sarah_min = sarah_scores.min() if len(sarah_scores) > 0 else 0
-    michael_max = michael_scores.max() if len(michael_scores) > 0 else 0
-    sarah_max = sarah_scores.max() if len(sarah_scores) > 0 else 0
-    
-    # Find dates (with safety checks)
-    michael_median_date = michael_dates.iloc[(michael_scores - michael_median).abs().argmin()].strftime(date_format) if len(michael_scores) > 0 else "-"
-    sarah_median_date = sarah_dates.iloc[(sarah_scores - sarah_median).abs().argmin()].strftime(date_format) if len(sarah_scores) > 0 else "-"
-    michael_min_date = michael_dates.iloc[michael_scores.argmin()].strftime(date_format) if len(michael_scores) > 0 else "-"
-    sarah_min_date = sarah_dates.iloc[sarah_scores.argmin()].strftime(date_format) if len(sarah_scores) > 0 else "-"
-    michael_max_date = michael_dates.iloc[michael_scores.argmax()].strftime(date_format) if len(michael_scores) > 0 else "-"
-    sarah_max_date = sarah_dates.iloc[sarah_scores.argmax()].strftime(date_format) if len(sarah_scores) > 0 else "-"
-    
+
     # Build rows
     rows = []
-    rows.append(create_table_row("Sum", f"{int(michael_sum):,}", f"{int(sarah_sum):,}", "-", "-", date_format))
-    rows.append(create_table_row("Mean", f"{michael_mean:.0f}", f"{sarah_mean:.0f}", "-", "-", date_format))
-    rows.append(create_table_row("Standard Deviation", f"{michael_std:.0f}", f"{sarah_std:.0f}", "-", "-", date_format))
-    rows.append(create_table_row("Max", f"{michael_max:.0f}", f"{sarah_max:.0f}", michael_max_date, sarah_max_date, date_format))
-    rows.append(create_table_row("Median", f"{michael_median:.0f}", f"{sarah_median:.0f}", michael_median_date, sarah_median_date, date_format))
-    rows.append(create_table_row("Min", f"{michael_min:.0f}", f"{sarah_min:.0f}", michael_min_date, sarah_min_date, date_format))
-    
-    # Add buckets if bin_size >= 2500 (for total scores) or bin_size >= 500 (for time scores)
-    min_bin_threshold = 500 if ceiling <= 25000 else 2500
-    if bin_size >= min_bin_threshold:
-        buckets = generate_buckets(michael_scores, sarah_scores, michael_dates, sarah_dates, bin_size, date_format, ceiling)
-        for i, bucket in enumerate(buckets):
-            is_last = i == len(buckets) - 1
-            rows.append(create_table_row(
-                bucket['label'],
-                str(bucket['michael_count']),
-                str(bucket['sarah_count']),
-                bucket['michael_date'],
-                bucket['sarah_date'],
-                date_format,
-                border=not is_last
-            ))
-    
+    rows.append(create_table_row("Standard Deviation", f"{michael_std:.0f}", f"{sarah_std:.0f}", border=False,
+                                  michael_color=col1_color, sarah_color=col2_color))
+
+    header = ""
+    if title:
+        header = (f'<h4 style="margin:0 0 10px 0;color:{COLORS["text"]};font-size:16px;'
+                  f'text-transform:uppercase;letter-spacing:1px;">{title}</h4>')
+
     return f"""
+    <div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
+    {header}
     <table class="stats-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
         <thead>
             <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
                 <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Statistic</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['michael']}; font-weight: 600;">Michael</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['sarah']}; font-weight: 600;">Sarah</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['michael']}; font-weight: 600;">Date</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['sarah']}; font-weight: 600;">Date</th>
+                <th style="padding: 10px; text-align: center; color: {col1_color}; font-weight: 600;">{col1_label}</th>
+                <th style="padding: 10px; text-align: center; color: {col2_color}; font-weight: 600;">{col2_label}</th>
             </tr>
         </thead>
         <tbody>
             {''.join(rows)}
         </tbody>
     </table>
+    </div>
     """
 
 def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> str:
@@ -635,88 +641,7 @@ def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> st
         return '-'
     return start_date if start_date == end_date else compact_date_range_str(start_date, end_date)
 
-def create_streaks_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
-                             michael_dates: pd.Series, sarah_dates: pd.Series,
-                             date_format: str, change_threshold: int = 5000) -> str:
-    """Create complete streaks table HTML."""
-    rows = []
-
-    # Cumulative average streaks
-    michael_mean = michael_scores.mean()
-    sarah_mean = sarah_scores.mean()
-    
-    michael_streak_above_avg, michael_above_start, michael_above_end = calculate_cumulative_avg_streak(
-        michael_scores, michael_dates, above=True, date_format=date_format)
-    sarah_streak_above_avg, sarah_above_start, sarah_above_end = calculate_cumulative_avg_streak(
-        sarah_scores, sarah_dates, above=True, date_format=date_format)
-    
-    michael_above_dates = format_streak_dates(michael_streak_above_avg, michael_above_start, michael_above_end)
-    sarah_above_dates = format_streak_dates(sarah_streak_above_avg, sarah_above_start, sarah_above_end)
-    
-    rows.append(create_table_row("Above Cumulative Average", str(michael_streak_above_avg), str(sarah_streak_above_avg),
-                                 michael_above_dates.replace('<br/>', ' '),
-                                 sarah_above_dates.replace('<br/>', ' '),
-                                 date_format))
-    
-    michael_streak_below_avg, michael_below_start, michael_below_end = calculate_streak_with_dates(
-        michael_scores.values, michael_dates, michael_mean, above=False, date_format=date_format)
-    sarah_streak_below_avg, sarah_below_start, sarah_below_end = calculate_streak_with_dates(
-        sarah_scores.values, sarah_dates, sarah_mean, above=False, date_format=date_format)
-    
-    michael_below_dates = format_streak_dates(michael_streak_below_avg, michael_below_start, michael_below_end)
-    sarah_below_dates = format_streak_dates(sarah_streak_below_avg, sarah_below_start, sarah_below_end)
-    
-    rows.append(create_table_row("Below Cumulative Average", str(michael_streak_below_avg), str(sarah_streak_below_avg),
-                                 michael_below_dates.replace('<br/>', ' '),
-                                 sarah_below_dates.replace('<br/>', ' '),
-                                 date_format))
-    
-    # Volatile and stable streaks
-    michael_change_streak, michael_change_start, michael_change_end = calculate_score_change_streak(
-        michael_scores.values, michael_dates, threshold=change_threshold, mode="change", date_format=date_format)
-    sarah_change_streak, sarah_change_start, sarah_change_end = calculate_score_change_streak(
-        sarah_scores.values, sarah_dates, threshold=change_threshold, mode="change", date_format=date_format)
-    
-    michael_change_dates = format_streak_dates(michael_change_streak, michael_change_start, michael_change_end)
-    sarah_change_dates = format_streak_dates(sarah_change_streak, sarah_change_start, sarah_change_end)
-    
-    rows.append(create_table_row(f"Volatile (&gt;{change_threshold} change per day)", str(michael_change_streak), str(sarah_change_streak),
-                                 michael_change_dates.replace('<br/>', ' '),
-                                 sarah_change_dates.replace('<br/>', ' '),
-                                 date_format))
-    
-    michael_stable_streak, michael_stable_start, michael_stable_end = calculate_score_change_streak(
-        michael_scores.values, michael_dates, threshold=change_threshold, mode="stable", date_format=date_format)
-    sarah_stable_streak, sarah_stable_start, sarah_stable_end = calculate_score_change_streak(
-        sarah_scores.values, sarah_dates, threshold=change_threshold, mode="stable", date_format=date_format)
-    
-    michael_stable_dates = format_streak_dates(michael_stable_streak, michael_stable_start, michael_stable_end)
-    sarah_stable_dates = format_streak_dates(sarah_stable_streak, sarah_stable_start, sarah_stable_end)
-    
-    rows.append(create_table_row(f"Stable (&lt;{change_threshold} change per day)", str(michael_stable_streak), str(sarah_stable_streak),
-                                 michael_stable_dates.replace('<br/>', ' '),
-                                 sarah_stable_dates.replace('<br/>', ' '),
-                                 date_format,
-                                 border=False))
-    
-    return f"""
-    <table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
-        <thead>
-            <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
-                <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['michael']}; font-weight: 600;">Michael</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['sarah']}; font-weight: 600;">Sarah</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['michael']}; font-weight: 600;">Date</th>
-                <th style="padding: 10px; text-align: center; color: {COLORS['sarah']}; font-weight: 600;">Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            {''.join(rows)}
-        </tbody>
-    </table>
-    """
-
-def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame, 
+def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
                         window_length: int, score_type: str = "total",
                         show_single_player_days: bool = False) -> go.Figure:
     """Create the main Plotly figure."""
@@ -966,8 +891,13 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
 
     return fig
 
-def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str, ceiling: int) -> str:
-    """Paired vertical bar chart per game showing Michael vs Sarah scores."""
+def create_momentum_html(data: pd.DataFrame, n_days: int, score_type: str) -> Tuple[str, float, float, float, float, str, str]:
+    """Paired vertical bar chart per game showing Michael vs Sarah scores, for
+    the most recent `n_days` games. Returns just the bars + date-range footer
+    (no title, no score summary, no outer card) since those are rendered as
+    real Streamlit elements inside the same bordered container by the caller
+    — along with the two totals/means/weights the caller needs for that
+    summary, so they aren't computed twice."""
 
     def hex_to_rgb(h):
         h = h.lstrip('#')
@@ -981,10 +911,9 @@ def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str
             int(c1[2] + (c2[2] - c1[2]) * factor),
         )
 
-    n_days = window_length * 4
     recent_data = data.tail(n_days).reset_index(drop=True)
     if len(recent_data) == 0:
-        return ""
+        return "", 0.0, 0.0, 0.0, 0.0, "400", "400"
 
     if score_type == "total":
         m_col, s_col = "Michael Total Score", "Sarah Total Score"
@@ -1035,135 +964,187 @@ def create_momentum_html(data: pd.DataFrame, window_length: int, score_type: str
 
     m_total = recent_data[m_col].sum()
     s_total = recent_data[s_col].sum()
+    m_mean = recent_data[m_col].mean()
+    s_mean = recent_data[s_col].mean()
     m_weight = "800" if m_total >= s_total else "400"
     s_weight = "800" if s_total > m_total else "400"
 
-    return f"""
-<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
-<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
-<h4 style="margin:0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
-Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span>
-</h4>
-<div style="font-size:12px;font-weight:600;">
-<span style="color:{COLORS['michael']};font-weight:{m_weight};">Michael: {m_total:,.0f}</span>
-<span style="color:#b0afaa;margin:0 6px;">|</span>
-<span style="color:{COLORS['sarah']};font-weight:{s_weight};">Sarah: {s_total:,.0f}</span>
-</div>
-</div>
+    html = f"""
 <div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
 {"".join(segments)}
 </div>
 <div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
 <span>{recent_data.iloc[0]['Date'].strftime('%b %d')}</span><span>{recent_data.iloc[-1]['Date'].strftime('%b %d')}</span>
-</div>
 </div>"""
+    return html, m_total, s_total, m_mean, s_mean, m_weight, s_weight
 
-def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_scores: pd.Series, ceiling: int) -> go.Figure:
-    """Create density plot figure without discrete buckets."""
+def apply_chart_title(fig: go.Figure, title: str, subtitle: str = "", top_margin: int = None) -> go.Figure:
+    """Puts a Momentum-box-style title (bold caps, plus an optional lighter
+    subtitle line for charts whose meaning isn't obvious from the title alone)
+    inside the chart's own card instead of a separate header div above it —
+    plotly titles render on the same paper_bgcolor/bordered container as the
+    plot, so title and chart end up visually as a single box, not two stacked
+    ones. The plots below Momentum otherwise have only their axis labels to
+    say what they show.
+
+    Growing margin.t alone would eat into the plot area and squeeze the
+    x-axis title off the bottom of the chart's fixed height, so the figure's
+    `height` is grown by the same amount instead — the plot area (and
+    everything below the title) keeps the size the chart function gave it."""
+    if top_margin is None:
+        top_margin = 75 if subtitle else 56
+    text = f"<b style='letter-spacing:1px'>{title.upper()}</b>"
+    if subtitle:
+        text += f"<br><span style='font-size:12px;font-weight:400;opacity:0.8;text-transform:none'>{subtitle}</span>"
+    current_margin_t = (fig.layout.margin.t if fig.layout.margin and fig.layout.margin.t is not None else 40)
+    current_height = fig.layout.height if fig.layout.height else 350
+    extra = max(top_margin - current_margin_t, 0)
+    fig.update_layout(
+        title=dict(
+            text=text,
+            x=0.03, xanchor='left', y=1, yanchor='top', pad=dict(t=16),
+            font=dict(family="Poppins, Arial, sans-serif", size=16, color=COLORS['text'])
+        ),
+        margin=dict(t=top_margin),
+        height=current_height + extra
+    )
+    return fig
+
+def generate_bucket_edges(ceiling: int, bin_size: int) -> List[Tuple[int, int, bool]]:
+    """Score buckets of width `bin_size`, anchored downward from `ceiling` (so the
+    top bucket is open-ended and a partial bucket can only occur at the bottom,
+    near 0) — the same anchoring `generate_buckets` uses for the stats table,
+    returned in ascending order as (lower, upper, is_top)."""
+    edges = []
+    current_upper = ceiling
+    while True:
+        current_lower = max(current_upper - bin_size, 0)
+        edges.append((current_lower, current_upper, current_upper == ceiling))
+        if current_lower == 0:
+            break
+        current_upper = current_lower
+    return list(reversed(edges))
+
+def create_score_histogram(series_list, ceiling: int, bin_size: int,
+                           trim_bin_size: int = None, label: str = "Score") -> go.Figure:
+    """Overlapping skyline histogram of raw score counts per bucket of width
+    `bin_size`, using the same top-down bucket anchoring as the stats table
+    below it. Drawn as a filled step line rather than discrete bars, so equal-
+    height neighboring buckets merge into one solid mass with no gap or
+    dividing line between them — only the top of each bucket and any edge
+    where the height actually changes gets a visible (solid-color) line.
+
+    The displayed x-range is trimmed to where data actually exists, but that
+    trim is computed against `trim_bin_size` (the largest bucket size offered
+    for this score type) rather than `bin_size` itself — so the axis stays in
+    the same place as the user picks a finer bucket size, instead of jumping
+    around as empty buckets shrink.
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
     fig = go.Figure()
-    
-    # Check if we have any data
-    if len(michael_scores) == 0 and len(sarah_scores) == 0:
+
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
+    if not non_empty:
         return fig
-        
-    # Calculate x-axis range
-    min_score = min(michael_scores.min() if len(michael_scores) > 0 else ceiling, 
-                    sarah_scores.min() if len(sarah_scores) > 0 else ceiling,
-                    avg_scores.min() if len(avg_scores) > 0 else ceiling)
-    
-    # Set bounds, allowing some breathing room below the minimum score
-    x_min = max(0, min_score - (ceiling * 0.05))
-    x_max = ceiling
-    x_vals = np.linspace(x_min, x_max, 500)
-    
+
     def hex_to_rgba(hex_color, alpha=0.4):
         hex_color = hex_color.lstrip('#')
         r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         return f'rgba({r},{g},{b},{alpha})'
-        
-    if len(michael_scores) > 1:
-        try:
-            kde_m = stats.gaussian_kde(michael_scores)
-            y_m = kde_m(x_vals)
+
+    all_scores = pd.concat([s for s, _, _, _ in non_empty]).dropna().to_numpy()
+    trim_edges = generate_bucket_edges(ceiling, trim_bin_size or bin_size)
+    x_start, x_end = None, None
+    for lower, upper, is_top in trim_edges:
+        count = (all_scores >= lower).sum() if is_top else ((all_scores >= lower) & (all_scores < upper)).sum()
+        if count > 0:
+            if x_start is None:
+                x_start = lower
+            x_end = upper
+    if x_start is None:
+        x_start, x_end = trim_edges[0][0], ceiling
+
+    edges = generate_bucket_edges(ceiling, bin_size)
+    edges = [e for e in edges if e[1] > x_start and e[0] < x_end] or edges
+    centers = [(lower + upper) / 2 for lower, upper, _ in edges]
+    labels = [format_bucket_label(lower, upper, bin_size, is_top) for lower, upper, is_top in edges]
+
+    # One point per bucket's lower edge plus a trailing point at the final
+    # upper edge — with shape='hv' that traces a flat top across each bucket's
+    # full span and a vertical jump only where the next bucket's count differs.
+    x_line = [lower for lower, _, _ in edges] + [edges[-1][1]]
+
+    for scores, dates, name, color in non_empty:
+        scores_arr = scores.dropna().to_numpy()
+        counts = []
+        for lower, upper, is_top in edges:
+            if is_top:
+                counts.append(int(((scores_arr >= lower)).sum()))
+            else:
+                counts.append(int(((scores_arr >= lower) & (scores_arr < upper)).sum()))
+        y_line = counts + [counts[-1]]
+
+        fig.add_trace(go.Scatter(
+            x=x_line,
+            y=y_line,
+            name=name,
+            mode='lines',
+            line=dict(color=color, width=3, shape='hv'),
+            fill='tozeroy',
+            fillcolor=hex_to_rgba(color, 0.4),
+            hoverinfo='skip'
+        ))
+        # Invisible marker at each bucket's actual center — the line above has
+        # no data point there (its points sit at bucket edges), so without this
+        # the hover would snap to an edge instead of the middle of the bucket.
+        fig.add_trace(go.Scatter(
+            x=centers,
+            y=counts,
+            mode='markers',
+            marker=dict(color=color, opacity=0),
+            showlegend=False,
+            customdata=labels,
+            hovertemplate=f'{name}<br>' + '%{customdata}<br>Days: %{y}<extra></extra>'
+        ))
+
+        # Median / Min / Max reference lines, styled the same way as on the
+        # ≥X / ≤X plots: a distinct dash per line plus a visible top marker
+        # carrying the hover (Min/Max also show the date they happened on).
+        top_y = max(counts) if counts else 0
+        median_val = scores.median()
+        min_idx = scores.argmin()
+        max_idx = scores.argmax()
+        min_val = scores.iloc[min_idx]
+        max_val = scores.iloc[max_idx]
+        min_date = dates.iloc[min_idx].strftime('%b %d, %Y')
+        max_date = dates.iloc[max_idx].strftime('%b %d, %Y')
+
+        reference_lines = [
+            (median_val, 'dash', 'diamond', f'{name} Median: ' + '%{x:,.0f}<extra></extra>'),
+            (max_val, 'dot', 'triangle-up', f'{name} Max: ' + '%{x:,.0f}' + f'<br>{max_date}<extra></extra>'),
+            (min_val, 'dashdot', 'triangle-down', f'{name} Min: ' + '%{x:,.0f}' + f'<br>{min_date}<extra></extra>'),
+        ]
+        for x_pos, dash_style, symbol, hover_tmpl in reference_lines:
+            if not (x_start <= x_pos <= x_end):
+                continue
+            fig.add_vline(
+                x=x_pos,
+                line=dict(color=color, width=1.5, dash=dash_style),
+                opacity=0.7
+            )
             fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_m,
-                name='Michael',
-                mode='lines',
-                line=dict(color=COLORS['michael'], width=3),
-                fill='tozeroy',
-                fillcolor=hex_to_rgba(COLORS['michael'], 0.4),
-                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
+                x=[x_pos],
+                y=[top_y],
+                mode='markers',
+                marker=dict(color=color, size=9, opacity=0.9, symbol=symbol,
+                           line=dict(color=COLORS['bg_paper'], width=1)),
+                showlegend=False,
+                hovertemplate=hover_tmpl
             ))
-        except Exception:
-            pass # Catch instances of zero variance (LinAlgError)
-            
-    if len(sarah_scores) > 1:
-        try:
-            kde_s = stats.gaussian_kde(sarah_scores)
-            y_s = kde_s(x_vals)
-            fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_s,
-                name='Sarah',
-                mode='lines',
-                line=dict(color=COLORS['sarah'], width=3),
-                fill='tozeroy',
-                fillcolor=hex_to_rgba(COLORS['sarah'], 0.4),
-                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
-            ))
-        except Exception:
-            pass
-            
-    if len(avg_scores) > 1:
-        try:
-            kde_a = stats.gaussian_kde(avg_scores)
-            y_a = kde_a(x_vals)
-            fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_a,
-                name='Average',
-                mode='lines',
-                line=dict(color='black', width=2, dash='dash'),
-                fill='tozeroy',
-                fillcolor=hex_to_rgba('#000000', 0.1),
-                hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'
-            ))
-            
-            # Add percentile lines based on the average scores
-            percentiles = [20, 40, 60, 80, 90]
-            plotted_vals = set()
-            avg_clean = avg_scores.dropna()
-            
-            for p in percentiles:
-                exact_val = np.percentile(avg_clean, p)
-                rounded_val = round(exact_val / 500) * 500
-                
-                # Prevent duplicate lines if multiple targets snap to the same 500 interval
-                if rounded_val not in plotted_vals:
-                    plotted_vals.add(rounded_val)
-                    
-                    # Calculate what the true percentile is for this rounded score
-                    actual_p = stats.percentileofscore(avg_clean, rounded_val)
-                    
-                    fig.add_vline(
-                        x=rounded_val,
-                        line_width=1,
-                        line_dash="dot",
-                        line_color="#8f8d85",
-                        opacity=0.7,
-                        annotation_text=f"{actual_p:.1f}th ({int(rounded_val):,})",
-                        annotation_position="top right",
-                        annotation_textangle=-90,
-                        annotation_font=dict(size=10, color="#696761")
-                    )
-        except Exception:
-            pass
-    
+
     fig.update_layout(
-        xaxis_title='Score',
-        yaxis_title='Density',
-        height=400,
+        xaxis_title=f'{label}',
+        yaxis_title='Days',
+        height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
         plot_bgcolor=COLORS['bg_plot'],
@@ -1180,7 +1161,7 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
         ),
         hovermode='x unified'
     )
-    
+
     fig.update_xaxes(
         showgrid=True,
         gridcolor=COLORS['grid'],
@@ -1189,7 +1170,7 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
         tickcolor=COLORS['line'],
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
-        range=[x_min, x_max]
+        range=[x_start, x_end]
     )
     fig.update_yaxes(
         showgrid=True,
@@ -1200,8 +1181,7 @@ def create_density_plot(michael_scores: pd.Series, sarah_scores: pd.Series, avg_
         tickcolor=COLORS['line'],
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
-        rangemode='tozero',
-        showticklabels=False # Absolute density values are relative and not strictly necessary
+        rangemode='tozero'
     )
 
     return fig
@@ -1276,16 +1256,44 @@ def create_cumulative_histogram(series_list, ceiling: int, reverse: bool = False
                                 '<br>Most Recent: %{customdata[1]}<extra></extra>')
             ))
 
+            # Median / Min / Max each get their own dash style and marker shape so
+            # they're visually distinct, plus a visible marker at the top carrying
+            # the hover (a bare vline shape can't be hovered, and a zero-width
+            # vertical "lines" trace breaks Plotly's unified hoverlabel positioning —
+            # it throws on the degenerate bounding box). Min/Max also show the date
+            # they happened on; Median has no single associated date.
             median_val = scores.median()
-            fig.add_vline(
-                x=median_val,
-                line=dict(color=color, width=1.5, dash='dash'),
-                opacity=0.7
-            )
+            min_idx = scores.argmin()
+            max_idx = scores.argmax()
+            min_val = scores.iloc[min_idx]
+            max_val = scores.iloc[max_idx]
+            min_date = dates.iloc[min_idx].strftime('%b %d, %Y')
+            max_date = dates.iloc[max_idx].strftime('%b %d, %Y')
+
+            reference_lines = [
+                (median_val, 'dash', 'diamond', f'{name} Median: ' + '%{x:,.0f}<extra></extra>'),
+                (max_val, 'dot', 'triangle-up', f'{name} Max: ' + '%{x:,.0f}' + f'<br>{max_date}<extra></extra>'),
+                (min_val, 'dashdot', 'triangle-down', f'{name} Min: ' + '%{x:,.0f}' + f'<br>{min_date}<extra></extra>'),
+            ]
+            for x_pos, dash_style, symbol, hover_tmpl in reference_lines:
+                fig.add_vline(
+                    x=x_pos,
+                    line=dict(color=color, width=1.5, dash=dash_style),
+                    opacity=0.7
+                )
+                fig.add_trace(go.Scatter(
+                    x=[x_pos],
+                    y=[total],
+                    mode='markers',
+                    marker=dict(color=color, size=9, opacity=0.9, symbol=symbol,
+                               line=dict(color=COLORS['bg_paper'], width=1)),
+                    showlegend=False,
+                    hovertemplate=hover_tmpl
+                ))
 
     fig.update_layout(
         xaxis_title=f'{label} Threshold (X)',
-        yaxis_title=f'Days with {label} {op_symbol} X',
+        yaxis_title='Days',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
@@ -1416,7 +1424,7 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
 
     fig.update_layout(
         xaxis_title=f'{label} Threshold (X)',
-        yaxis_title=f'Longest Streak {op_symbol} X (days)',
+        yaxis_title='Streak (days)',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
         paper_bgcolor=COLORS['bg_paper'],
@@ -1455,6 +1463,420 @@ def create_streak_score_histogram(series_list, ceiling: int, reverse: bool = Fal
         tickfont=dict(color=COLORS['text']),
         title_font=dict(color=COLORS['text']),
         rangemode='tozero'
+    )
+
+    return fig
+
+def calculate_streak_from_mask(mask: np.ndarray, dates: pd.Series,
+                               date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
+    """Longest streak of consecutive True values in `mask`, in sequence order."""
+    max_streak = 0
+    current_streak = 0
+    max_start_idx = 0
+    max_end_idx = 0
+    current_start_idx = 0
+
+    for i, m in enumerate(mask):
+        if m:
+            if current_streak == 0:
+                current_start_idx = i
+            current_streak += 1
+
+            if current_streak > max_streak or (current_streak == max_streak and i > max_end_idx):
+                max_streak = current_streak
+                max_start_idx = current_start_idx
+                max_end_idx = i
+        else:
+            current_streak = 0
+
+    if max_streak > 0:
+        start_date = dates.iloc[max_start_idx].strftime(date_format)
+        end_date = dates.iloc[max_end_idx].strftime(date_format)
+        return max_streak, start_date, end_date
+
+    return 0, "", ""
+
+def calculate_band_hop_streak(above_mask: np.ndarray, below_mask: np.ndarray, dates: pd.Series,
+                              date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
+    """Longest streak of consecutive days (in sequence order) alternating
+    between clearly above (`above_mask`) and clearly below (`below_mask`) —
+    a day that's neither (inside the buffer zone between the two masks)
+    breaks the streak, the same as a day that repeats the same side."""
+    max_streak = 0
+    current_streak = 0
+    max_start_idx = 0
+    max_end_idx = 0
+    current_start_idx = 0
+    prev_side = None
+
+    for i in range(len(above_mask)):
+        if above_mask[i]:
+            side = True
+        elif below_mask[i]:
+            side = False
+        else:
+            side = None
+
+        if side is None:
+            current_streak = 0
+            prev_side = None
+            continue
+
+        if prev_side is None or side == prev_side:
+            current_streak = 1
+            current_start_idx = i
+        else:
+            current_streak += 1
+        prev_side = side
+
+        if current_streak > max_streak or (current_streak == max_streak and i > max_end_idx):
+            max_streak = current_streak
+            max_start_idx = current_start_idx
+            max_end_idx = i
+
+    if max_streak > 0:
+        start_date = dates.iloc[max_start_idx].strftime(date_format)
+        end_date = dates.iloc[max_end_idx].strftime(date_format)
+        return max_streak, start_date, end_date
+
+    return 0, "", ""
+
+def create_streak_instability_histogram(series_list, ceiling: int, band: int = 5000, label: str = "Score") -> go.Figure:
+    """Companion plot to create_streak_band_histogram: where that plot measures
+    stability (longest streak staying within `band` of X), this measures
+    instability — the longest streak of consecutive days (in sequence order)
+    hopping back and forth across X using the same buffer, one day clearly
+    above (score >= X + band), the next clearly below (score <= X - band),
+    and so on. A day inside the buffer (within `band` of X, i.e. "stable" by
+    the other plot's definition) breaks the hop streak, same as repeating the
+    same side twice in a row.
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
+    fig = go.Figure()
+
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
+    if not non_empty:
+        return fig
+
+    all_scores = pd.concat([s for s, _, _, _ in non_empty]).dropna()
+    x_start = max(0, int(np.floor(all_scores.min() / 5000) * 5000)) if not all_scores.empty else 0
+    x_vals = np.arange(x_start, ceiling + 1, 1)
+
+    def hop_curve(scores, dates):
+        # A day's side (clearly above X+band, clearly below X-band, or inside
+        # the buffer) only changes at X = score - band (loses "above") and
+        # X = score + band (gains "below"), so the streak only needs
+        # recomputing at those breakpoints, not at every X.
+        scores_arr = scores.to_numpy()
+        valid_scores = np.unique(scores_arr[~np.isnan(scores_arr)])
+        if len(valid_scores) == 0:
+            return np.zeros(len(x_vals), dtype=int), np.full(len(x_vals), '—', dtype=object)
+
+        breakpoints = np.unique(np.concatenate([[x_start], valid_scores - band, valid_scores + band + 1]))
+        breakpoints = breakpoints[(breakpoints >= x_start) & (breakpoints <= ceiling)]
+
+        f_vals = np.empty(len(breakpoints), dtype=int)
+        f_ranges = np.empty(len(breakpoints), dtype=object)
+        for i, bp in enumerate(breakpoints):
+            above_mask = scores_arr >= bp + band
+            below_mask = scores_arr <= bp - band
+            length, start, end = calculate_band_hop_streak(above_mask, below_mask, dates)
+            f_vals[i] = length
+            f_ranges[i] = '—' if length == 0 else (start if start == end else f'{start} - {end}')
+
+        idx = np.clip(np.searchsorted(breakpoints, x_vals, side='right') - 1, 0, len(breakpoints) - 1)
+        return f_vals[idx], f_ranges[idx]
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    # The score range a point represents (X-band to X+band), shown in the
+    # hover instead of "X ± band" — same for every trace since x_vals/band
+    # are shared, so it's built once.
+    score_range_strs = np.array([f'{x - band:,.0f} - {x + band:,.0f}' for x in x_vals], dtype=object)
+
+    for scores, dates, name, color in non_empty:
+        y_vals, range_vals = hop_curve(scores, dates)
+        customdata = np.stack([score_range_strs, range_vals], axis=1)
+        fig.add_trace(go.Scatter(
+            x=x_vals,
+            y=y_vals,
+            name=name,
+            mode='lines',
+            line=dict(color=color, width=3, shape='hv'),
+            fill='tozeroy',
+            fillcolor=hex_to_rgba(color, 0.4),
+            hoveron='points+fills',
+            customdata=customdata,
+            hovertemplate=('%{customdata[0]}' +
+                            f'<br>{label} Longest Hop Streak: ' + '%{y} days<br>Most Recent: %{customdata[1]}<extra></extra>')
+        ))
+
+    fig.update_layout(
+        xaxis_title=f'{label} (X)',
+        yaxis_title='Streak (days)',
+        height=350,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color=COLORS['text'])
+        ),
+        hovermode='closest'
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=False,
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        range=[x_start, ceiling]
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero'
+    )
+
+    return fig
+
+def create_streak_band_histogram(series_list, ceiling: int, band: int = 5000, label: str = "Score") -> go.Figure:
+    """Companion plot to create_streak_score_histogram: for every integer score X,
+    what's the longest streak of consecutive days (in sequence order) with score
+    within `band` of X (i.e. X - band <= score <= X + band).
+    Unlike the >= X / <= X streak plots, this isn't monotonic in X, so it's drawn
+    as points at each whole-number X rather than a step line.
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
+    fig = go.Figure()
+
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
+    if not non_empty:
+        return fig
+
+    all_scores = pd.concat([s for s, _, _, _ in non_empty]).dropna()
+    x_start = max(0, int(np.floor(all_scores.min() / 5000) * 5000)) if not all_scores.empty else 0
+    x_vals = np.arange(x_start, ceiling + 1, 1)
+
+    def band_curve(scores, dates):
+        # The window [X-band, X+band] only changes which scores it contains at
+        # X = score - band (score enters) and X = score + band + 1 (score leaves),
+        # so the streak only needs recomputing at those breakpoints, not at every X.
+        scores_arr = scores.to_numpy()
+        valid_scores = np.unique(scores_arr[~np.isnan(scores_arr)])
+        if len(valid_scores) == 0:
+            return np.zeros(len(x_vals), dtype=int), np.full(len(x_vals), '—', dtype=object)
+
+        breakpoints = np.unique(np.concatenate([[x_start], valid_scores - band, valid_scores + band + 1]))
+        breakpoints = breakpoints[(breakpoints >= x_start) & (breakpoints <= ceiling)]
+
+        f_vals = np.empty(len(breakpoints), dtype=int)
+        f_ranges = np.empty(len(breakpoints), dtype=object)
+        for i, bp in enumerate(breakpoints):
+            mask = (scores_arr >= bp - band) & (scores_arr <= bp + band)
+            length, start, end = calculate_streak_from_mask(mask, dates)
+            f_vals[i] = length
+            f_ranges[i] = '—' if length == 0 else (start if start == end else f'{start} - {end}')
+
+        idx = np.clip(np.searchsorted(breakpoints, x_vals, side='right') - 1, 0, len(breakpoints) - 1)
+        return f_vals[idx], f_ranges[idx]
+
+    def hex_to_rgba(hex_color, alpha=0.4):
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return f'rgba({r},{g},{b},{alpha})'
+
+    # The score range a point represents (X-band to X+band), shown in the
+    # hover instead of "X ± band" — same for every trace since x_vals/band
+    # are shared, so it's built once.
+    score_range_strs = np.array([f'{x - band:,.0f} - {x + band:,.0f}' for x in x_vals], dtype=object)
+
+    for scores, dates, name, color in non_empty:
+        y_vals, range_vals = band_curve(scores, dates)
+        customdata = np.stack([score_range_strs, range_vals], axis=1)
+        fig.add_trace(go.Scatter(
+            x=x_vals,
+            y=y_vals,
+            name=name,
+            mode='lines',
+            line=dict(color=color, width=3, shape='hv'),
+            fill='tozeroy',
+            fillcolor=hex_to_rgba(color, 0.4),
+            hoveron='points+fills',
+            customdata=customdata,
+            hovertemplate=('%{customdata[0]}' +
+                            f'<br>{label} Longest Streak: ' + '%{y} days<br>Most Recent: %{customdata[1]}<extra></extra>')
+        ))
+
+    fig.update_layout(
+        xaxis_title=f'{label} (X)',
+        yaxis_title='Streak (days)',
+        height=350,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=40, b=60),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)',
+            font=dict(color=COLORS['text'])
+        ),
+        hovermode='closest'
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=False,
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        range=[x_start, ceiling]
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=COLORS['grid'],
+        zeroline=True,
+        zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'],
+        tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']),
+        title_font=dict(color=COLORS['text']),
+        rangemode='tozero'
+    )
+
+    return fig
+
+def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score",
+                                                mode: str = "cumavg", threshold: float = None) -> go.Figure:
+    """Visualizes the above/below streak over time: each streak is drawn as a
+    single bar spanning its full date range, at its peak (final) length — so
+    hovering anywhere over a streak's bar shows that whole streak's date range
+    and length in one tooltip, rather than a separate tooltip per day.
+    `mode="cumavg"` (default) compares each day's score to that player's own
+    running average up to and including that day; `mode="score"` instead
+    compares every day to the fixed `threshold` score.
+    Each player gets its own stacked row (sharing the date axis) so the two
+    don't overlap and obscure each other.
+    `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
+    non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
+
+    n_rows = max(len(non_empty), 1)
+    fig = make_subplots(
+        rows=n_rows, cols=1, shared_xaxes=True,
+        vertical_spacing=0.22,
+        subplot_titles=[name for _, _, name, _ in non_empty]
+    )
+
+    day = pd.Timedelta(days=1)
+
+    for row, (scores, dates, name, color) in enumerate(non_empty, start=1):
+        scores_arr = scores.reset_index(drop=True)
+        dates_arr = dates.reset_index(drop=True)
+        if mode == "score":
+            above = (scores_arr >= threshold).to_numpy()
+        else:
+            cumavg = scores_arr.expanding().mean()
+            above = (scores_arr >= cumavg).to_numpy()
+
+        # Group consecutive same-side days into blocks, one bar per streak —
+        # spanning that streak's full date range — instead of one point per day.
+        blocks = []
+        i = 0
+        n_days = len(above)
+        while i < n_days:
+            j = i
+            while j + 1 < n_days and above[j + 1] == above[i]:
+                j += 1
+            blocks.append((i, j))
+            i = j + 1
+
+        centers, widths, values, range_strs = [], [], [], []
+        for start_idx, end_idx in blocks:
+            start_date = dates_arr.iloc[start_idx]
+            end_date = dates_arr.iloc[end_idx]
+            length = end_idx - start_idx + 1
+            left_edge = start_date - day / 2
+            right_edge = end_date + day / 2
+            widths.append((right_edge - left_edge) / pd.Timedelta(milliseconds=1))
+            centers.append(left_edge + (right_edge - left_edge) / 2)
+            values.append(length if above[start_idx] else -length)
+            range_strs.append(start_date.strftime('%b %d, %Y') if start_date == end_date
+                              else f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}")
+
+        fig.add_trace(go.Bar(
+            x=centers, y=values, width=widths,
+            name=name,
+            marker=dict(color=color, opacity=0.65, line=dict(width=0)),
+            customdata=range_strs,
+            showlegend=False,
+            hovertemplate=(f'{name}<br>' + '%{customdata}<br>Streak: %{y} days<extra></extra>')
+        ), row=row, col=1)
+
+        fig.add_hline(y=0, line=dict(color=COLORS['line'], width=1), row=row, col=1)
+
+        fig.update_yaxes(
+            title_text='Streak (days)',
+            showgrid=True,
+            gridcolor=COLORS['grid'],
+            zeroline=True,
+            zerolinecolor=COLORS['line'],
+            linecolor=COLORS['line'],
+            tickcolor=COLORS['line'],
+            tickfont=dict(color=COLORS['text']),
+            title_font=dict(color=COLORS['text']),
+            row=row, col=1
+        )
+        fig.update_xaxes(
+            showgrid=True,
+            gridcolor=COLORS['grid'],
+            zeroline=False,
+            linecolor=COLORS['line'],
+            tickcolor=COLORS['line'],
+            tickfont=dict(color=COLORS['text']),
+            title_font=dict(color=COLORS['text']),
+            title_text='Date' if row == n_rows else None,
+            row=row, col=1
+        )
+
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(family='Poppins, Arial, sans-serif', size=13, color=COLORS['text'])
+        # Push each "Michael"/"Sarah" subplot title further above its own bars —
+        # Plotly's default placement sits right on top of the plot area.
+        annotation['yshift'] = 14
+
+    fig.update_layout(
+        height=210 * n_rows,
+        bargap=0,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=30, b=60),
+        showlegend=False,
+        hovermode='closest'
     )
 
     return fig
@@ -2017,188 +2439,6 @@ def self_create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: D
             f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
 
 
-def self_generate_buckets(time_scores: pd.Series, geo_scores: pd.Series,
-                          time_dates: pd.Series, geo_dates: pd.Series,
-                          bin_size: int, date_format: str, ceiling: int) -> List[Dict]:
-    buckets = []
-    current_upper = ceiling
-    while current_upper > 0:
-        current_lower = max(current_upper - bin_size, 0)
-        if current_upper == ceiling:
-            t_mask = time_scores >= current_lower
-            g_mask = geo_scores >= current_lower
-        else:
-            t_mask = (time_scores >= current_lower) & (time_scores < current_upper)
-            g_mask = (geo_scores >= current_lower) & (geo_scores < current_upper)
-        t_count, g_count = t_mask.sum(), g_mask.sum()
-        if t_count > 0 or g_count > 0:
-            buckets.append({
-                'label': format_bucket_label(current_lower, current_upper, bin_size, current_upper == ceiling),
-                'time_count': t_count,
-                'time_date': time_dates[t_mask].max().strftime(date_format) if t_count > 0 else '-',
-                'geo_count': g_count,
-                'geo_date': geo_dates[g_mask].max().strftime(date_format) if g_count > 0 else '-',
-            })
-        current_upper = current_lower
-        if current_lower == 0:
-            break
-    return buckets
-
-
-def self_create_scores_stats_table(time_scores: pd.Series, geo_scores: pd.Series,
-                                    time_dates: pd.Series, geo_dates: pd.Series,
-                                    bin_size: int, ceiling: int,
-                                    date_format: str = "%b %d, %Y") -> str:
-    if len(time_scores) == 0 and len(geo_scores) == 0:
-        return "<p>No data available.</p>"
-    rows = []
-    t_mean = f"{time_scores.mean():.0f}" if len(time_scores) > 0 else "-"
-    g_mean = f"{geo_scores.mean():.0f}" if len(geo_scores) > 0 else "-"
-    rows.append(self_create_table_row("Mean", t_mean, g_mean, "-", "-", date_format))
-    t_std = f"{time_scores.std():.0f}" if len(time_scores) > 1 else "-"
-    g_std = f"{geo_scores.std():.0f}" if len(geo_scores) > 1 else "-"
-    rows.append(self_create_table_row("Std Dev", t_std, g_std, "-", "-", date_format))
-    if len(time_scores) > 0:
-        t_med = time_scores.median()
-        t_med_date = time_dates.iloc[(time_scores - t_med).abs().argmin()].strftime(date_format)
-        t_med_str = f"{t_med:.0f}"
-    else:
-        t_med_str, t_med_date = "-", "-"
-    if len(geo_scores) > 0:
-        g_med = geo_scores.median()
-        g_med_date = geo_dates.iloc[(geo_scores - g_med).abs().argmin()].strftime(date_format)
-        g_med_str = f"{g_med:.0f}"
-    else:
-        g_med_str, g_med_date = "-", "-"
-    rows.append(self_create_table_row("Median", t_med_str, g_med_str, t_med_date, g_med_date, date_format))
-    t_max_str = f"{time_scores.max():.0f}" if len(time_scores) > 0 else "-"
-    t_max_date = time_dates.iloc[time_scores.argmax()].strftime(date_format) if len(time_scores) > 0 else "-"
-    g_max_str = f"{geo_scores.max():.0f}" if len(geo_scores) > 0 else "-"
-    g_max_date = geo_dates.iloc[geo_scores.argmax()].strftime(date_format) if len(geo_scores) > 0 else "-"
-    rows.append(self_create_table_row("Max", t_max_str, g_max_str, t_max_date, g_max_date, date_format))
-    t_min_str = f"{time_scores.min():.0f}" if len(time_scores) > 0 else "-"
-    t_min_date = time_dates.iloc[time_scores.argmin()].strftime(date_format) if len(time_scores) > 0 else "-"
-    g_min_str = f"{geo_scores.min():.0f}" if len(geo_scores) > 0 else "-"
-    g_min_date = geo_dates.iloc[geo_scores.argmin()].strftime(date_format) if len(geo_scores) > 0 else "-"
-    rows.append(self_create_table_row("Min", t_min_str, g_min_str, t_min_date, g_min_date, date_format))
-    buckets = self_generate_buckets(time_scores, geo_scores, time_dates, geo_dates, bin_size, date_format, ceiling)
-    for i, b in enumerate(buckets):
-        rows.append(self_create_table_row(b['label'], str(b['time_count']), str(b['geo_count']),
-                                          b['time_date'], b['geo_date'], date_format, border=i < len(buckets) - 1))
-    return (f'<table class="stats-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
-            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
-            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Statistic</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Time</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Geography</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Date</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Date</th>'
-            f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
-
-
-def self_create_scores_streaks_table(time_scores: pd.Series, geo_scores: pd.Series,
-                                      time_dates: pd.Series, geo_dates: pd.Series,
-                                      date_format: str = "%b %d, %Y", change_threshold: int = 5000) -> str:
-    rows = []
-    t_a, t_as, t_ae = (calculate_cumulative_avg_streak(time_scores, time_dates, above=True, date_format=date_format)
-                        if len(time_scores) > 0 else (0, "", ""))
-    g_a, g_as, g_ae = (calculate_cumulative_avg_streak(geo_scores, geo_dates, above=True, date_format=date_format)
-                        if len(geo_scores) > 0 else (0, "", ""))
-    rows.append(self_create_table_row("Above Cumulative Avg", str(t_a), str(g_a),
-                                      format_streak_dates(t_a, t_as, t_ae).replace('<br/>', ' '),
-                                      format_streak_dates(g_a, g_as, g_ae).replace('<br/>', ' '), date_format))
-    t_b, t_bs, t_be = (calculate_cumulative_avg_streak(time_scores, time_dates, above=False, date_format=date_format)
-                        if len(time_scores) > 0 else (0, "", ""))
-    g_b, g_bs, g_be = (calculate_cumulative_avg_streak(geo_scores, geo_dates, above=False, date_format=date_format)
-                        if len(geo_scores) > 0 else (0, "", ""))
-    rows.append(self_create_table_row("Below Cumulative Avg", str(t_b), str(g_b),
-                                      format_streak_dates(t_b, t_bs, t_be).replace('<br/>', ' '),
-                                      format_streak_dates(g_b, g_bs, g_be).replace('<br/>', ' '), date_format))
-    val_str = f"{change_threshold//1000}k" if change_threshold % 1000 == 0 else f"{change_threshold/1000:.1f}k"
-    t_v, t_vs, t_ve = (calculate_score_change_streak(time_scores.values, time_dates, change_threshold, mode="change", date_format=date_format)
-                        if len(time_scores) > 1 else (0, "", ""))
-    g_v, g_vs, g_ve = (calculate_score_change_streak(geo_scores.values, geo_dates, change_threshold, mode="change", date_format=date_format)
-                        if len(geo_scores) > 1 else (0, "", ""))
-    rows.append(self_create_table_row(f"Volatile (>{val_str} change)", str(t_v), str(g_v),
-                                      format_streak_dates(t_v, t_vs, t_ve).replace('<br/>', ' '),
-                                      format_streak_dates(g_v, g_vs, g_ve).replace('<br/>', ' '), date_format))
-    t_st2, t_ss, t_se = (calculate_score_change_streak(time_scores.values, time_dates, change_threshold, mode="stable", date_format=date_format)
-                          if len(time_scores) > 1 else (0, "", ""))
-    g_st2, g_ss, g_se = (calculate_score_change_streak(geo_scores.values, geo_dates, change_threshold, mode="stable", date_format=date_format)
-                          if len(geo_scores) > 1 else (0, "", ""))
-    rows.append(self_create_table_row(f"Stable (<{val_str} change)", str(t_st2), str(g_st2),
-                                      format_streak_dates(t_st2, t_ss, t_se).replace('<br/>', ' '),
-                                      format_streak_dates(g_st2, g_ss, g_se).replace('<br/>', ' '), date_format))
-    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
-            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
-            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Time</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Geography</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Date(s)</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Date(s)</th>'
-            f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
-
-
-def self_create_density_plot(time_scores: pd.Series, geo_scores: pd.Series, ceiling: int) -> go.Figure:
-    fig = go.Figure()
-    if len(time_scores) == 0 and len(geo_scores) == 0:
-        return fig
-    min_score = min(time_scores.min() if len(time_scores) > 0 else ceiling,
-                    geo_scores.min() if len(geo_scores) > 0 else ceiling)
-    x_min = max(0, min_score - (ceiling * 0.05))
-    x_vals = np.linspace(x_min, ceiling, 500)
-
-    def hex_to_rgba(hex_color, alpha=0.4):
-        hex_color = hex_color.lstrip('#')
-        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        return f'rgba({r},{g},{b},{alpha})'
-
-    for scores, name, color in [(time_scores, 'Time', COLORS['time']), (geo_scores, 'Geography', COLORS['geography'])]:
-        if len(scores) > 1:
-            try:
-                kde = stats.gaussian_kde(scores)
-                fig.add_trace(go.Scatter(x=x_vals, y=kde(x_vals), name=name, mode='lines',
-                                         line=dict(color=color, width=3), fill='tozeroy',
-                                         fillcolor=hex_to_rgba(color, 0.4),
-                                         hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'))
-            except Exception:
-                pass
-
-    avg_scores = ((time_scores.reset_index(drop=True) + geo_scores.reset_index(drop=True)) / 2).dropna()
-    if len(avg_scores) > 1:
-        try:
-            kde_a = stats.gaussian_kde(avg_scores)
-            fig.add_trace(go.Scatter(x=x_vals, y=kde_a(x_vals), name='Average', mode='lines',
-                                     line=dict(color='black', width=2, dash='dash'), fill='tozeroy',
-                                     fillcolor=hex_to_rgba('#000000', 0.1),
-                                     hovertemplate='Score: %{x:.0f}<br>Density: %{y:.6f}<extra></extra>'))
-            plotted_vals = set()
-            for p in [20, 40, 60, 80, 90]:
-                rv = round(np.percentile(avg_scores, p) / 500) * 500
-                if rv not in plotted_vals:
-                    plotted_vals.add(rv)
-                    ap = stats.percentileofscore(avg_scores, rv)
-                    fig.add_vline(x=rv, line_width=1, line_dash="dot", line_color="#8f8d85", opacity=0.7,
-                                  annotation_text=f"{ap:.1f}th ({int(rv):,})", annotation_position="top right",
-                                  annotation_textangle=-90, annotation_font=dict(size=10, color="#696761"))
-        except Exception:
-            pass
-
-    fig.update_layout(xaxis_title='Score', yaxis_title='Density', height=400,
-                      font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
-                      paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
-                      margin=dict(l=60, r=40, t=40, b=60),
-                      legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
-                                  bgcolor='rgba(0,0,0,0)', bordercolor='rgba(0,0,0,0)', font=dict(color=COLORS['text'])),
-                      hovermode='x unified')
-    fig.update_xaxes(showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
-                     tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']),
-                     title_font=dict(color=COLORS['text']), range=[x_min, ceiling])
-    fig.update_yaxes(showgrid=True, gridcolor=COLORS['grid'], zeroline=True, zerolinecolor=COLORS['line'],
-                     linecolor=COLORS['line'], tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']),
-                     title_font=dict(color=COLORS['text']), rangemode='tozero', showticklabels=False)
-    return fig
-
-
 def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str,
                               solo_dates: set = None) -> go.Figure:
     fig = go.Figure()
@@ -2372,17 +2612,21 @@ def self_create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str
             f'<span>{recent_data.iloc[0]["Date"].strftime("%b %d")}</span><span>{recent_data.iloc[-1]["Date"].strftime("%b %d")}</span></div></div>')
 
 
-def self_create_scores_momentum_html(data: pd.DataFrame, player: str, window_length: int, ceiling: int) -> str:
+def self_create_scores_momentum_html(data: pd.DataFrame, player: str, n_days: int) -> Tuple[str, float, float, float, float, str, str]:
+    """Self-page counterpart to create_momentum_html: bars + date-range footer
+    only (no title, no score summary, no outer card) for the most recent
+    `n_days` games, plus the two totals/means/weights the caller needs for
+    the score summary it renders separately inside the same bordered
+    container."""
     def hex_to_rgb(h):
         h = h.lstrip('#')
         return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
     def interpolate_color(c_start, c_end, factor):
         c1, c2 = hex_to_rgb(c_start), hex_to_rgb(c_end)
         return '#{:02x}{:02x}{:02x}'.format(int(c1[0]+(c2[0]-c1[0])*factor), int(c1[1]+(c2[1]-c1[1])*factor), int(c1[2]+(c2[2]-c1[2])*factor))
-    n_days = window_length * 4
     recent_data = data.tail(n_days).reset_index(drop=True)
     if len(recent_data) == 0:
-        return ""
+        return "", 0.0, 0.0, 0.0, 0.0, "400", "400"
     time_col, geo_col = f"{player} Time Midpoint", f"{player} Geography Midpoint"
     t_valid = recent_data[time_col].dropna(); t_valid = t_valid[t_valid > 0]
     g_valid = recent_data[geo_col].dropna(); g_valid = g_valid[g_valid > 0]
@@ -2409,16 +2653,13 @@ def self_create_scores_momentum_html(data: pd.DataFrame, player: str, window_len
                         f'<div style="flex:1;display:flex;align-items:flex-end;"><div style="width:100%;height:{t_h:.1f}%;background-color:{t_color};border-radius:3px 3px 0 0;" title="{date_str}: Time {t_s:,.0f}"></div></div>'
                         f'<div style="flex:1;display:flex;align-items:flex-start;"><div style="width:100%;height:{g_h:.1f}%;background-color:{g_color};border-radius:0 0 3px 3px;" title="{date_str}: Geography {g_s:,.0f}"></div></div></div>')
     t_total, g_total = recent_data[time_col].sum(), recent_data[geo_col].sum()
+    t_mean, g_mean = recent_data[time_col].mean(), recent_data[geo_col].mean()
     t_weight = "800" if t_total >= g_total else "400"
     g_weight = "800" if g_total > t_total else "400"
-    return (f'<div style="font-family:\'Poppins\',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS["bg_paper"]};border-radius:12px;border:1px solid {COLORS["bg_plot"]};">'
-            f'<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">'
-            f'<h4 style="margin:0;color:{COLORS["text"]};font-size:16px;text-transform:uppercase;letter-spacing:1px;">Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_days} Games)</span></h4>'
-            f'<div style="font-size:12px;font-weight:600;"><span style="color:{COLORS["time"]};font-weight:{t_weight};">Time: {t_total:,.0f}</span>'
-            f'<span style="color:#b0afaa;margin:0 6px;">|</span><span style="color:{COLORS["geography"]};font-weight:{g_weight};">Geography: {g_total:,.0f}</span></div></div>'
-            f'<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">{"".join(segments)}</div>'
+    html = (f'<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">{"".join(segments)}</div>'
             f'<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS["line"]};font-size:10px;">'
-            f'<span>{recent_data.iloc[0]["Date"].strftime("%b %d")}</span><span>{recent_data.iloc[-1]["Date"].strftime("%b %d")}</span></div></div>')
+            f'<span>{recent_data.iloc[0]["Date"].strftime("%b %d")}</span><span>{recent_data.iloc[-1]["Date"].strftime("%b %d")}</span></div>')
+    return html, t_total, g_total, t_mean, g_mean, t_weight, g_weight
 
 
 # --- Main App ---
@@ -2547,17 +2788,14 @@ with st.sidebar:
 
     st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:8px 24px 8px 24px;">', unsafe_allow_html=True)
 
-    window_length = st.slider("Rolling Window", min_value=1, max_value=30, value=5, step=1)
+    window_length = 5
+    if view_mode != "Scores":
+        # Both Cross > Scores and Self > Scores have their own rolling-window
+        # control, top-right of their own box — only Win Margins still shares
+        # this sidebar slider.
+        window_length = st.slider("Rolling Window", min_value=1, max_value=30, value=5, step=1)
 
-    bin_size = 5000
-    if view_mode == "Scores":
-        if comp_type == 'Cross':
-            _bin_opts = {"Total": [1000, 2500, 5000, 10000], "Time": [500, 1250, 2500, 5000], "Geo": [500, 1250, 2500, 5000]}[_pt]
-            _bin_def = 5000 if _pt == "Total" else 2500
-        else:
-            _bin_opts = [1000, 2500, 5000, 10000] if player == "Combined" else [500, 1250, 2500, 5000]
-            _bin_def = 5000 if player == "Combined" else 2500
-        bin_size = st.select_slider("Bucket Size", options=_bin_opts, value=_bin_def)
+    bin_size = 1000
 
     st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
 
@@ -2600,7 +2838,6 @@ if comp_type == 'Cross':
         df_daily, mask = prepare_total_scores_data(data, include_single_player_days)
         ceiling = CEILING_TOTAL
         score_type = "total"
-        change_threshold = 5000
         win_categories = {
             "Massive Wins (>10k)": (10000, np.inf),
             "Big Wins (5–10k)": (5000, 10000),
@@ -2612,7 +2849,6 @@ if comp_type == 'Cross':
         df_daily, mask = prepare_time_scores_data(data, False, include_single_player_days)
         ceiling = CEILING_TIME
         score_type = "time"
-        change_threshold = 2500
         win_categories = {
             "Massive Wins (>5k)": (5000, np.inf),
             "Big Wins (2.5–5k)": (2500, 5000),
@@ -2624,7 +2860,6 @@ if comp_type == 'Cross':
         df_daily, mask = prepare_geography_scores_data(data, False, include_single_player_days)
         ceiling = CEILING_GEOGRAPHY
         score_type = "geography"
-        change_threshold = 2500
         win_categories = {
             "Massive Wins (>5k)": (5000, np.inf),
             "Big Wins (2.5–5k)": (2500, 5000),
@@ -2644,70 +2879,292 @@ if comp_type == 'Cross':
         df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-07-27')].copy()
 
     view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")
-    st.markdown(f"## {view_label}")
+    if view_mode == "Scores":
+        st.markdown(f'<h2 style="text-align:center;color:{COLORS["text"]};">{view_label}</h2>', unsafe_allow_html=True)
+    else:
+        st.markdown(f"## {view_label}")
 
     mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
     df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
 
     if view_mode == "Scores":
-        mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
-        fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type,
-                                   show_single_player_days=include_single_player_days)
-        st.plotly_chart(fig, use_container_width=True, key="main_chart")
-        st.markdown(create_momentum_html(mask_filtered, window_length, score_type, ceiling), unsafe_allow_html=True)
-        st.markdown("---")
-        st.subheader("Statistics Summary")
+        with st.container(key="main_chart_box"):
+            _mc_title_col, _mc_score_col, _mc_slider_outer = st.columns([1.3, 1.6, 1.3])
+            with _mc_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Scores</h4>',
+                    unsafe_allow_html=True
+                )
+            if score_type == "total":
+                _mc_m_col, _mc_s_col = "Michael Total Score", "Sarah Total Score"
+            elif score_type == "time":
+                _mc_m_col, _mc_s_col = "Michael Time Midpoint", "Sarah Time Midpoint"
+            else:
+                _mc_m_col, _mc_s_col = "Michael Geography Midpoint", "Sarah Geography Midpoint"
+            _mc_m_total = mask_filtered[_mc_m_col].sum()
+            _mc_s_total = mask_filtered[_mc_s_col].sum()
+            _mc_m_mean = mask_filtered[_mc_m_col].mean()
+            _mc_s_mean = mask_filtered[_mc_s_col].mean()
+            _mc_m_weight = "800" if _mc_m_total >= _mc_s_total else "400"
+            _mc_s_weight = "800" if _mc_s_total > _mc_m_total else "400"
+            with _mc_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};font-weight:{_mc_m_weight};">Michael: {_mc_m_total:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};font-weight:{_mc_s_weight};">Sarah: {_mc_s_total:,.0f}</span>'
+                    f'</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:11px;'
+                    f'opacity:0.75;white-space:nowrap;margin-top:2px;">'
+                    f'<span style="color:{COLORS["michael"]};">Avg {_mc_m_mean:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Avg {_mc_s_mean:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with _mc_slider_outer:
+                _mc_sl_spacer, _mc_sl_narrow = st.columns([0.3, 0.7])
+                with _mc_sl_narrow:
+                    with st.container(key="main_chart_rolling_slider"):
+                        window_length = st.slider(
+                            "Rolling Window", min_value=1, max_value=30, value=5, step=1,
+                            key=f"cc_main_rolling_window_{score_type}", label_visibility="collapsed"
+                        )
+
+            mask_filtered = calculate_rolling_averages(mask_filtered, window_length, score_type)
+            fig = create_plotly_figure(df_daily_filtered, mask_filtered, window_length, score_type,
+                                       show_single_player_days=include_single_player_days)
+            st.plotly_chart(fig, use_container_width=True, key="main_chart")
+
+        with st.container(key="momentum_box"):
+            mom_title_col, mom_score_col, mom_slider_col = st.columns([1.3, 1.6, 1.3])
+            with mom_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Momentum</h4>',
+                    unsafe_allow_html=True
+                )
+            with mom_slider_col:
+                _sl_spacer, _sl_narrow = st.columns([0.3, 0.7])
+                with _sl_narrow:
+                    with st.container(key="momentum_games_slider"):
+                        slider_max = min(max(len(mask_filtered), 5), 100)
+                        n_days = st.slider(
+                            "Games", min_value=5, max_value=slider_max, value=min(20, slider_max),
+                            key=f"cc_momentum_games_{score_type}", label_visibility="collapsed"
+                        )
+
+            bars_html, m_total, s_total, m_mean, s_mean, m_weight, s_weight = create_momentum_html(mask_filtered, n_days, score_type)
+            with mom_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};font-weight:{m_weight};">Michael: {m_total:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};font-weight:{s_weight};">Sarah: {s_total:,.0f}</span>'
+                    f'</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:11px;'
+                    f'opacity:0.75;white-space:nowrap;margin-top:2px;">'
+                    f'<span style="color:{COLORS["michael"]};">Avg {m_mean:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Avg {s_mean:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown(bars_html, unsafe_allow_html=True)
 
         if score_type == "total":
             michael_scores = mask_filtered["Michael Total Score"].dropna()
             sarah_scores = mask_filtered["Sarah Total Score"].dropna()
-            avg_scores = ((mask_filtered["Michael Total Score"] + mask_filtered["Sarah Total Score"]) / 2).dropna()
             michael_dates = mask_filtered[mask_filtered["Michael Total Score"].notna()]["Date"]
             sarah_dates = mask_filtered[mask_filtered["Sarah Total Score"].notna()]["Date"]
         elif score_type == "time":
             michael_scores = mask_filtered["Michael Time Midpoint"].dropna()
             sarah_scores = mask_filtered["Sarah Time Midpoint"].dropna()
-            avg_scores = ((mask_filtered["Michael Time Midpoint"] + mask_filtered["Sarah Time Midpoint"]) / 2).dropna()
             michael_dates = mask_filtered[mask_filtered["Michael Time Midpoint"].notna()]["Date"]
             sarah_dates = mask_filtered[mask_filtered["Sarah Time Midpoint"].notna()]["Date"]
         else:
             michael_scores = mask_filtered["Michael Geography Midpoint"].dropna()
             sarah_scores = mask_filtered["Sarah Geography Midpoint"].dropna()
-            avg_scores = ((mask_filtered["Michael Geography Midpoint"] + mask_filtered["Sarah Geography Midpoint"]) / 2).dropna()
             michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
             sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
 
         date_format = "%b %d, %Y"
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(create_cumulative_histogram(
+        _streak_mode_key = f'cc_streak_mode_{score_type}'
+        streak_mode = st.session_state.get(_streak_mode_key, 'cumavg')
+
+        with st.container(key="cumavg_streak_box"):
+            title_col, slider_col, btn_col = st.columns([1.6, 1.2, 1.8])
+            with title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Streaks</h4>',
+                    unsafe_allow_html=True
+                )
+
+            threshold_score = None
+            with slider_col:
+                if streak_mode == "score":
+                    with st.container(key="cumavg_streak_slider"):
+                        combined_scores = pd.concat([michael_scores, sarah_scores])
+                        slider_min = int(np.floor(combined_scores.min() / 50) * 50)
+                        slider_max = int(np.ceil(combined_scores.max() / 50) * 50)
+                        default_threshold = {"total": 42500, "time": 20000, "geography": 22500}[score_type]
+                        default_threshold = min(max(default_threshold, slider_min), slider_max)
+                        threshold_score = st.slider(
+                            "Score Threshold", min_value=slider_min, max_value=slider_max,
+                            value=default_threshold, step=50, key=f"cc_streak_threshold_{score_type}",
+                            label_visibility="collapsed"
+                        )
+
+            with btn_col:
+                with st.container(key="cumavg_streak_toggle"):
+                    _streak_tc1, _streak_tc2 = st.columns(2)
+                    with _streak_tc1:
+                        if st.button("Cumulative Avg", key=f"cc_streak_btn_avg_{score_type}", use_container_width=True,
+                                     type="primary" if streak_mode == "cumavg" else "secondary"):
+                            st.session_state[_streak_mode_key] = "cumavg"
+                            st.rerun()
+                    with _streak_tc2:
+                        if st.button("Specific Score", key=f"cc_streak_btn_score_{score_type}", use_container_width=True,
+                                     type="primary" if streak_mode == "score" else "secondary"):
+                            st.session_state[_streak_mode_key] = "score"
+                            st.rerun()
+
+            st.plotly_chart(create_cumulative_avg_streak_momentum_chart(
                 [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling
-            ), use_container_width=True, key="cumulative_histogram_chart")
-            st.plotly_chart(create_cumulative_histogram(
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], label=score_type.title(),
+                mode=streak_mode, threshold=threshold_score
+            ), use_container_width=True, key="cumulative_avg_streak_momentum_chart")
+
+        _threshold_dir_key = f'cc_threshold_dir_{score_type}'
+        threshold_dir = st.session_state.get(_threshold_dir_key, 'above')
+
+        with st.container(key="threshold_pair_box"):
+            _tp_title_col, _tp_btn_col = st.columns([3, 1.4])
+            with _tp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _tp_btn_col:
+                with st.container(key="threshold_pair_toggle"):
+                    _tp_c1, _tp_c2 = st.columns(2)
+                    with _tp_c1:
+                        if st.button("Above", key=f"cc_threshold_btn_above_{score_type}", use_container_width=True,
+                                     type="primary" if threshold_dir == "above" else "secondary"):
+                            st.session_state[_threshold_dir_key] = "above"
+                            st.rerun()
+                    with _tp_c2:
+                        if st.button("Below", key=f"cc_threshold_btn_below_{score_type}", use_container_width=True,
+                                     type="primary" if threshold_dir == "below" else "secondary"):
+                            st.session_state[_threshold_dir_key] = "below"
+                            st.rerun()
+
+            _is_below = threshold_dir == "below"
+            pair_c1, pair_c2 = st.columns(2)
+            with pair_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
+                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="cumulative_histogram_chart")
+            with pair_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
+                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
+                ), use_container_width=True, key="streak_score_histogram_chart")
+
+        with st.container(key="score_dist_box"):
+            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.2])
+            with dist_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Distribution</h4>',
+                    unsafe_allow_html=True
+                )
+            with dist_slider_outer:
+                _dist_sl_spacer, _dist_sl_narrow = st.columns([0.3, 0.7])
+                with _dist_sl_narrow:
+                    with st.container(key="score_dist_slider"):
+                        _is_total_bucket = score_type == "total"
+                        _bin_opts, _bin_def = (([250, 500, 1000, 2500], 1000) if _is_total_bucket
+                                               else ([250, 500, 1250], 500))
+                        bin_size = st.select_slider(
+                            "Bucket Size", options=_bin_opts, value=_bin_def,
+                            key=f"cc_bucket_{score_type}", label_visibility="collapsed"
+                        )
+
+            _dist_m_modal = compute_modal_bucket(michael_scores, ceiling, bin_size)
+            _dist_s_modal = compute_modal_bucket(sarah_scores, ceiling, bin_size)
+            with dist_modal_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};">Michael: {_dist_m_modal}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Sarah: {_dist_s_modal}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.plotly_chart(create_score_histogram(
                 [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=True
-            ), use_container_width=True, key="cumulative_histogram_chart_reverse")
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(create_stats_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
-                                                bin_size, date_format, ceiling), unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.plotly_chart(create_density_plot(michael_scores, sarah_scores, avg_scores, ceiling),
-                            use_container_width=True, key="density_chart")
-        with col2:
-            st.plotly_chart(create_streak_score_histogram(
-                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling
-            ), use_container_width=True, key="streak_score_histogram_chart")
-            st.plotly_chart(create_streak_score_histogram(
-                [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=True
-            ), use_container_width=True, key="streak_score_histogram_chart_reverse")
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(create_streaks_table_html(michael_scores, sarah_scores, michael_dates, sarah_dates,
-                                                  date_format, change_threshold),
-                        unsafe_allow_html=True)
+                 (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, bin_size,
+                trim_bin_size=2500 if score_type == "total" else 1250,
+                label=score_type.title()
+            ), use_container_width=True, key="score_histogram_chart")
+
+        with st.container(key="stability_pair_box"):
+            _buf_title_col, _buf_spacer_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.2])
+            with _buf_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Volatility</h4>',
+                    unsafe_allow_html=True
+                )
+            with _buf_slider_outer:
+                _buf_sl_spacer, _buf_sl_narrow = st.columns([0.3, 0.7])
+                with _buf_sl_narrow:
+                    with st.container(key="stability_buffer_slider"):
+                        if score_type == "total":
+                            _buf_min, _buf_max, _buf_step, _buf_def = 250, 5000, 250, 2500
+                        else:
+                            _buf_min, _buf_max, _buf_step, _buf_def = 125, 2500, 125, 1250
+                        band_threshold = st.slider(
+                            "Buffer", min_value=_buf_min, max_value=_buf_max, value=_buf_def, step=_buf_step,
+                            key=f"cc_stability_buffer_{score_type}", label_visibility="collapsed"
+                        )
+
+            band_label = f"{band_threshold:,.0f}"
+            instability_band = band_threshold // 2
+            instability_band_label = f"{instability_band:,.0f}"
+
+            stab_c1, stab_c2 = st.columns(2)
+            with stab_c1:
+                st.plotly_chart(apply_chart_title(create_streak_band_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, band=band_threshold
+                ), "Stability",
+                  f"Longest streak staying within ±{band_label} of X"
+                ), use_container_width=True, key="streak_band_histogram_chart")
+            with stab_c2:
+                st.plotly_chart(apply_chart_title(create_streak_instability_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, band=instability_band
+                ), "Instability",
+                  f"Longest streak hopping between above and below X, ±{instability_band_label} buffer"
+                ), use_container_width=True, key="streak_instability_histogram_chart")
+
+        st.markdown(create_stats_table_html(
+            michael_scores, sarah_scores, date_format, title="Summary Statistics"
+        ), unsafe_allow_html=True)
 
     else:
         if score_type == "total":
@@ -2832,58 +3289,270 @@ else:
         solo_dates = set(solo_days)
 
     if view_mode == "Scores":
-        st.subheader("Time vs Geography Scores")
-        st.plotly_chart(self_create_plotly_figure(player_data_filtered, window_length, player,
-                                                  solo_dates=solo_dates),
-                        use_container_width=True, key="self_main_chart")
-        st.markdown(self_create_scores_momentum_html(player_data_filtered, player, window_length, streak_ceiling),
-                    unsafe_allow_html=True)
-        st.divider()
+        st.markdown(f'<h2 style="text-align:center;color:{COLORS["text"]};">{player} Scores</h2>', unsafe_allow_html=True)
+        with st.container(key="main_chart_box"):
+            _mc_title_col, _mc_score_col, _mc_slider_outer = st.columns([1.3, 1.6, 1.3])
+            with _mc_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Scores</h4>',
+                    unsafe_allow_html=True
+                )
+            _mc_t_total = player_data_filtered[time_col].sum()
+            _mc_g_total = player_data_filtered[geo_col].sum()
+            _mc_t_mean = player_data_filtered[time_col].mean()
+            _mc_g_mean = player_data_filtered[geo_col].mean()
+            _mc_t_weight = "800" if _mc_t_total >= _mc_g_total else "400"
+            _mc_g_weight = "800" if _mc_g_total > _mc_t_total else "400"
+            with _mc_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};font-weight:{_mc_t_weight};">Time: {_mc_t_total:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};font-weight:{_mc_g_weight};">Geography: {_mc_g_total:,.0f}</span>'
+                    f'</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:11px;'
+                    f'opacity:0.75;white-space:nowrap;margin-top:2px;">'
+                    f'<span style="color:{COLORS["time"]};">Avg {_mc_t_mean:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Avg {_mc_g_mean:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with _mc_slider_outer:
+                _mc_sl_spacer, _mc_sl_narrow = st.columns([0.3, 0.7])
+                with _mc_sl_narrow:
+                    with st.container(key="main_chart_rolling_slider"):
+                        window_length = st.slider(
+                            "Rolling Window", min_value=1, max_value=30, value=5, step=1,
+                            key=f"self_main_rolling_window_{player}", label_visibility="collapsed"
+                        )
 
-        # Extract per-metric aligned scores and dates (handles NaN from single-score days)
-        t_mask = player_data_filtered[time_col].notna()
-        g_mask = player_data_filtered[geo_col].notna()
-        time_scores_clean = player_data_filtered.loc[t_mask, time_col].reset_index(drop=True)
-        time_dates_clean = player_data_filtered.loc[t_mask, "Date"].reset_index(drop=True)
-        geo_scores_clean = player_data_filtered.loc[g_mask, geo_col].reset_index(drop=True)
-        geo_dates_clean = player_data_filtered.loc[g_mask, "Date"].reset_index(drop=True)
+            player_data_filtered = self_calculate_rolling_averages(player_data_filtered, window_length, player)
+            fig = self_create_plotly_figure(player_data_filtered, window_length, player, solo_dates=solo_dates)
+            st.plotly_chart(fig, use_container_width=True, key="self_main_chart")
 
-        st.subheader("Statistics Summary")
+        with st.container(key="momentum_box"):
+            mom_title_col, mom_score_col, mom_slider_col = st.columns([1.3, 1.6, 1.3])
+            with mom_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Momentum</h4>',
+                    unsafe_allow_html=True
+                )
+            with mom_slider_col:
+                _sl_spacer, _sl_narrow = st.columns([0.3, 0.7])
+                with _sl_narrow:
+                    with st.container(key="momentum_games_slider"):
+                        slider_max = min(max(len(player_data_filtered), 5), 100)
+                        n_days = st.slider(
+                            "Games", min_value=5, max_value=slider_max, value=min(20, slider_max),
+                            key=f"self_momentum_games_{player}", label_visibility="collapsed"
+                        )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(create_cumulative_histogram(
-                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
-                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])],
-                streak_ceiling
-            ), use_container_width=True, key="self_cumulative_histogram_chart")
-            st.plotly_chart(create_cumulative_histogram(
-                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
-                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])],
-                streak_ceiling, reverse=True
-            ), use_container_width=True, key="self_cumulative_histogram_chart_reverse")
-            st.markdown(self_create_scores_stats_table(
-                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
-                bin_size=bin_size, ceiling=streak_ceiling
-            ), unsafe_allow_html=True)
-            st.subheader("Score Distribution")
-            st.plotly_chart(self_create_density_plot(
-                time_scores_clean, geo_scores_clean, ceiling=streak_ceiling
-            ), use_container_width=True, key="self_density_chart")
-        with col2:
-            st.plotly_chart(create_streak_score_histogram(
-                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
-                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])], streak_ceiling
-            ), use_container_width=True, key="self_streak_score_histogram_chart")
-            st.plotly_chart(create_streak_score_histogram(
-                [(time_scores_clean, time_dates_clean, 'Time', COLORS['time']),
-                 (geo_scores_clean, geo_dates_clean, 'Geography', COLORS['geography'])], streak_ceiling, reverse=True
-            ), use_container_width=True, key="self_streak_score_histogram_chart_reverse")
-            st.subheader("Score Streaks")
-            st.markdown(self_create_scores_streaks_table(
-                time_scores_clean, geo_scores_clean, time_dates_clean, geo_dates_clean,
-                change_threshold=change_threshold
-            ), unsafe_allow_html=True)
+            bars_html, t_total, g_total, t_mean, g_mean, t_weight, g_weight = self_create_scores_momentum_html(
+                player_data_filtered, player, n_days
+            )
+            with mom_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};font-weight:{t_weight};">Time: {t_total:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};font-weight:{g_weight};">Geography: {g_total:,.0f}</span>'
+                    f'</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:11px;'
+                    f'opacity:0.75;white-space:nowrap;margin-top:2px;">'
+                    f'<span style="color:{COLORS["time"]};">Avg {t_mean:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Avg {g_mean:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown(bars_html, unsafe_allow_html=True)
+
+        time_scores = player_data_filtered[time_col].dropna()
+        geo_scores = player_data_filtered[geo_col].dropna()
+        time_dates = player_data_filtered[player_data_filtered[time_col].notna()]["Date"]
+        geo_dates = player_data_filtered[player_data_filtered[geo_col].notna()]["Date"]
+
+        date_format = "%b %d, %Y"
+
+        _streak_mode_key = f'self_streak_mode_{player}'
+        streak_mode = st.session_state.get(_streak_mode_key, 'cumavg')
+
+        with st.container(key="cumavg_streak_box"):
+            title_col, slider_col, btn_col = st.columns([1.6, 1.2, 1.8])
+            with title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Streaks</h4>',
+                    unsafe_allow_html=True
+                )
+
+            threshold_score = None
+            with slider_col:
+                if streak_mode == "score":
+                    with st.container(key="cumavg_streak_slider"):
+                        combined_scores = pd.concat([time_scores, geo_scores])
+                        slider_min = int(np.floor(combined_scores.min() / 50) * 50)
+                        slider_max = int(np.ceil(combined_scores.max() / 50) * 50)
+                        default_threshold = int(round(streak_ceiling * 0.85 / 50) * 50)
+                        default_threshold = min(max(default_threshold, slider_min), slider_max)
+                        threshold_score = st.slider(
+                            "Score Threshold", min_value=slider_min, max_value=slider_max,
+                            value=default_threshold, step=50, key=f"self_streak_threshold_{player}",
+                            label_visibility="collapsed"
+                        )
+
+            with btn_col:
+                with st.container(key="cumavg_streak_toggle"):
+                    _streak_tc1, _streak_tc2 = st.columns(2)
+                    with _streak_tc1:
+                        if st.button("Cumulative Avg", key=f"self_streak_btn_avg_{player}", use_container_width=True,
+                                     type="primary" if streak_mode == "cumavg" else "secondary"):
+                            st.session_state[_streak_mode_key] = "cumavg"
+                            st.rerun()
+                    with _streak_tc2:
+                        if st.button("Specific Score", key=f"self_streak_btn_score_{player}", use_container_width=True,
+                                     type="primary" if streak_mode == "score" else "secondary"):
+                            st.session_state[_streak_mode_key] = "score"
+                            st.rerun()
+
+            st.plotly_chart(create_cumulative_avg_streak_momentum_chart(
+                [(time_scores, time_dates, 'Time', COLORS['time']),
+                 (geo_scores, geo_dates, 'Geography', COLORS['geography'])], label="Score",
+                mode=streak_mode, threshold=threshold_score
+            ), use_container_width=True, key="cumulative_avg_streak_momentum_chart")
+
+        _threshold_dir_key = f'self_threshold_dir_{player}'
+        threshold_dir = st.session_state.get(_threshold_dir_key, 'above')
+
+        with st.container(key="threshold_pair_box"):
+            _tp_title_col, _tp_btn_col = st.columns([3, 1.4])
+            with _tp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _tp_btn_col:
+                with st.container(key="threshold_pair_toggle"):
+                    _tp_c1, _tp_c2 = st.columns(2)
+                    with _tp_c1:
+                        if st.button("Above", key=f"self_threshold_btn_above_{player}", use_container_width=True,
+                                     type="primary" if threshold_dir == "above" else "secondary"):
+                            st.session_state[_threshold_dir_key] = "above"
+                            st.rerun()
+                    with _tp_c2:
+                        if st.button("Below", key=f"self_threshold_btn_below_{player}", use_container_width=True,
+                                     type="primary" if threshold_dir == "below" else "secondary"):
+                            st.session_state[_threshold_dir_key] = "below"
+                            st.rerun()
+
+            _is_below = threshold_dir == "below"
+            pair_c1, pair_c2 = st.columns(2)
+            with pair_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
+                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="cumulative_histogram_chart")
+            with pair_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
+                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
+                ), use_container_width=True, key="streak_score_histogram_chart")
+
+        with st.container(key="score_dist_box"):
+            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.2])
+            with dist_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Distribution</h4>',
+                    unsafe_allow_html=True
+                )
+            with dist_slider_outer:
+                _dist_sl_spacer, _dist_sl_narrow = st.columns([0.3, 0.7])
+                with _dist_sl_narrow:
+                    with st.container(key="score_dist_slider"):
+                        _is_combined_bucket = player == "Combined"
+                        _bin_opts, _bin_def = (([500, 1000, 2000, 5000], 2000) if _is_combined_bucket
+                                               else ([250, 500, 1250], 500))
+                        bin_size = st.select_slider(
+                            "Bucket Size", options=_bin_opts, value=_bin_def,
+                            key=f"self_bucket_{player}", label_visibility="collapsed"
+                        )
+
+            _dist_t_modal = compute_modal_bucket(time_scores, streak_ceiling, bin_size)
+            _dist_g_modal = compute_modal_bucket(geo_scores, streak_ceiling, bin_size)
+            with dist_modal_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};">Time: {_dist_t_modal}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Geography: {_dist_g_modal}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.plotly_chart(create_score_histogram(
+                [(time_scores, time_dates, 'Time', COLORS['time']),
+                 (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, bin_size,
+                trim_bin_size=5000 if _is_combined_bucket else 1250,
+                label="Score"
+            ), use_container_width=True, key="score_histogram_chart")
+
+        with st.container(key="stability_pair_box"):
+            _buf_title_col, _buf_spacer_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.2])
+            with _buf_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Volatility</h4>',
+                    unsafe_allow_html=True
+                )
+            with _buf_slider_outer:
+                _buf_sl_spacer, _buf_sl_narrow = st.columns([0.3, 0.7])
+                with _buf_sl_narrow:
+                    with st.container(key="stability_buffer_slider"):
+                        if player == "Combined":
+                            _buf_min, _buf_max, _buf_step, _buf_def = 250, 5000, 250, 2500
+                        else:
+                            _buf_min, _buf_max, _buf_step, _buf_def = 125, 2500, 125, 1250
+                        band_threshold = st.slider(
+                            "Buffer", min_value=_buf_min, max_value=_buf_max, value=_buf_def, step=_buf_step,
+                            key=f"self_stability_buffer_{player}", label_visibility="collapsed"
+                        )
+
+            band_label = f"{band_threshold:,.0f}"
+            instability_band = band_threshold // 2
+            instability_band_label = f"{instability_band:,.0f}"
+
+            stab_c1, stab_c2 = st.columns(2)
+            with stab_c1:
+                st.plotly_chart(apply_chart_title(create_streak_band_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, band=band_threshold
+                ), "Stability",
+                  f"Longest streak staying within ±{band_label} of X"
+                ), use_container_width=True, key="streak_band_histogram_chart")
+            with stab_c2:
+                st.plotly_chart(apply_chart_title(create_streak_instability_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, band=instability_band
+                ), "Instability",
+                  f"Longest streak hopping between above and below X, ±{instability_band_label} buffer"
+                ), use_container_width=True, key="streak_instability_histogram_chart")
+
+        st.markdown(create_stats_table_html(
+            time_scores, geo_scores, date_format, title="Summary Statistics",
+            col1_label="Time", col2_label="Geography",
+            col1_color=COLORS['time'], col2_color=COLORS['geography']
+        ), unsafe_allow_html=True)
 
     else:
         # Win Margins requires both scores — filter to days where both are present
