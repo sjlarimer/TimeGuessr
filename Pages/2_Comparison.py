@@ -142,9 +142,10 @@ CUSTOM_STYLES = """
            overriding Streamlit's default red primary color */
         .st-key-cumavg_streak_toggle button,
         .st-key-threshold_pair_toggle button {
-            padding: 2px 14px !important;
+            padding: 2px 6px !important;
             min-height: 0 !important;
-            font-size: 12px !important;
+            font-size: 11px !important;
+            white-space: nowrap !important;
         }
         .st-key-cumavg_streak_toggle button[kind="primary"],
         .st-key-threshold_pair_toggle button[kind="primary"] {
@@ -450,60 +451,7 @@ def can_use_month_day_format(dates: pd.Series) -> bool:
         month_to_years.setdefault(period.month, set()).add(period.year)
     return all(len(years) == 1 for years in month_to_years.values())
 
-def compact_date_range_str(start_str: str, end_str: str) -> str:
-    """Format a date range compactly, dropping redundant year/month."""
-    if start_str == end_str:
-        return end_str
-    try:
-        s = pd.to_datetime(start_str, format='%b %d, %Y')
-        e = pd.to_datetime(end_str, format='%b %d, %Y')
-        if s.year == e.year:
-            if s.month == e.month:
-                return f"{s.strftime('%b %d')} to {e.day}, {e.year}"
-            else:
-                return f"{s.strftime('%b %d')} to {end_str}"
-        else:
-            return f"{start_str} to {end_str}"
-    except:
-        return f"{start_str} to {end_str}"
-
-
-def get_date_bold_style(date1: str, date2: str, date_format: str) -> Tuple[str, str]:
-    """Return bold style for more recent date."""
-    if date1 == '-' and date2 == '-':
-        return "", ""
-    if date1 == '-':
-        return "", "font-weight: bold;"
-    if date2 == '-':
-        return "font-weight: bold;", ""
-
-    def parse_end(date_str):
-        parts = date_str.split(' to ')
-        end = parts[-1].strip()
-        try:
-            return pd.to_datetime(end, format=date_format)
-        except:
-            if len(parts) > 1:
-                month_str = parts[0].strip().split(' ')[0]
-                try:
-                    return pd.to_datetime(f"{month_str} {end}", format=date_format)
-                except:
-                    pass
-        return None
-
-    try:
-        d1 = parse_end(date1)
-        d2 = parse_end(date2)
-        if d1 is not None and d2 is not None:
-            if d1 > d2:
-                return "font-weight: bold;", ""
-            elif d2 > d1:
-                return "", "font-weight: bold;"
-    except:
-        pass
-    return "", ""
-
-def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series, 
+def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series,
                                 threshold: float, above: bool = True, 
                                 date_format: str = "%b %d, %Y") -> Tuple[int, str, str]:
     """Calculate longest streak above/below threshold with date range."""
@@ -536,11 +484,13 @@ def calculate_streak_with_dates(scores: np.ndarray, dates: pd.Series,
     return 0, "", ""
 
 def format_bucket_label(lower: int, upper: int, bin_size: int, is_top: bool = False) -> str:
-    """Format bucket label based on range."""
+    """Format bucket label based on range. Always spells out the full
+    lower-upper span (e.g. "41k-42k", not just "41k") so it's unambiguous
+    whether a single value or a bucket is being described — a bare "41k"
+    previously stood in for "41k-42k" whenever bin_size was exactly 1000,
+    which read like an exact score rather than a range."""
     if is_top:
         return f"Scores {lower//1000}k+" if lower % 1000 == 0 else f"Scores {lower/1000:.1f}k+"
-    elif bin_size == 1000:
-        return f"Scores {lower//1000}k" if lower % 1000 == 0 else f"Scores {lower/1000:.1f}k"
     else:
         lower_str = f"{lower//1000}k" if lower % 1000 == 0 else f"{lower/1000:.1f}k"
         upper_str = f"{upper//1000}k" if upper % 1000 == 0 else f"{upper/1000:.1f}k"
@@ -561,85 +511,6 @@ def compute_modal_bucket(scores: pd.Series, ceiling: int, bin_size: int) -> str:
             best_count = count
             best_label = format_bucket_label(lower, upper, bin_size, is_top)
     return best_label.replace("Scores ", "", 1) if best_count > 0 else "-"
-
-def create_table_row(label: str, michael_val: str, sarah_val: str,
-                    border: bool = True, compare_values: bool = True,
-                    michael_color: str = None, sarah_color: str = None) -> str:
-    """Create HTML table row with proper styling."""
-    michael_color = michael_color or COLORS['michael']
-    sarah_color = sarah_color or COLORS['sarah']
-    border_style = "border-bottom: 1px solid #d9d7cc;" if border else ""
-
-    # Value comparison for bolding
-    michael_bold = ""
-    sarah_bold = ""
-    if compare_values and michael_val != '-' and sarah_val != '-':
-        try:
-            m_val = float(michael_val.replace(',', ''))
-            s_val = float(sarah_val.replace(',', ''))
-            michael_bold = "font-weight: bold;" if m_val > s_val else ""
-            sarah_bold = "font-weight: bold;" if s_val > m_val else ""
-        except:
-            pass
-
-    return f"""<tr style="{border_style}">
-        <td style="padding: 8px; color: #696761;">{label}</td>
-        <td style="padding: 8px; text-align: center; color: {michael_color}; {michael_bold}">{michael_val}</td>
-        <td style="padding: 8px; text-align: center; color: {sarah_color}; {sarah_bold}">{sarah_val}</td>
-    </tr>"""
-
-def create_stats_table_html(michael_scores: pd.Series, sarah_scores: pd.Series,
-                           date_format: str, title: str = "",
-                           col1_label: str = "Michael", col2_label: str = "Sarah",
-                           col1_color: str = None, col2_color: str = None) -> str:
-    """Create complete statistics table HTML. When given, `title` is rendered
-    inside the same bordered card as the table (Momentum-box style), rather
-    than as a separate header element above it. `col1_label`/`col2_label`
-    (and matching colors) let this be reused for Time vs Geography on the
-    Self page, not just Michael vs Sarah."""
-    col1_color = col1_color or COLORS['michael']
-    col2_color = col2_color or COLORS['sarah']
-    # Check if we have any data
-    if len(michael_scores) == 0 and len(sarah_scores) == 0:
-        return "<p>No data available for the selected date range.</p>"
-
-    # Calculate statistics
-    michael_std = michael_scores.std() if len(michael_scores) > 0 else 0
-    sarah_std = sarah_scores.std() if len(sarah_scores) > 0 else 0
-
-    # Build rows
-    rows = []
-    rows.append(create_table_row("Standard Deviation", f"{michael_std:.0f}", f"{sarah_std:.0f}", border=False,
-                                  michael_color=col1_color, sarah_color=col2_color))
-
-    header = ""
-    if title:
-        header = (f'<h4 style="margin:0 0 10px 0;color:{COLORS["text"]};font-size:16px;'
-                  f'text-transform:uppercase;letter-spacing:1px;">{title}</h4>')
-
-    return f"""
-    <div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
-    {header}
-    <table class="stats-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">
-        <thead>
-            <tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">
-                <th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Statistic</th>
-                <th style="padding: 10px; text-align: center; color: {col1_color}; font-weight: 600;">{col1_label}</th>
-                <th style="padding: 10px; text-align: center; color: {col2_color}; font-weight: 600;">{col2_label}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {''.join(rows)}
-        </tbody>
-    </table>
-    </div>
-    """
-
-def format_streak_dates(streak_count: int, start_date: str, end_date: str) -> str:
-    """Format streak dates for display."""
-    if streak_count == 0:
-        return '-'
-    return start_date if start_date == end_date else compact_date_range_str(start_date, end_date)
 
 def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
                         window_length: int, score_type: str = "total",
@@ -1074,13 +945,15 @@ def create_score_histogram(series_list, ceiling: int, bin_size: int,
     x_line = [lower for lower, _, _ in edges] + [edges[-1][1]]
 
     for scores, dates, name, color in non_empty:
-        scores_arr = scores.dropna().to_numpy()
+        scores_clean = scores.dropna()
+        dates_clean = dates.loc[scores_clean.index].to_numpy()
+        scores_arr = scores_clean.to_numpy()
         counts = []
+        recent_dates = []
         for lower, upper, is_top in edges:
-            if is_top:
-                counts.append(int(((scores_arr >= lower)).sum()))
-            else:
-                counts.append(int(((scores_arr >= lower) & (scores_arr < upper)).sum()))
+            bucket_mask = (scores_arr >= lower) if is_top else ((scores_arr >= lower) & (scores_arr < upper))
+            counts.append(int(bucket_mask.sum()))
+            recent_dates.append(pd.Timestamp(dates_clean[bucket_mask].max()).strftime('%b %d, %Y') if bucket_mask.any() else '-')
         y_line = counts + [counts[-1]]
 
         fig.add_trace(go.Scatter(
@@ -1102,8 +975,8 @@ def create_score_histogram(series_list, ceiling: int, bin_size: int,
             mode='markers',
             marker=dict(color=color, opacity=0),
             showlegend=False,
-            customdata=labels,
-            hovertemplate=f'{name}<br>' + '%{customdata}<br>Days: %{y}<extra></extra>'
+            customdata=list(zip(labels, recent_dates)),
+            hovertemplate=f'{name}<br>' + '%{customdata[0]}<br>Days: %{y}<br>Most Recent: %{customdata[1]}<extra></extra>'
         ))
 
         # Median / Min / Max reference lines, styled the same way as on the
@@ -1781,6 +1654,12 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
     compares every day to the fixed `threshold` score.
     Each player gets its own stacked row (sharing the date axis) so the two
     don't overlap and obscure each other.
+
+    The x-axis uses the same sequential-integer-with-month-start-labels
+    scheme as the main Scores chart (`create_plotly_figure`), built from the
+    union of every date appearing across `series_list`, rather than a raw
+    date axis — so the bars pack edge-to-edge with no missing-day gaps and
+    no Plotly autorange padding, matching that chart's width exactly.
     `series_list` is a list of (scores: pd.Series, dates: pd.Series, name: str, color: str)."""
     non_empty = [(s, d, n, c) for s, d, n, c in series_list if len(s) > 0]
 
@@ -1791,9 +1670,28 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
         subplot_titles=[name for _, _, name, _ in non_empty]
     )
 
-    day = pd.Timedelta(days=1)
+    if non_empty:
+        all_dates = pd.concat([d for _, d, _, _ in non_empty]).drop_duplicates().sort_values().reset_index(drop=True)
+    else:
+        all_dates = pd.Series([], dtype='datetime64[ns]')
+    date_to_pos = {d: i for i, d in enumerate(all_dates)}
+    n_total = max(len(all_dates), 1)
 
-    for row, (scores, dates, name, color) in enumerate(non_empty, start=1):
+    month_year = all_dates.dt.to_period('M')
+    first_of_month_positions = month_year.drop_duplicates().index.tolist()
+    # drop_duplicates on the period series keeps the first occurrence's
+    # original (0-based, already sequential) position, so these ARE the tick
+    # x-positions directly.
+    tickvals = first_of_month_positions
+    ticktext = [all_dates.iloc[i].strftime('%b %Y') for i in tickvals]
+
+    # First pass: compute every row's streak blocks so the largest streak
+    # across ALL rows can set a single shared y-axis range — otherwise each
+    # player's row autoscales independently, making the two heights
+    # impossible to compare at a glance.
+    row_data = []
+    y_max = 0
+    for scores, dates, name, color in non_empty:
         scores_arr = scores.reset_index(drop=True)
         dates_arr = dates.reset_index(drop=True)
         if mode == "score":
@@ -1819,14 +1717,21 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
             start_date = dates_arr.iloc[start_idx]
             end_date = dates_arr.iloc[end_idx]
             length = end_idx - start_idx + 1
-            left_edge = start_date - day / 2
-            right_edge = end_date + day / 2
-            widths.append((right_edge - left_edge) / pd.Timedelta(milliseconds=1))
+            left_edge = date_to_pos[start_date] - 0.5
+            right_edge = date_to_pos[end_date] + 0.5
+            widths.append(right_edge - left_edge)
             centers.append(left_edge + (right_edge - left_edge) / 2)
             values.append(length if above[start_idx] else -length)
             range_strs.append(start_date.strftime('%b %d, %Y') if start_date == end_date
                               else f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}")
 
+        if values:
+            y_max = max(y_max, max(abs(v) for v in values))
+        row_data.append((name, color, centers, widths, values, range_strs))
+
+    y_max = y_max * 1.05 if y_max > 0 else 1
+
+    for row, (name, color, centers, widths, values, range_strs) in enumerate(row_data, start=1):
         fig.add_trace(go.Bar(
             x=centers, y=values, width=widths,
             name=name,
@@ -1848,6 +1753,7 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
             tickcolor=COLORS['line'],
             tickfont=dict(color=COLORS['text']),
             title_font=dict(color=COLORS['text']),
+            range=[-y_max, y_max],
             row=row, col=1
         )
         fig.update_xaxes(
@@ -1859,6 +1765,11 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
             tickfont=dict(color=COLORS['text']),
             title_font=dict(color=COLORS['text']),
             title_text='Date' if row == n_rows else None,
+            tickmode='array',
+            tickvals=tickvals,
+            ticktext=ticktext,
+            tickangle=-45,
+            range=[-0.5, n_total - 0.5],
             row=row, col=1
         )
 
@@ -1881,19 +1792,114 @@ def create_cumulative_avg_streak_momentum_chart(series_list, label: str = "Score
 
     return fig
 
+def create_win_streak_chart(dates: pd.Series, score_diff: pd.Series,
+                            name_above: str = "Michael", name_below: str = "Sarah",
+                            color_above: str = None, color_below: str = None) -> go.Figure:
+    """Win Margins counterpart to create_cumulative_avg_streak_momentum_chart:
+    visualizes consecutive-win streaks over time as a single bar strip, one
+    bar per streak at its peak (final) length — positive for `name_above`
+    (days `score_diff` > 0), negative for `name_below`. Only one row is
+    needed here (unlike the per-player Score Streaks chart) because a win
+    for one side is, by definition, always a loss for the other — it's the
+    same signal drawn once and mirrored, not two independent ones.
+    Uses the same sequential-integer-with-month-start-labels x-axis as the
+    main Scores/Win Margins chart."""
+    color_above = color_above or COLORS['michael']
+    color_below = color_below or COLORS['sarah']
+    fig = go.Figure()
+
+    dates_arr = dates.reset_index(drop=True)
+    diff_arr = score_diff.reset_index(drop=True)
+    if len(diff_arr) == 0:
+        return fig
+
+    above = (diff_arr > 0).to_numpy()
+
+    all_dates = dates_arr.drop_duplicates().sort_values().reset_index(drop=True)
+    date_to_pos = {d: i for i, d in enumerate(all_dates)}
+    n_total = max(len(all_dates), 1)
+
+    month_year = all_dates.dt.to_period('M')
+    first_of_month_positions = month_year.drop_duplicates().index.tolist()
+    tickvals = first_of_month_positions
+    ticktext = [all_dates.iloc[i].strftime('%b %Y') for i in tickvals]
+
+    blocks = []
+    i = 0
+    n_days = len(above)
+    while i < n_days:
+        j = i
+        while j + 1 < n_days and above[j + 1] == above[i]:
+            j += 1
+        blocks.append((i, j))
+        i = j + 1
+
+    centers, widths, values, colors, customdata = [], [], [], [], []
+    for start_idx, end_idx in blocks:
+        start_date = dates_arr.iloc[start_idx]
+        end_date = dates_arr.iloc[end_idx]
+        length = end_idx - start_idx + 1
+        left_edge = date_to_pos[start_date] - 0.5
+        right_edge = date_to_pos[end_date] + 0.5
+        widths.append(right_edge - left_edge)
+        centers.append(left_edge + (right_edge - left_edge) / 2)
+        is_above = above[start_idx]
+        values.append(length if is_above else -length)
+        colors.append(color_above if is_above else color_below)
+        range_str = (start_date.strftime('%b %d, %Y') if start_date == end_date
+                    else f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}")
+        customdata.append((name_above if is_above else name_below, range_str))
+
+    fig.add_trace(go.Bar(
+        x=centers, y=values, width=widths,
+        marker=dict(color=colors, opacity=0.65, line=dict(width=0)),
+        customdata=customdata,
+        showlegend=False,
+        hovertemplate='%{customdata[0]}<br>%{customdata[1]}<br>Streak: %{y} days<extra></extra>'
+    ))
+
+    fig.add_hline(y=0, line=dict(color=COLORS['line'], width=1))
+
+    fig.update_yaxes(
+        title_text='Streak (days)',
+        showgrid=True, gridcolor=COLORS['grid'], zeroline=True, zerolinecolor=COLORS['line'],
+        linecolor=COLORS['line'], tickcolor=COLORS['line'],
+        tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text'])
+    )
+    fig.update_xaxes(
+        showgrid=True, gridcolor=COLORS['grid'], zeroline=False, linecolor=COLORS['line'],
+        tickcolor=COLORS['line'], tickfont=dict(color=COLORS['text']), title_font=dict(color=COLORS['text']),
+        title_text='Date',
+        tickmode='array', tickvals=tickvals, ticktext=ticktext, tickangle=-45,
+        range=[-0.5, n_total - 0.5]
+    )
+
+    fig.update_layout(
+        height=260,
+        bargap=0,
+        font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
+        paper_bgcolor=COLORS['bg_paper'],
+        plot_bgcolor=COLORS['bg_plot'],
+        margin=dict(l=60, r=40, t=20, b=60),
+        showlegend=False,
+        hovermode='closest'
+    )
+
+    return fig
+
 def create_streak_count_histogram(streaks_list) -> go.Figure:
     """Companion plot to the Streaks table: for every integer streak length X
     from 1 to the longest streak observed, how many completed win streaks
-    (of either player) were at least X games long — each streak counted once
+    (of either player) were at least X days long — each streak counted once
     per threshold it qualifies for, never split into sub-streaks.
-    `streaks_list` is a list of (lengths: list[int], name: str, color: str)."""
+    `streaks_list` is a list of (streaks: list[(length: int, end_date)], name: str, color: str)."""
     fig = go.Figure()
 
-    non_empty = [(l, n, c) for l, n, c in streaks_list if l]
+    non_empty = [(s, n, c) for s, n, c in streaks_list if s]
     if not non_empty:
         return fig
 
-    max_len = max(max(l) for l, _, _ in non_empty)
+    max_len = max(max(length for length, _ in s) for s, _, _ in non_empty)
     x_vals = np.arange(1, max_len + 1)
 
     def hex_to_rgba(hex_color, alpha=0.4):
@@ -1906,8 +1912,10 @@ def create_streak_count_histogram(streaks_list) -> go.Figure:
     # [X-0.5, X+0.5) and the tick at X sits at its center, not its left edge.
     x_plot = np.append(x_vals - 0.5, max_len + 0.5)
 
-    for lengths, name, color in non_empty:
-        sorted_lengths = np.sort(np.array(lengths))
+    for streaks, name, color in non_empty:
+        lengths = np.array([length for length, _ in streaks])
+        end_dates = np.array([pd.Timestamp(d) for _, d in streaks])
+        sorted_lengths = np.sort(lengths)
         counts = len(sorted_lengths) - np.searchsorted(sorted_lengths, x_vals, side='left')
         y_plot = np.append(counts, counts[-1])
         fig.add_trace(go.Scatter(
@@ -1920,6 +1928,14 @@ def create_streak_count_histogram(streaks_list) -> go.Figure:
             fillcolor=hex_to_rgba(color, 0.4),
             hoverinfo='skip',
         ))
+        # Most recent occurrence of a streak at least X days long — the
+        # qualifying end dates shrink to a subset as X grows, so this is
+        # just the max end date among streaks whose length clears X.
+        recent_dates = []
+        for x in x_vals:
+            qualifying = end_dates[lengths >= x]
+            recent_dates.append(qualifying.max().strftime('%b %d, %Y') if len(qualifying) else '-')
+
         # Invisible marker at each bar's actual center (an integer x) — the
         # line trace above has no data point there (its points sit at the
         # .5 edges), so without this the hover would snap to an edge instead
@@ -1931,11 +1947,12 @@ def create_streak_count_histogram(streaks_list) -> go.Figure:
             mode='markers',
             marker=dict(color=color, opacity=0),
             showlegend=False,
-            hovertemplate='Streak ≥ %{x} games<br>Count: %{y}<extra></extra>'
+            customdata=recent_dates,
+            hovertemplate='Streak ≥ %{x} days<br>Count: %{y}<br>Most Recent: %{customdata}<extra></extra>'
         ))
 
     fig.update_layout(
-        xaxis_title='Streak Length (X, games)',
+        xaxis_title='Streak Length (X, days)',
         yaxis_title='Streaks ≥ X (count)',
         height=350,
         font=dict(family='Poppins, Arial, sans-serif', size=12, color='#000000'),
@@ -2118,12 +2135,14 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     return fig
 
 
-def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
-    """Bar strip for the last (window_length * 4) games showing Michael vs Sarah margins."""
-    n_games = window_length * 4
-    recent_data = data.tail(n_games).reset_index(drop=True)
+def create_momentum_timeline(data: pd.DataFrame, n_days: int) -> Tuple[str, int, int]:
+    """Win-margins counterpart to create_momentum_html: bars + date-range
+    footer only (no title, no score summary, no outer card) for the most
+    recent `n_days` games, plus the two win counts the caller needs for the
+    score summary it renders separately inside the same bordered container."""
+    recent_data = data.tail(n_days).reset_index(drop=True)
     if len(recent_data) == 0:
-        return ""
+        return "", 0, 0
 
     diffs = recent_data['Score Diff'].fillna(0)
     max_abs = diffs.abs().max() or 1
@@ -2147,43 +2166,21 @@ def create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
             f'</div>'
         )
 
-    m_wins = (diffs > 0).sum()
-    s_wins = (diffs < 0).sum()
-    return f"""
-<div style="font-family:'Poppins',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS['bg_paper']};border-radius:12px;border:1px solid {COLORS['bg_plot']};">
-<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
-<h4 style="margin:0;color:{COLORS['text']};font-size:16px;text-transform:uppercase;letter-spacing:1px;">
-Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_games} Games)</span>
-</h4>
-<div style="font-size:12px;font-weight:600;">
-<span style="color:{COLORS['michael']};">Michael: {m_wins}</span>
-<span style="color:#b0afaa;margin:0 6px;">|</span>
-<span style="color:{COLORS['sarah']};">Sarah: {s_wins}</span>
-</div>
-</div>
+    m_wins = int((diffs > 0).sum())
+    s_wins = int((diffs < 0).sum())
+    html = f"""
 <div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">
 {"".join(segments)}
 </div>
 <div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS['line']};font-size:10px;">
 <span>{recent_data.iloc[0]['Date'].strftime('%b %d')}</span><span>{recent_data.iloc[-1]['Date'].strftime('%b %d')}</span>
-</div>
 </div>"""
+    return html, m_wins, s_wins
 
 
-def get_win_stats_margin(df: pd.DataFrame, lower: float, upper: float, is_michael: bool = True) -> Tuple[int, str]:
-    """Calculate win counts and most recent date for a margin category."""
-    if is_michael:
-        cond = (df["Score Diff"] > lower) & (df["Score Diff"] <= upper)
-    else:
-        cond = (df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper)
-    subset = df[cond]
-    count = len(subset)
-    recent = subset["Date"].max().strftime('%b %d, %Y') if not subset.empty else "-"
-    return count, recent
-
-
-def calculate_win_streaks(df: pd.DataFrame) -> List[Dict]:
-    """Calculate win streaks for Michael and Sarah."""
+def calculate_win_streaks(df: pd.DataFrame, name_above: str = "Michael", name_below: str = "Sarah") -> List[Dict]:
+    """Calculate win streaks for `name_above` (Score Diff > 0) and `name_below`
+    (Score Diff < 0) — defaults to Michael/Sarah, but Self passes Time/Geography."""
     streaks = []
     current_streak = 0
     current_winner = None
@@ -2191,9 +2188,9 @@ def calculate_win_streaks(df: pd.DataFrame) -> List[Dict]:
 
     for idx, row in df.iterrows():
         if row["Score Diff"] > 0:
-            winner = "Michael"
+            winner = name_above
         elif row["Score Diff"] < 0:
-            winner = "Sarah"
+            winner = name_below
         else:
             winner = "Tie"
         # A tie is not a win for either side, so it breaks an active streak
@@ -2212,118 +2209,6 @@ def calculate_win_streaks(df: pd.DataFrame) -> List[Dict]:
         streaks.append({'winner': current_winner, 'length': current_streak,
                         'start_date': streak_start, 'end_date': df.iloc[-1]["Date"]})
     return streaks
-
-
-def create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) -> str:
-    """Create win summary HTML table (Michael vs Sarah)."""
-    michael_wins = mask_filtered[mask_filtered["Score Diff"] > 0]
-    sarah_wins = mask_filtered[mask_filtered["Score Diff"] < 0]
-
-    m_win_count = len(michael_wins)
-    s_win_count = len(sarah_wins)
-    m_recent = michael_wins["Date"].max().strftime('%b %d, %Y') if not michael_wins.empty else "-"
-    s_recent = sarah_wins["Date"].max().strftime('%b %d, %Y') if not sarah_wins.empty else "-"
-
-    rows = (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
-            f'<td style="padding: 8px; color: #696761;">Wins</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_win_count}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_recent}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_win_count}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_recent}</td></tr>')
-
-    for label, (lower, upper) in win_categories.items():
-        m_count, m_date = get_win_stats_margin(michael_wins, lower, upper, True)
-        s_count, s_date = get_win_stats_margin(sarah_wins, lower, upper, False)
-        rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
-                 f'<td style="padding: 8px; color: #696761;">{label}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_count}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_date}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_count}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_date}</td></tr>')
-
-    m_large = int(michael_wins["Score Diff"].max()) if not michael_wins.empty else "-"
-    m_large_date = michael_wins.loc[michael_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not michael_wins.empty else "-"
-    s_large = int(abs(sarah_wins["Score Diff"].min())) if not sarah_wins.empty else "-"
-    s_large_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not sarah_wins.empty else "-"
-    m_small = int(michael_wins["Score Diff"].min()) if not michael_wins.empty else "-"
-    m_small_date = michael_wins.loc[michael_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not michael_wins.empty else "-"
-    s_small = int(abs(sarah_wins["Score Diff"].max())) if not sarah_wins.empty else "-"
-    s_small_date = sarah_wins.loc[sarah_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not sarah_wins.empty else "-"
-
-    for row_label, m_val, m_date, s_val, s_date in [
-        ("Largest Win", m_large, m_large_date, s_large, s_large_date),
-        ("Smallest Win", m_small, m_small_date, s_small, s_small_date),
-    ]:
-        rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
-                 f'<td style="padding: 8px; color: #696761;">{row_label}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_val}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_date}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_val}</td>'
-                 f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_date}</td></tr>')
-
-    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
-            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
-            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Category</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Michael</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Date</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Sarah</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Date</th>'
-            f'</tr></thead><tbody>{rows}</tbody></table>')
-
-
-def create_win_streaks_table(mask_filtered: pd.DataFrame) -> str:
-    """Create win streaks HTML table (Michael vs Sarah)."""
-    streaks = calculate_win_streaks(mask_filtered)
-    michael_streaks = [s for s in streaks if s['winner'] == 'Michael']
-    sarah_streaks = [s for s in streaks if s['winner'] == 'Sarah']
-
-    m_longest = max(michael_streaks, key=lambda x: x['length']) if michael_streaks else None
-    s_longest = max(sarah_streaks, key=lambda x: x['length']) if sarah_streaks else None
-
-    m_longest_len = m_longest['length'] if m_longest else "-"
-    m_longest_date = compact_date_range_str(m_longest['start_date'].strftime('%b %d, %Y'), m_longest['end_date'].strftime('%b %d, %Y')) if m_longest else "-"
-    s_longest_len = s_longest['length'] if s_longest else "-"
-    s_longest_date = compact_date_range_str(s_longest['start_date'].strftime('%b %d, %Y'), s_longest['end_date'].strftime('%b %d, %Y')) if s_longest else "-"
-
-    current = streaks[-1] if streaks else None
-    m_current = current['length'] if current and current['winner'] == 'Michael' else 0
-    m_current_date = current['start_date'].strftime('%b %d, %Y') if current and current['winner'] == 'Michael' else "-"
-    s_current = current['length'] if current and current['winner'] == 'Sarah' else 0
-    s_current_date = current['start_date'].strftime('%b %d, %Y') if current and current['winner'] == 'Sarah' else "-"
-
-    streak_rows = ""
-    max_streak = max([s['length'] for s in streaks]) if streaks else 0
-    for streak_len in range(max_streak, 0, -1):
-        m_subs = [s for s in michael_streaks if s['length'] >= streak_len]
-        s_subs = [s for s in sarah_streaks if s['length'] >= streak_len]
-        m_recent = max([s['end_date'] for s in m_subs]).strftime('%b %d, %Y') if m_subs else "-"
-        s_recent = max([s['end_date'] for s in s_subs]).strftime('%b %d, %Y') if s_subs else "-"
-        streak_rows += (f'<tr style="border-bottom: 1px solid #d9d7cc;">'
-                        f'<td style="padding: 8px; color: #696761;">Streaks ≥ {streak_len}</td>'
-                        f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{len(m_subs)}</td>'
-                        f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_recent}</td>'
-                        f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{len(s_subs)}</td>'
-                        f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_recent}</td></tr>')
-
-    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
-            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
-            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Streak Type</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Michael</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["michael"]}; font-weight: 600;">Date(s)</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Sarah</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["sarah"]}; font-weight: 600;">Date(s)</th>'
-            f'</tr></thead><tbody>'
-            f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Current Streak</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_current}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_current_date}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_current}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_current_date}</td></tr>'
-            f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Longest Streak</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]};">{m_longest_len}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["michael"]}; font-size: 11px;">{m_longest_date}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]};">{s_longest_len}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["sarah"]}; font-size: 11px;">{s_longest_date}</td></tr>'
-            f'{streak_rows}</tbody></table>')
 
 
 # --- Self Comparison Helper Functions ---
@@ -2367,76 +2252,6 @@ def self_calculate_rolling_averages(df: pd.DataFrame, window_length: int, player
             df[f"{player} {metric} Rolling Avg"] = df[col].rolling(window=window_length, min_periods=1).mean()
             df[f"{player} {metric} Cumulative Avg"] = df[col].expanding().mean()
     return df
-
-
-def self_create_table_row(label: str, time_val: str, geo_val: str,
-                          time_date: str, geo_date: str, date_format: str,
-                          border: bool = True, compare_values: bool = True,
-                          center_label: bool = False, highlight_max: bool = True) -> str:
-    border_style = "border-bottom: 1px solid #d9d7cc;" if border else ""
-    label_align = "center" if center_label else "left"
-    time_bold = geo_bold = ""
-    if compare_values and time_val != '-' and geo_val != '-':
-        try:
-            t_v, g_v = float(str(time_val).replace(',', '')), float(str(geo_val).replace(',', ''))
-            if highlight_max:
-                time_bold = "font-weight: bold;" if t_v > g_v else ""
-                geo_bold = "font-weight: bold;" if g_v > t_v else ""
-            else:
-                time_bold = "font-weight: bold;" if t_v < g_v else ""
-                geo_bold = "font-weight: bold;" if g_v < t_v else ""
-        except:
-            pass
-    time_date_bold, geo_date_bold = get_date_bold_style(time_date, geo_date, date_format)
-    return (f'<tr style="{border_style}">'
-            f'<td style="padding: 8px; text-align: {label_align}; color: #696761;">{label}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["time"]}; {time_bold}">{time_val}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["geography"]}; {geo_bold}">{geo_val}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["time"]}; font-size: 11px; {time_date_bold}">{time_date}</td>'
-            f'<td style="padding: 8px; text-align: center; color: {COLORS["geography"]}; font-size: 11px; {geo_date_bold}">{geo_date}</td>'
-            f'</tr>')
-
-
-def self_get_win_stats(df: pd.DataFrame, lower: float, upper: float, is_time: bool = True) -> Tuple[int, str]:
-    cond = ((df["Score Diff"] > lower) & (df["Score Diff"] <= upper)) if is_time else ((df["Score Diff"] < -lower) & (df["Score Diff"] >= -upper))
-    subset = df[cond]
-    return len(subset), subset["Date"].max().strftime('%b %d, %Y') if not subset.empty else "-"
-
-
-def self_create_win_summary_table(mask_filtered: pd.DataFrame, win_categories: Dict) -> str:
-    time_wins = mask_filtered[mask_filtered["Score Diff"] > 0]
-    geo_wins = mask_filtered[mask_filtered["Score Diff"] < 0]
-    ties = mask_filtered[mask_filtered["Score Diff"] == 0]
-    rows = []
-    rows.append(self_create_table_row("Total Wins", str(len(time_wins)), str(len(geo_wins)),
-                                      time_wins["Date"].max().strftime('%b %d, %Y') if not time_wins.empty else "-",
-                                      geo_wins["Date"].max().strftime('%b %d, %Y') if not geo_wins.empty else "-", "%b %d, %Y"))
-    tie_count = len(ties)
-    tie_recent = ties["Date"].max().strftime('%b %d, %Y') if not ties.empty else "-"
-    rows.append(f'<tr style="border-bottom: 1px solid #d9d7cc;"><td style="padding: 8px; color: #696761;">Ties</td>'
-                f'<td colspan="4" style="padding: 8px; text-align: center; color: #696761;">{tie_count} (Last: {tie_recent})</td></tr>')
-    for label, (lower, upper) in win_categories.items():
-        t_c, t_d = self_get_win_stats(time_wins, lower, upper, True)
-        g_c, g_d = self_get_win_stats(geo_wins, lower, upper, False)
-        rows.append(self_create_table_row(label, str(t_c), str(g_c), t_d, g_d, "%b %d, %Y"))
-    t_large = int(time_wins["Score Diff"].max()) if not time_wins.empty else "-"
-    t_large_d = time_wins.loc[time_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not time_wins.empty else "-"
-    g_large = int(abs(geo_wins["Score Diff"].min())) if not geo_wins.empty else "-"
-    g_large_d = geo_wins.loc[geo_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not geo_wins.empty else "-"
-    rows.append(self_create_table_row("Largest Win", str(t_large), str(g_large), t_large_d, g_large_d, "%b %d, %Y"))
-    t_small = int(time_wins["Score Diff"].min()) if not time_wins.empty else "-"
-    t_small_d = time_wins.loc[time_wins["Score Diff"].idxmin(), "Date"].strftime('%b %d, %Y') if not time_wins.empty else "-"
-    g_small = int(abs(geo_wins["Score Diff"].max())) if not geo_wins.empty else "-"
-    g_small_d = geo_wins.loc[geo_wins["Score Diff"].idxmax(), "Date"].strftime('%b %d, %Y') if not geo_wins.empty else "-"
-    rows.append(self_create_table_row("Smallest Win", str(t_small), str(g_small), t_small_d, g_small_d, "%b %d, %Y", highlight_max=False))
-    return (f'<table class="streaks-table" style="width:100%; border-collapse: collapse; font-family: Poppins, Arial, sans-serif; font-size: 13px;">'
-            f'<thead><tr style="background-color: #d9d7cc; border-bottom: 2px solid #8f8d85;">'
-            f'<th style="padding: 10px; text-align: left; color: #696761; font-weight: 600;">Category</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Time</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Geography</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["time"]}; font-weight: 600;">Date</th>'
-            f'<th style="padding: 10px; text-align: center; color: {COLORS["geography"]}; font-weight: 600;">Date</th>'
-            f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
 
 
 def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str,
@@ -2579,11 +2394,14 @@ def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: i
     return fig
 
 
-def self_create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str:
-    n_games = window_length * 4
-    recent_data = data.tail(n_games).reset_index(drop=True)
+def self_create_momentum_timeline(data: pd.DataFrame, n_days: int) -> Tuple[str, int, int]:
+    """Self-page counterpart to create_momentum_timeline: bars + date-range
+    footer only (no title, no score summary, no outer card) for the most
+    recent `n_days` games, plus the two win counts the caller needs for the
+    score summary it renders separately inside the same bordered container."""
+    recent_data = data.tail(n_days).reset_index(drop=True)
     if len(recent_data) == 0:
-        return ""
+        return "", 0, 0
     diffs = recent_data['Score Diff'].fillna(0)
     max_abs = diffs.abs().max() or 1
     MIN_HEIGHT_PCT = 10
@@ -2601,15 +2419,11 @@ def self_create_momentum_timeline(data: pd.DataFrame, window_length: int) -> str
             color, label = COLORS['line'], "Tie"
         segments.append(f'<div style="width:{slot_pct}%;display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;padding:0 1px;">'
                         f'<div style="width:100%;height:{height_pct:.1f}%;background-color:{color};border-radius:3px;" title="{date_str}: {label}"></div></div>')
-    t_wins, g_wins = (diffs > 0).sum(), (diffs < 0).sum()
-    return (f'<div style="font-family:\'Poppins\',sans-serif;margin-top:20px;padding:15px;background-color:{COLORS["bg_paper"]};border-radius:12px;border:1px solid {COLORS["bg_plot"]};">'
-            f'<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">'
-            f'<h4 style="margin:0;color:{COLORS["text"]};font-size:16px;text-transform:uppercase;letter-spacing:1px;">Momentum <span style="font-size:12px;text-transform:none;opacity:0.8;">(Last {n_games} Games)</span></h4>'
-            f'<div style="font-size:12px;font-weight:600;"><span style="color:{COLORS["time"]};">Time: {t_wins}</span>'
-            f'<span style="color:#b0afaa;margin:0 6px;">|</span><span style="color:{COLORS["geography"]};">Geography: {g_wins}</span></div></div>'
-            f'<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">{"".join(segments)}</div>'
+    t_wins, g_wins = int((diffs > 0).sum()), int((diffs < 0).sum())
+    html = (f'<div style="width:100%;height:48px;border-radius:6px;overflow:hidden;display:flex;background-color:transparent;">{"".join(segments)}</div>'
             f'<div style="display:flex;justify-content:space-between;margin-top:4px;color:{COLORS["line"]};font-size:10px;">'
-            f'<span>{recent_data.iloc[0]["Date"].strftime("%b %d")}</span><span>{recent_data.iloc[-1]["Date"].strftime("%b %d")}</span></div></div>')
+            f'<span>{recent_data.iloc[0]["Date"].strftime("%b %d")}</span><span>{recent_data.iloc[-1]["Date"].strftime("%b %d")}</span></div>')
+    return html, t_wins, g_wins
 
 
 def self_create_scores_momentum_html(data: pd.DataFrame, player: str, n_days: int) -> Tuple[str, float, float, float, float, str, str]:
@@ -2786,18 +2600,13 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:8px 24px 8px 24px;">', unsafe_allow_html=True)
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:8px 24px 12px 24px;">', unsafe_allow_html=True)
 
+    # Every view (Scores and Win Margins, Cross and Self) now has its own
+    # rolling-window control inside its own box, top-right — none of them
+    # need a sidebar slider anymore.
     window_length = 5
-    if view_mode != "Scores":
-        # Both Cross > Scores and Self > Scores have their own rolling-window
-        # control, top-right of their own box — only Win Margins still shares
-        # this sidebar slider.
-        window_length = st.slider("Rolling Window", min_value=1, max_value=30, value=5, step=1)
-
     bin_size = 1000
-
-    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
 
     if comp_type == 'Cross' and view_mode == "Scores":
         _ispd = st.session_state.get('cc_include_single', False)
@@ -2838,35 +2647,14 @@ if comp_type == 'Cross':
         df_daily, mask = prepare_total_scores_data(data, include_single_player_days)
         ceiling = CEILING_TOTAL
         score_type = "total"
-        win_categories = {
-            "Massive Wins (>10k)": (10000, np.inf),
-            "Big Wins (5–10k)": (5000, 10000),
-            "Small Wins (2.5–5k)": (2500, 5000),
-            "Close Wins (1–2.5k)": (1000, 2500),
-            "Very Close Wins (<1k)": (0, 1000)
-        }
     elif page_type == "Time Scores":
         df_daily, mask = prepare_time_scores_data(data, False, include_single_player_days)
         ceiling = CEILING_TIME
         score_type = "time"
-        win_categories = {
-            "Massive Wins (>5k)": (5000, np.inf),
-            "Big Wins (2.5–5k)": (2500, 5000),
-            "Small Wins (1.25–2.5k)": (1250, 2500),
-            "Close Wins (0.5–1.25k)": (500, 1250),
-            "Very Close Wins (<0.5k)": (0, 500)
-        }
     else:
         df_daily, mask = prepare_geography_scores_data(data, False, include_single_player_days)
         ceiling = CEILING_GEOGRAPHY
         score_type = "geography"
-        win_categories = {
-            "Massive Wins (>5k)": (5000, np.inf),
-            "Big Wins (2.5–5k)": (2500, 5000),
-            "Small Wins (1.25–2.5k)": (1250, 2500),
-            "Close Wins (0.5–1.25k)": (500, 1250),
-            "Very Close Wins (<0.5k)": (0, 500)
-        }
 
     if remove_pre_tracking:
         mask = mask[mask['Date'] >= pd.Timestamp('2025-10-20')].copy()
@@ -2992,13 +2780,11 @@ if comp_type == 'Cross':
             michael_dates = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna()]["Date"]
             sarah_dates = mask_filtered[mask_filtered["Sarah Geography Midpoint"].notna()]["Date"]
 
-        date_format = "%b %d, %Y"
-
         _streak_mode_key = f'cc_streak_mode_{score_type}'
         streak_mode = st.session_state.get(_streak_mode_key, 'cumavg')
 
         with st.container(key="cumavg_streak_box"):
-            title_col, slider_col, btn_col = st.columns([1.6, 1.2, 1.8])
+            title_col, slider_col, btn_col = st.columns([1.8, 1.5, 1.8])
             with title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3022,18 +2808,20 @@ if comp_type == 'Cross':
                         )
 
             with btn_col:
-                with st.container(key="cumavg_streak_toggle"):
-                    _streak_tc1, _streak_tc2 = st.columns(2)
-                    with _streak_tc1:
-                        if st.button("Cumulative Avg", key=f"cc_streak_btn_avg_{score_type}", use_container_width=True,
-                                     type="primary" if streak_mode == "cumavg" else "secondary"):
-                            st.session_state[_streak_mode_key] = "cumavg"
-                            st.rerun()
-                    with _streak_tc2:
-                        if st.button("Specific Score", key=f"cc_streak_btn_score_{score_type}", use_container_width=True,
-                                     type="primary" if streak_mode == "score" else "secondary"):
-                            st.session_state[_streak_mode_key] = "score"
-                            st.rerun()
+                _btn_sl_spacer, _btn_sl_narrow = st.columns([0.1, 0.9])
+                with _btn_sl_narrow:
+                    with st.container(key="cumavg_streak_toggle"):
+                        _streak_tc1, _streak_tc2 = st.columns(2)
+                        with _streak_tc1:
+                            if st.button("Cum Avg", key=f"cc_streak_btn_avg_{score_type}", use_container_width=True,
+                                         type="primary" if streak_mode == "cumavg" else "secondary"):
+                                st.session_state[_streak_mode_key] = "cumavg"
+                                st.rerun()
+                        with _streak_tc2:
+                            if st.button("Score", key=f"cc_streak_btn_score_{score_type}", use_container_width=True,
+                                         type="primary" if streak_mode == "score" else "secondary"):
+                                st.session_state[_streak_mode_key] = "score"
+                                st.rerun()
 
             st.plotly_chart(create_cumulative_avg_streak_momentum_chart(
                 [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
@@ -3044,45 +2832,8 @@ if comp_type == 'Cross':
         _threshold_dir_key = f'cc_threshold_dir_{score_type}'
         threshold_dir = st.session_state.get(_threshold_dir_key, 'above')
 
-        with st.container(key="threshold_pair_box"):
-            _tp_title_col, _tp_btn_col = st.columns([3, 1.4])
-            with _tp_title_col:
-                st.markdown(
-                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
-                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
-                    unsafe_allow_html=True
-                )
-            with _tp_btn_col:
-                with st.container(key="threshold_pair_toggle"):
-                    _tp_c1, _tp_c2 = st.columns(2)
-                    with _tp_c1:
-                        if st.button("Above", key=f"cc_threshold_btn_above_{score_type}", use_container_width=True,
-                                     type="primary" if threshold_dir == "above" else "secondary"):
-                            st.session_state[_threshold_dir_key] = "above"
-                            st.rerun()
-                    with _tp_c2:
-                        if st.button("Below", key=f"cc_threshold_btn_below_{score_type}", use_container_width=True,
-                                     type="primary" if threshold_dir == "below" else "secondary"):
-                            st.session_state[_threshold_dir_key] = "below"
-                            st.rerun()
-
-            _is_below = threshold_dir == "below"
-            pair_c1, pair_c2 = st.columns(2)
-            with pair_c1:
-                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
-                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
-                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
-                ), use_container_width=True, key="cumulative_histogram_chart")
-            with pair_c2:
-                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
-                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
-                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
-                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
-                ), use_container_width=True, key="streak_score_histogram_chart")
-
         with st.container(key="score_dist_box"):
-            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.2])
+            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.8])
             with dist_title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3105,6 +2856,8 @@ if comp_type == 'Cross':
             _dist_s_modal = compute_modal_bucket(sarah_scores, ceiling, bin_size)
             with dist_modal_col:
                 st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Mode</div>'
                     f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
                     f'font-weight:600;white-space:nowrap;">'
                     f'<span style="color:{COLORS["michael"]};">Michael: {_dist_m_modal}</span>'
@@ -3121,8 +2874,47 @@ if comp_type == 'Cross':
                 label=score_type.title()
             ), use_container_width=True, key="score_histogram_chart")
 
+        with st.container(key="threshold_pair_box"):
+            _tp_title_col, _tp_btn_col = st.columns([3, 1.8])
+            with _tp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _tp_btn_col:
+                _tp_sl_spacer, _tp_sl_narrow = st.columns([0.1, 0.9])
+                with _tp_sl_narrow:
+                    with st.container(key="threshold_pair_toggle"):
+                        _tp_c1, _tp_c2 = st.columns(2)
+                        with _tp_c1:
+                            if st.button("Above", key=f"cc_threshold_btn_above_{score_type}", use_container_width=True,
+                                         type="primary" if threshold_dir == "above" else "secondary"):
+                                st.session_state[_threshold_dir_key] = "above"
+                                st.rerun()
+                        with _tp_c2:
+                            if st.button("Below", key=f"cc_threshold_btn_below_{score_type}", use_container_width=True,
+                                         type="primary" if threshold_dir == "below" else "secondary"):
+                                st.session_state[_threshold_dir_key] = "below"
+                                st.rerun()
+
+            _is_below = threshold_dir == "below"
+            pair_c1, pair_c2 = st.columns(2)
+            with pair_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
+                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="cumulative_histogram_chart")
+            with pair_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(michael_scores, michael_dates, 'Michael', COLORS['michael']),
+                     (sarah_scores, sarah_dates, 'Sarah', COLORS['sarah'])], ceiling, reverse=_is_below
+                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
+                ), use_container_width=True, key="streak_score_histogram_chart")
+
         with st.container(key="stability_pair_box"):
-            _buf_title_col, _buf_spacer_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.2])
+            _buf_title_col, _buf_sd_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.8])
             with _buf_title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3141,6 +2933,21 @@ if comp_type == 'Cross':
                             "Buffer", min_value=_buf_min, max_value=_buf_max, value=_buf_def, step=_buf_step,
                             key=f"cc_stability_buffer_{score_type}", label_visibility="collapsed"
                         )
+
+            _buf_m_sd = michael_scores.std() if len(michael_scores) > 0 else 0
+            _buf_s_sd = sarah_scores.std() if len(sarah_scores) > 0 else 0
+            with _buf_sd_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Standard Deviation</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};">Michael: {_buf_m_sd:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Sarah: {_buf_s_sd:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
             band_label = f"{band_threshold:,.0f}"
             instability_band = band_threshold // 2
@@ -3162,10 +2969,6 @@ if comp_type == 'Cross':
                   f"Longest streak hopping between above and below X, ±{instability_band_label} buffer"
                 ), use_container_width=True, key="streak_instability_histogram_chart")
 
-        st.markdown(create_stats_table_html(
-            michael_scores, sarah_scores, date_format, title="Summary Statistics"
-        ), unsafe_allow_html=True)
-
     else:
         if score_type == "total":
             margin_mask = mask_filtered[mask_filtered["Michael Total Score"].notna() & mask_filtered["Sarah Total Score"].notna()].copy()
@@ -3177,17 +2980,45 @@ if comp_type == 'Cross':
             margin_mask = mask_filtered[mask_filtered["Michael Geography Midpoint"].notna() & mask_filtered["Sarah Geography Midpoint"].notna()].copy()
             margin_mask["Score Diff"] = margin_mask["Michael Geography Midpoint"] - margin_mask["Sarah Geography Midpoint"]
 
-        margin_mask["Rolling Diff"] = margin_mask["Score Diff"].rolling(window=window_length, min_periods=1).mean()
-        margin_mask["Cumulative Diff"] = margin_mask["Score Diff"].expanding().mean()
-        margin_mask = add_zero_crossing_interpolation(margin_mask, window_length)
+        with st.container(key="main_chart_box"):
+            _mc_title_col, _mc_score_col, _mc_slider_outer = st.columns([1.3, 1.6, 1.3])
+            with _mc_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Margins</h4>',
+                    unsafe_allow_html=True
+                )
+            _mc_m_wins = (margin_mask["Score Diff"] > 0).sum()
+            _mc_s_wins = (margin_mask["Score Diff"] < 0).sum()
+            _mc_m_weight = "800" if _mc_m_wins >= _mc_s_wins else "400"
+            _mc_s_weight = "800" if _mc_s_wins > _mc_m_wins else "400"
+            with _mc_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};font-weight:{_mc_m_weight};">Michael: {_mc_m_wins}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};font-weight:{_mc_s_weight};">Sarah: {_mc_s_wins}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with _mc_slider_outer:
+                _mc_sl_spacer, _mc_sl_narrow = st.columns([0.3, 0.7])
+                with _mc_sl_narrow:
+                    with st.container(key="main_chart_rolling_slider"):
+                        window_length = st.slider(
+                            "Rolling Window", min_value=1, max_value=30, value=5, step=1,
+                            key=f"cc_margin_rolling_window_{score_type}", label_visibility="collapsed"
+                        )
 
-        st.plotly_chart(create_win_margins_figure(margin_mask, window_length),
-                        use_container_width=True, key="win_margins_chart")
+            margin_mask["Rolling Diff"] = margin_mask["Score Diff"].rolling(window=window_length, min_periods=1).mean()
+            margin_mask["Cumulative Diff"] = margin_mask["Score Diff"].expanding().mean()
+            margin_mask = add_zero_crossing_interpolation(margin_mask, window_length)
+
+            st.plotly_chart(create_win_margins_figure(margin_mask, window_length),
+                            use_container_width=True, key="win_margins_chart")
 
         margin_original = margin_mask[margin_mask["Date"].dt.time == pd.Timestamp("00:00:00").time()].copy().reset_index(drop=True)
-        st.markdown(create_momentum_timeline(margin_original, window_length), unsafe_allow_html=True)
-        st.markdown("---")
-        st.subheader("Statistics Summary")
 
         # Each player's winning margin on the days they actually won (mirrors the
         # raw per-player score series used by the Scores tab's histograms above).
@@ -3197,6 +3028,106 @@ if comp_type == 'Cross':
         sarah_margins = -margin_original.loc[margin_original["Score Diff"] < 0, "Score Diff"]
         michael_margin_dates = margin_original.loc[michael_margins.index, "Date"]
         sarah_margin_dates = margin_original.loc[sarah_margins.index, "Date"]
+
+        # Margins run far smaller than the full score ceiling, so scale the x-axis
+        # to the data itself — the nearest 5,000 at or above the largest margin —
+        # instead of stretching it out to the score ceiling.
+        max_margin = pd.concat([michael_margins, sarah_margins]).max() if (len(michael_margins) or len(sarah_margins)) else 0
+        margin_ceiling = int(np.ceil(max(max_margin, 1) / 5000) * 5000)
+
+        with st.container(key="momentum_box"):
+            mom_title_col, mom_score_col, mom_slider_col = st.columns([1.3, 1.6, 1.3])
+            with mom_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Momentum</h4>',
+                    unsafe_allow_html=True
+                )
+            with mom_slider_col:
+                _sl_spacer, _sl_narrow = st.columns([0.3, 0.7])
+                with _sl_narrow:
+                    with st.container(key="momentum_games_slider"):
+                        slider_max = min(max(len(margin_original), 5), 100)
+                        n_days = st.slider(
+                            "Games", min_value=5, max_value=slider_max, value=min(20, slider_max),
+                            key=f"cc_margin_momentum_games_{score_type}", label_visibility="collapsed"
+                        )
+
+            bars_html, m_wins, s_wins = create_momentum_timeline(margin_original, n_days)
+            with mom_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};">Michael: {m_wins}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Sarah: {s_wins}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown(bars_html, unsafe_allow_html=True)
+
+        # Completed win streaks, used for the "Streaks >= X" count plot below
+        # the main win-streak bar strip — each streak counted once per length
+        # threshold it qualifies for, not split into sub-streaks.
+        win_streaks = calculate_win_streaks(margin_original)
+        michael_streak_lengths = [(s['length'], s['end_date']) for s in win_streaks if s['winner'] == 'Michael']
+        sarah_streak_lengths = [(s['length'], s['end_date']) for s in win_streaks if s['winner'] == 'Sarah']
+
+        with st.container(key="cumavg_streak_box"):
+            st.markdown(
+                f'<h4 style="margin:4px 0 10px 0;color:{COLORS["text"]};font-size:16px;'
+                f'text-transform:uppercase;letter-spacing:1px;">Win Streaks</h4>',
+                unsafe_allow_html=True
+            )
+            st.plotly_chart(create_win_streak_chart(
+                margin_original["Date"], margin_original["Score Diff"],
+                name_above="Michael", name_below="Sarah",
+                color_above=COLORS['michael'], color_below=COLORS['sarah']
+            ), use_container_width=True, key="win_streak_chart")
+            st.plotly_chart(create_streak_count_histogram(
+                [(michael_streak_lengths, 'Michael', COLORS['michael']),
+                 (sarah_streak_lengths, 'Sarah', COLORS['sarah'])]
+            ), use_container_width=True, key="margin_streak_count_histogram_chart")
+
+        with st.container(key="score_dist_box"):
+            _wd_title_col, _wd_modal_col, _wd_slider_outer = st.columns([1.8, 1.5, 1.8])
+            with _wd_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Distribution</h4>',
+                    unsafe_allow_html=True
+                )
+            with _wd_slider_outer:
+                _wd_sl_spacer, _wd_sl_narrow = st.columns([0.3, 0.7])
+                with _wd_sl_narrow:
+                    with st.container(key="score_dist_slider"):
+                        _wd_bin_opts, _wd_bin_def = [250, 500, 1000, 2500], 500
+                        wd_bin_size = st.select_slider(
+                            "Bucket Size", options=_wd_bin_opts, value=_wd_bin_def,
+                            key=f"cc_margin_bucket_{score_type}", label_visibility="collapsed"
+                        )
+
+            _wd_m_modal = compute_modal_bucket(michael_margins, margin_ceiling, wd_bin_size)
+            _wd_s_modal = compute_modal_bucket(sarah_margins, margin_ceiling, wd_bin_size)
+            with _wd_modal_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Mode</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["michael"]};">Michael: {_wd_m_modal}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["sarah"]};">Sarah: {_wd_s_modal}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.plotly_chart(create_score_histogram(
+                [(michael_margins, michael_margin_dates, 'Michael', COLORS['michael']),
+                 (sarah_margins, sarah_margin_dates, 'Sarah', COLORS['sarah'])], margin_ceiling, wd_bin_size,
+                trim_bin_size=max(_wd_bin_opts), label="Margin"
+            ), use_container_width=True, key="margin_distribution_chart")
 
         # The streak histogram needs actual day-to-day adjacency, so it can't use
         # the win-only series above (that silently skips every day the OTHER
@@ -3211,45 +3142,49 @@ if comp_type == 'Cross':
         sarah_streak_margins = (-_score_diff).where(_score_diff < 0, -1)
         streak_dates = margin_original["Date"]
 
-        # Margins run far smaller than the full score ceiling, so scale the x-axis
-        # to the data itself — the nearest 5,000 at or above the largest margin —
-        # instead of stretching it out to the score ceiling.
-        max_margin = pd.concat([michael_margins, sarah_margins]).max() if (len(michael_margins) or len(sarah_margins)) else 0
-        margin_ceiling = int(np.ceil(max(max_margin, 1) / 5000) * 5000)
+        _margin_threshold_dir_key = f'cc_margin_threshold_dir_{score_type}'
+        margin_threshold_dir = st.session_state.get(_margin_threshold_dir_key, 'above')
 
-        # Completed win streaks (same source as the Streaks table below), used
-        # for the "Streaks >= X" count plot — each streak counted once per
-        # length threshold it qualifies for, not split into sub-streaks.
-        win_streaks = calculate_win_streaks(margin_original)
-        michael_streak_lengths = [s['length'] for s in win_streaks if s['winner'] == 'Michael']
-        sarah_streak_lengths = [s['length'] for s in win_streaks if s['winner'] == 'Sarah']
+        with st.container(key="threshold_pair_box"):
+            _mtp_title_col, _mtp_btn_col = st.columns([3, 1.8])
+            with _mtp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _mtp_btn_col:
+                _mtp_sl_spacer, _mtp_sl_narrow = st.columns([0.1, 0.9])
+                with _mtp_sl_narrow:
+                    with st.container(key="threshold_pair_toggle"):
+                        _mtp_c1, _mtp_c2 = st.columns(2)
+                        with _mtp_c1:
+                            if st.button("Above", key=f"cc_margin_threshold_btn_above_{score_type}", use_container_width=True,
+                                         type="primary" if margin_threshold_dir == "above" else "secondary"):
+                                st.session_state[_margin_threshold_dir_key] = "above"
+                                st.rerun()
+                        with _mtp_c2:
+                            if st.button("Below", key=f"cc_margin_threshold_btn_below_{score_type}", use_container_width=True,
+                                         type="primary" if margin_threshold_dir == "below" else "secondary"):
+                                st.session_state[_margin_threshold_dir_key] = "below"
+                                st.rerun()
 
-        mcol1, mcol2 = st.columns(2)
-        with mcol1:
-            st.plotly_chart(create_cumulative_histogram(
-                [(michael_margins, michael_margin_dates, 'Michael', COLORS['michael']),
-                 (sarah_margins, sarah_margin_dates, 'Sarah', COLORS['sarah'])],
-                margin_ceiling, label="Margin"
-            ), use_container_width=True, key="margin_cumulative_histogram_chart")
-        with mcol2:
-            st.plotly_chart(create_streak_score_histogram(
-                [(michael_streak_margins, streak_dates, 'Michael', COLORS['michael']),
-                 (sarah_streak_margins, streak_dates, 'Sarah', COLORS['sarah'])],
-                margin_ceiling, label="Margin"
-            ), use_container_width=True, key="margin_streak_histogram_chart")
-            st.plotly_chart(create_streak_count_histogram(
-                [(michael_streak_lengths, 'Michael', COLORS['michael']),
-                 (sarah_streak_lengths, 'Sarah', COLORS['sarah'])]
-            ), use_container_width=True, key="margin_streak_count_histogram_chart")
-
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("### Win Summary")
-            st.markdown(create_win_summary_table(margin_original, win_categories), unsafe_allow_html=True)
-        with col2:
-            st.markdown("### Streaks")
-            st.markdown(create_win_streaks_table(margin_original), unsafe_allow_html=True)
+            _mtp_is_below = margin_threshold_dir == "below"
+            mtp_c1, mtp_c2 = st.columns(2)
+            with mtp_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(michael_margins, michael_margin_dates, 'Michael', COLORS['michael']),
+                     (sarah_margins, sarah_margin_dates, 'Sarah', COLORS['sarah'])], margin_ceiling,
+                    reverse=_mtp_is_below, label="Margin"
+                ), f"Days At Or {'Below' if _mtp_is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="margin_cumulative_histogram_chart")
+            with mtp_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(michael_streak_margins, streak_dates, 'Michael', COLORS['michael']),
+                     (sarah_streak_margins, streak_dates, 'Sarah', COLORS['sarah'])], margin_ceiling,
+                    reverse=_mtp_is_below, label="Margin"
+                ), f"Longest Streak At Or {'Below' if _mtp_is_below else 'Above'} X"
+                ), use_container_width=True, key="margin_streak_histogram_chart")
 
 else:
     # --- Self Comparison ---
@@ -3261,24 +3196,8 @@ else:
 
     if player == "Combined":
         streak_ceiling = 50000
-        change_threshold = 5000
-        self_win_categories = {
-            "Massive Win (>10k)": (10000, 50000),
-            "Big Win (5k-10k)": (5000, 10000),
-            "Small Win (2.5k-5k)": (2500, 5000),
-            "Close Win (1k-2.5k)": (1000, 2500),
-            "Very Close Win (<1k)": (0, 1000)
-        }
     else:
         streak_ceiling = 25000
-        change_threshold = 2500
-        self_win_categories = {
-            "Massive Win (>5k)": (5000, 50000),
-            "Big Win (2.5k-5k)": (2500, 5000),
-            "Small Win (1.25k-2.5k)": (1250, 2500),
-            "Close Win (0.5k-1.25k)": (500, 1250),
-            "Very Close Win (<0.5k)": (0, 500)
-        }
 
     solo_dates = set()
     if include_self_single and player != "Combined":
@@ -3378,13 +3297,11 @@ else:
         time_dates = player_data_filtered[player_data_filtered[time_col].notna()]["Date"]
         geo_dates = player_data_filtered[player_data_filtered[geo_col].notna()]["Date"]
 
-        date_format = "%b %d, %Y"
-
         _streak_mode_key = f'self_streak_mode_{player}'
         streak_mode = st.session_state.get(_streak_mode_key, 'cumavg')
 
         with st.container(key="cumavg_streak_box"):
-            title_col, slider_col, btn_col = st.columns([1.6, 1.2, 1.8])
+            title_col, slider_col, btn_col = st.columns([1.8, 1.5, 1.8])
             with title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3408,18 +3325,20 @@ else:
                         )
 
             with btn_col:
-                with st.container(key="cumavg_streak_toggle"):
-                    _streak_tc1, _streak_tc2 = st.columns(2)
-                    with _streak_tc1:
-                        if st.button("Cumulative Avg", key=f"self_streak_btn_avg_{player}", use_container_width=True,
-                                     type="primary" if streak_mode == "cumavg" else "secondary"):
-                            st.session_state[_streak_mode_key] = "cumavg"
-                            st.rerun()
-                    with _streak_tc2:
-                        if st.button("Specific Score", key=f"self_streak_btn_score_{player}", use_container_width=True,
-                                     type="primary" if streak_mode == "score" else "secondary"):
-                            st.session_state[_streak_mode_key] = "score"
-                            st.rerun()
+                _btn_sl_spacer, _btn_sl_narrow = st.columns([0.1, 0.9])
+                with _btn_sl_narrow:
+                    with st.container(key="cumavg_streak_toggle"):
+                        _streak_tc1, _streak_tc2 = st.columns(2)
+                        with _streak_tc1:
+                            if st.button("Cum Avg", key=f"self_streak_btn_avg_{player}", use_container_width=True,
+                                         type="primary" if streak_mode == "cumavg" else "secondary"):
+                                st.session_state[_streak_mode_key] = "cumavg"
+                                st.rerun()
+                        with _streak_tc2:
+                            if st.button("Score", key=f"self_streak_btn_score_{player}", use_container_width=True,
+                                         type="primary" if streak_mode == "score" else "secondary"):
+                                st.session_state[_streak_mode_key] = "score"
+                                st.rerun()
 
             st.plotly_chart(create_cumulative_avg_streak_momentum_chart(
                 [(time_scores, time_dates, 'Time', COLORS['time']),
@@ -3430,45 +3349,8 @@ else:
         _threshold_dir_key = f'self_threshold_dir_{player}'
         threshold_dir = st.session_state.get(_threshold_dir_key, 'above')
 
-        with st.container(key="threshold_pair_box"):
-            _tp_title_col, _tp_btn_col = st.columns([3, 1.4])
-            with _tp_title_col:
-                st.markdown(
-                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
-                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
-                    unsafe_allow_html=True
-                )
-            with _tp_btn_col:
-                with st.container(key="threshold_pair_toggle"):
-                    _tp_c1, _tp_c2 = st.columns(2)
-                    with _tp_c1:
-                        if st.button("Above", key=f"self_threshold_btn_above_{player}", use_container_width=True,
-                                     type="primary" if threshold_dir == "above" else "secondary"):
-                            st.session_state[_threshold_dir_key] = "above"
-                            st.rerun()
-                    with _tp_c2:
-                        if st.button("Below", key=f"self_threshold_btn_below_{player}", use_container_width=True,
-                                     type="primary" if threshold_dir == "below" else "secondary"):
-                            st.session_state[_threshold_dir_key] = "below"
-                            st.rerun()
-
-            _is_below = threshold_dir == "below"
-            pair_c1, pair_c2 = st.columns(2)
-            with pair_c1:
-                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
-                    [(time_scores, time_dates, 'Time', COLORS['time']),
-                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
-                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
-                ), use_container_width=True, key="cumulative_histogram_chart")
-            with pair_c2:
-                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
-                    [(time_scores, time_dates, 'Time', COLORS['time']),
-                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
-                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
-                ), use_container_width=True, key="streak_score_histogram_chart")
-
         with st.container(key="score_dist_box"):
-            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.2])
+            dist_title_col, dist_modal_col, dist_slider_outer = st.columns([1.8, 1.5, 1.8])
             with dist_title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3491,6 +3373,8 @@ else:
             _dist_g_modal = compute_modal_bucket(geo_scores, streak_ceiling, bin_size)
             with dist_modal_col:
                 st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Mode</div>'
                     f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
                     f'font-weight:600;white-space:nowrap;">'
                     f'<span style="color:{COLORS["time"]};">Time: {_dist_t_modal}</span>'
@@ -3507,8 +3391,47 @@ else:
                 label="Score"
             ), use_container_width=True, key="score_histogram_chart")
 
+        with st.container(key="threshold_pair_box"):
+            _tp_title_col, _tp_btn_col = st.columns([3, 1.8])
+            with _tp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Score Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _tp_btn_col:
+                _tp_sl_spacer, _tp_sl_narrow = st.columns([0.1, 0.9])
+                with _tp_sl_narrow:
+                    with st.container(key="threshold_pair_toggle"):
+                        _tp_c1, _tp_c2 = st.columns(2)
+                        with _tp_c1:
+                            if st.button("Above", key=f"self_threshold_btn_above_{player}", use_container_width=True,
+                                         type="primary" if threshold_dir == "above" else "secondary"):
+                                st.session_state[_threshold_dir_key] = "above"
+                                st.rerun()
+                        with _tp_c2:
+                            if st.button("Below", key=f"self_threshold_btn_below_{player}", use_container_width=True,
+                                         type="primary" if threshold_dir == "below" else "secondary"):
+                                st.session_state[_threshold_dir_key] = "below"
+                                st.rerun()
+
+            _is_below = threshold_dir == "below"
+            pair_c1, pair_c2 = st.columns(2)
+            with pair_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
+                ), f"Days At Or {'Below' if _is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="cumulative_histogram_chart")
+            with pair_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(time_scores, time_dates, 'Time', COLORS['time']),
+                     (geo_scores, geo_dates, 'Geography', COLORS['geography'])], streak_ceiling, reverse=_is_below
+                ), f"Longest Streak At Or {'Below' if _is_below else 'Above'} X"
+                ), use_container_width=True, key="streak_score_histogram_chart")
+
         with st.container(key="stability_pair_box"):
-            _buf_title_col, _buf_spacer_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.2])
+            _buf_title_col, _buf_sd_col, _buf_slider_outer = st.columns([1.8, 1.5, 1.8])
             with _buf_title_col:
                 st.markdown(
                     f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
@@ -3527,6 +3450,21 @@ else:
                             "Buffer", min_value=_buf_min, max_value=_buf_max, value=_buf_def, step=_buf_step,
                             key=f"self_stability_buffer_{player}", label_visibility="collapsed"
                         )
+
+            _buf_t_sd = time_scores.std() if len(time_scores) > 0 else 0
+            _buf_g_sd = geo_scores.std() if len(geo_scores) > 0 else 0
+            with _buf_sd_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Standard Deviation</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};">Time: {_buf_t_sd:,.0f}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Geography: {_buf_g_sd:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
             band_label = f"{band_threshold:,.0f}"
             instability_band = band_threshold // 2
@@ -3548,25 +3486,203 @@ else:
                   f"Longest streak hopping between above and below X, ±{instability_band_label} buffer"
                 ), use_container_width=True, key="streak_instability_histogram_chart")
 
-        st.markdown(create_stats_table_html(
-            time_scores, geo_scores, date_format, title="Summary Statistics",
-            col1_label="Time", col2_label="Geography",
-            col1_color=COLORS['time'], col2_color=COLORS['geography']
-        ), unsafe_allow_html=True)
-
     else:
         # Win Margins requires both scores — filter to days where both are present
         margin_data = player_data_filtered[player_data_filtered[time_col].notna() & player_data_filtered[geo_col].notna()].copy()
         margin_data["Score Diff"] = margin_data[time_col] - margin_data[geo_col]
-        margin_data["Rolling Diff"] = margin_data["Score Diff"].rolling(window=window_length, min_periods=1).mean()
-        margin_data["Cumulative Diff"] = margin_data["Score Diff"].expanding().mean()
-        margin_data_original = margin_data.copy()
-        margin_data = add_zero_crossing_interpolation(margin_data, window_length)
 
-        st.subheader("Score Differential (Time - Geography)")
-        st.plotly_chart(self_create_win_margins_figure(margin_data, window_length, player, solo_dates=solo_dates),
-                        use_container_width=True, key="self_margin_chart")
-        st.markdown(self_create_momentum_timeline(margin_data_original, window_length), unsafe_allow_html=True)
-        st.divider()
-        st.subheader("Win Summary")
-        st.markdown(self_create_win_summary_table(margin_data, self_win_categories), unsafe_allow_html=True)
+        with st.container(key="main_chart_box"):
+            _mc_title_col, _mc_score_col, _mc_slider_outer = st.columns([1.3, 1.6, 1.3])
+            with _mc_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Margins</h4>',
+                    unsafe_allow_html=True
+                )
+            _mc_t_wins = (margin_data["Score Diff"] > 0).sum()
+            _mc_g_wins = (margin_data["Score Diff"] < 0).sum()
+            _mc_t_weight = "800" if _mc_t_wins >= _mc_g_wins else "400"
+            _mc_g_weight = "800" if _mc_g_wins > _mc_t_wins else "400"
+            with _mc_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};font-weight:{_mc_t_weight};">Time: {_mc_t_wins}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};font-weight:{_mc_g_weight};">Geography: {_mc_g_wins}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with _mc_slider_outer:
+                _mc_sl_spacer, _mc_sl_narrow = st.columns([0.3, 0.7])
+                with _mc_sl_narrow:
+                    with st.container(key="main_chart_rolling_slider"):
+                        window_length = st.slider(
+                            "Rolling Window", min_value=1, max_value=30, value=5, step=1,
+                            key=f"self_margin_rolling_window_{player}", label_visibility="collapsed"
+                        )
+
+            margin_data["Rolling Diff"] = margin_data["Score Diff"].rolling(window=window_length, min_periods=1).mean()
+            margin_data["Cumulative Diff"] = margin_data["Score Diff"].expanding().mean()
+            margin_data_original = margin_data.copy()
+            margin_data = add_zero_crossing_interpolation(margin_data, window_length)
+
+            st.plotly_chart(self_create_win_margins_figure(margin_data, window_length, player, solo_dates=solo_dates),
+                            use_container_width=True, key="self_margin_chart")
+
+        with st.container(key="momentum_box"):
+            mom_title_col, mom_score_col, mom_slider_col = st.columns([1.3, 1.6, 1.3])
+            with mom_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Momentum</h4>',
+                    unsafe_allow_html=True
+                )
+            with mom_slider_col:
+                _sl_spacer, _sl_narrow = st.columns([0.3, 0.7])
+                with _sl_narrow:
+                    with st.container(key="momentum_games_slider"):
+                        slider_max = min(max(len(margin_data_original), 5), 100)
+                        n_days = st.slider(
+                            "Games", min_value=5, max_value=slider_max, value=min(20, slider_max),
+                            key=f"self_margin_momentum_games_{player}", label_visibility="collapsed"
+                        )
+
+            bars_html, t_wins, g_wins = self_create_momentum_timeline(margin_data_original, n_days)
+            with mom_score_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};">Time: {t_wins}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Geography: {g_wins}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown(bars_html, unsafe_allow_html=True)
+
+        # Completed win streaks, used for the "Streaks >= X" count plot below
+        # the main win-streak bar strip — each streak counted once per length
+        # threshold it qualifies for, not split into sub-streaks.
+        self_win_streaks = calculate_win_streaks(margin_data_original, name_above="Time", name_below="Geography")
+        time_streak_lengths = [(s['length'], s['end_date']) for s in self_win_streaks if s['winner'] == 'Time']
+        geo_streak_lengths = [(s['length'], s['end_date']) for s in self_win_streaks if s['winner'] == 'Geography']
+
+        with st.container(key="cumavg_streak_box"):
+            st.markdown(
+                f'<h4 style="margin:4px 0 10px 0;color:{COLORS["text"]};font-size:16px;'
+                f'text-transform:uppercase;letter-spacing:1px;">Win Streaks</h4>',
+                unsafe_allow_html=True
+            )
+            st.plotly_chart(create_win_streak_chart(
+                margin_data_original["Date"], margin_data_original["Score Diff"],
+                name_above="Time", name_below="Geography",
+                color_above=COLORS['time'], color_below=COLORS['geography']
+            ), use_container_width=True, key="self_win_streak_chart")
+            st.plotly_chart(create_streak_count_histogram(
+                [(time_streak_lengths, 'Time', COLORS['time']),
+                 (geo_streak_lengths, 'Geography', COLORS['geography'])]
+            ), use_container_width=True, key="self_margin_streak_count_histogram_chart")
+
+        # Each metric's winning margin on the days it actually won — mirrors the
+        # raw per-metric score series used by the Scores tab's histograms.
+        time_margins = margin_data_original.loc[margin_data_original["Score Diff"] > 0, "Score Diff"]
+        geo_margins = -margin_data_original.loc[margin_data_original["Score Diff"] < 0, "Score Diff"]
+        time_margin_dates = margin_data_original.loc[time_margins.index, "Date"]
+        geo_margin_dates = margin_data_original.loc[geo_margins.index, "Date"]
+        max_self_margin = pd.concat([time_margins, geo_margins]).max() if (len(time_margins) or len(geo_margins)) else 0
+        self_margin_ceiling = int(np.ceil(max(max_self_margin, 1) / 5000) * 5000)
+
+        with st.container(key="score_dist_box"):
+            _wd_title_col, _wd_modal_col, _wd_slider_outer = st.columns([1.8, 1.5, 1.8])
+            with _wd_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Distribution</h4>',
+                    unsafe_allow_html=True
+                )
+            with _wd_slider_outer:
+                _wd_sl_spacer, _wd_sl_narrow = st.columns([0.3, 0.7])
+                with _wd_sl_narrow:
+                    with st.container(key="score_dist_slider"):
+                        _wd_bin_opts, _wd_bin_def = [250, 500, 1000, 2500], 500
+                        wd_bin_size = st.select_slider(
+                            "Bucket Size", options=_wd_bin_opts, value=_wd_bin_def,
+                            key=f"self_margin_bucket_{player}", label_visibility="collapsed"
+                        )
+
+            _wd_t_modal = compute_modal_bucket(time_margins, self_margin_ceiling, wd_bin_size)
+            _wd_g_modal = compute_modal_bucket(geo_margins, self_margin_ceiling, wd_bin_size)
+            with _wd_modal_col:
+                st.markdown(
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:10px;'
+                    f'color:#8f8d85;text-transform:uppercase;letter-spacing:1px;">Mode</div>'
+                    f'<div style="font-family:\'Poppins\',sans-serif;text-align:center;font-size:14px;'
+                    f'font-weight:600;white-space:nowrap;">'
+                    f'<span style="color:{COLORS["time"]};">Time: {_wd_t_modal}</span>'
+                    f'<span style="color:#b0afaa;margin:0 8px;">|</span>'
+                    f'<span style="color:{COLORS["geography"]};">Geography: {_wd_g_modal}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.plotly_chart(create_score_histogram(
+                [(time_margins, time_margin_dates, 'Time', COLORS['time']),
+                 (geo_margins, geo_margin_dates, 'Geography', COLORS['geography'])], self_margin_ceiling, wd_bin_size,
+                trim_bin_size=max(_wd_bin_opts), label="Margin"
+            ), use_container_width=True, key="self_margin_distribution_chart")
+
+        # The streak histogram needs actual day-to-day adjacency, so it can't use
+        # the win-only series above (that silently skips every day the OTHER
+        # metric won, which would let a streak jump across a loss). Instead, walk
+        # every played day in order and give a non-winning day a margin of 0 —
+        # below any positive threshold — so it correctly breaks the streak.
+        _self_score_diff = margin_data_original["Score Diff"]
+        time_streak_margins = _self_score_diff.where(_self_score_diff > 0, -1)
+        geo_streak_margins = (-_self_score_diff).where(_self_score_diff < 0, -1)
+        self_streak_dates = margin_data_original["Date"]
+
+        _self_margin_threshold_dir_key = f'self_margin_threshold_dir_{player}'
+        self_margin_threshold_dir = st.session_state.get(_self_margin_threshold_dir_key, 'above')
+
+        with st.container(key="threshold_pair_box"):
+            _mtp_title_col, _mtp_btn_col = st.columns([3, 1.8])
+            with _mtp_title_col:
+                st.markdown(
+                    f'<h4 style="margin:4px 0 0 0;color:{COLORS["text"]};font-size:16px;'
+                    f'text-transform:uppercase;letter-spacing:1px;">Win Thresholds</h4>',
+                    unsafe_allow_html=True
+                )
+            with _mtp_btn_col:
+                _mtp_sl_spacer, _mtp_sl_narrow = st.columns([0.1, 0.9])
+                with _mtp_sl_narrow:
+                    with st.container(key="threshold_pair_toggle"):
+                        _mtp_c1, _mtp_c2 = st.columns(2)
+                        with _mtp_c1:
+                            if st.button("Above", key=f"self_margin_threshold_btn_above_{player}", use_container_width=True,
+                                         type="primary" if self_margin_threshold_dir == "above" else "secondary"):
+                                st.session_state[_self_margin_threshold_dir_key] = "above"
+                                st.rerun()
+                        with _mtp_c2:
+                            if st.button("Below", key=f"self_margin_threshold_btn_below_{player}", use_container_width=True,
+                                         type="primary" if self_margin_threshold_dir == "below" else "secondary"):
+                                st.session_state[_self_margin_threshold_dir_key] = "below"
+                                st.rerun()
+
+            _mtp_is_below = self_margin_threshold_dir == "below"
+            mtp_c1, mtp_c2 = st.columns(2)
+            with mtp_c1:
+                st.plotly_chart(apply_chart_title(create_cumulative_histogram(
+                    [(time_margins, time_margin_dates, 'Time', COLORS['time']),
+                     (geo_margins, geo_margin_dates, 'Geography', COLORS['geography'])], self_margin_ceiling,
+                    reverse=_mtp_is_below, label="Margin"
+                ), f"Days At Or {'Below' if _mtp_is_below else 'Above'} Threshold X"
+                ), use_container_width=True, key="self_margin_cumulative_histogram_chart")
+            with mtp_c2:
+                st.plotly_chart(apply_chart_title(create_streak_score_histogram(
+                    [(time_streak_margins, self_streak_dates, 'Time', COLORS['time']),
+                     (geo_streak_margins, self_streak_dates, 'Geography', COLORS['geography'])], self_margin_ceiling,
+                    reverse=_mtp_is_below, label="Margin"
+                ), f"Longest Streak At Or {'Below' if _mtp_is_below else 'Above'} X"
+                ), use_container_width=True, key="self_margin_streak_histogram_chart")
