@@ -2181,6 +2181,11 @@ def create_momentum_timeline(data: pd.DataFrame, n_days: int) -> Tuple[str, int,
 def calculate_win_streaks(df: pd.DataFrame, name_above: str = "Michael", name_below: str = "Sarah") -> List[Dict]:
     """Calculate win streaks for `name_above` (Score Diff > 0) and `name_below`
     (Score Diff < 0) — defaults to Michael/Sarah, but Self passes Time/Geography."""
+    # idx below is used as a positional index via .iloc, so a caller-supplied
+    # frame with gaps in its index (e.g. from upstream filtering that wasn't
+    # followed by reset_index) would throw — reset it locally instead of
+    # relying on every caller to have already done so.
+    df = df.reset_index(drop=True)
     streaks = []
     current_streak = 0
     current_winner = None
@@ -3488,7 +3493,7 @@ else:
 
     else:
         # Win Margins requires both scores — filter to days where both are present
-        margin_data = player_data_filtered[player_data_filtered[time_col].notna() & player_data_filtered[geo_col].notna()].copy()
+        margin_data = player_data_filtered[player_data_filtered[time_col].notna() & player_data_filtered[geo_col].notna()].copy().reset_index(drop=True)
         margin_data["Score Diff"] = margin_data[time_col] - margin_data[geo_col]
 
         with st.container(key="main_chart_box"):
