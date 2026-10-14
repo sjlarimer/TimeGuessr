@@ -192,7 +192,7 @@ if df is not None and not df.empty:
 
     # --- Sidebar Filters ---
     with st.sidebar:
-        st.header("Filter Settings")
+        st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
         
         # Safe min/max date extraction
         valid_dates = df["Date"].dropna()

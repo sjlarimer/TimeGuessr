@@ -184,33 +184,50 @@ st.markdown("""
     }
 
     /* ── Sidebar controls (pill segmented style, matches Comparison page) ── */
-    div[data-testid="stSidebar"] div[data-testid="stToggle"] label p,
-    div[data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
+    [data-testid="stSidebar"] div[data-testid="stToggle"] label p,
+    [data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
         color: #eae8dc !important;
         font-size: 13px !important;
         font-weight: 600 !important;
     }
-    div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
-    div[data-testid="stSidebar"] button[kind="primary"] {
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"],
+    [data-testid="stSidebar"] button[kind="primary"] {
         background-color: #3a3935 !important;
         color: #eae8dc !important;
         border-color: #3a3935 !important;
         border-radius: 20px !important;
         font-weight: 600 !important;
     }
-    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
-    div[data-testid="stSidebar"] button[kind="secondary"] {
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] button[kind="secondary"] {
         background-color: #d9d7cc !important;
         color: #696761 !important;
         border-color: #d9d7cc !important;
         border-radius: 20px !important;
         font-weight: 500 !important;
     }
-    div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
-    div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover {
         background-color: #c8c6bb !important;
         color: #3a3935 !important;
         border-color: #8f8d85 !important;
+    }
+    /* The sidebar's blanket `* { color: white }` rule (styles.css) targets
+       these buttons' inner label text directly, which beats the color set
+       on the <button> itself via inheritance — so it has to be re-asserted
+       on the descendants too, or secondary (light pill) labels render
+       invisible white-on-light. */
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *,
+    [data-testid="stSidebar"] button[kind="primary"] * {
+        color: #eae8dc !important;
+    }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] *,
+    [data-testid="stSidebar"] button[kind="secondary"] * {
+        color: #696761 !important;
+    }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover *,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover * {
+        color: #3a3935 !important;
     }
 </style>
 """, unsafe_allow_html=True)

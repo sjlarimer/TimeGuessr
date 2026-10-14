@@ -17,9 +17,8 @@ load_css()
 
 # --- Custom Header & Section Styles ---
 st.markdown("""
-    <div class="page-header" style="text-align: center; margin-bottom: 40px; border-bottom: 4px double #ccc; padding-bottom: 30px; margin-top: 20px;">
-        <h1 class="page-title" style="font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #000; letter-spacing: -1px; margin: 0; text-transform: uppercase;">Timeline Analysis</h1>
-        <div class="page-subtitle" style="font-family: 'Inter', sans-serif; color: #444; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-top: 12px;">Historical Era Accuracies & Biases</div>
+    <div class="page-header" style="text-align: center; width: max-content; max-width: 95%; margin: 20px auto 40px auto; border-bottom: 4px double #ccc; padding-bottom: 10px;">
+        <h1 class="page-title" style="font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #111; letter-spacing: -1px; margin: 0; text-transform: uppercase;">Timeline Analysis</h1>
     </div>
     
     <style>
@@ -142,8 +141,6 @@ _yr_df[col_year] = _yr_df[col_year].astype(int)
 # scale (right-hand axis) whose zero is pinned to line up with that same
 # 100% mark, so the seam between the two is exact.
 # ==========================================
-st.markdown('<div class="section-heading">Actual Year Distribution</div>', unsafe_allow_html=True)
-
 _out_df = data[[col_year, col_michael, col_sarah]].copy()
 _out_df[col_year]    = pd.to_numeric(_out_df[col_year],    errors="coerce")
 _out_df[col_michael] = pd.to_numeric(_out_df[col_michael], errors="coerce")
@@ -155,7 +152,9 @@ _out_df["_se"]  = (_out_df[col_sarah]   - _out_df[col_year]).abs()
 _out_df["_out"] = np.where(_out_df["_me"] < _out_df["_se"], "michael",
                   np.where(_out_df["_se"] < _out_df["_me"], "sarah", "tie"))
 
-_bucket = st.sidebar.slider("Year Bucket Size", min_value=1, max_value=10, value=1, step=1, key="outcome_bucket")
+with st.sidebar:
+    st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
+    _bucket = st.slider("Year Bucket Size", min_value=1, max_value=10, value=1, step=1, key="outcome_bucket")
 _out_df["_bin"] = (_out_df["_yr"] // _bucket) * _bucket
 
 _by = _out_df.groupby("_bin")["_out"].value_counts().unstack(fill_value=0)
@@ -271,21 +270,42 @@ fig_single.update_layout(
     height=420,
     margin=dict(l=70, r=70, t=20, b=50),
 )
-# Same card treatment as the confusion matrices below — light background,
-# soft border/shadow, a little hover "pop" — so they sit together as one
-# consistent design instead of a styled chart next to bare white ones.
+# Recolor to match the Comparison page's chart-card convention (warm-beige
+# paper/plot background, Poppins font, muted grid/axis colors) instead of
+# this page's usual white-card PLOT_THEME, so the plot reads as part of the
+# card beneath it rather than a white rectangle sitting on top of it.
+fig_single.update_layout(
+    paper_bgcolor="#eae8dc",
+    plot_bgcolor="#d9d7cc",
+    font=dict(family="Poppins, Arial, sans-serif", color="#696761"),
+)
+fig_single.update_xaxes(gridcolor="#bdbbb1", linecolor="#8f8d85", tickcolor="#8f8d85",
+                         tickfont=dict(color="#696761"), title_font=dict(color="#696761"))
+fig_single.update_yaxes(gridcolor="#bdbbb1", linecolor="#8f8d85", tickcolor="#8f8d85",
+                         tickfont=dict(color="#696761"), title_font=dict(color="#696761"))
+# Same flat chart-card treatment as the Comparison page's main chart box —
+# warm-beige card with a small uppercase title inside it, no shadow/hover.
 with st.container(key="year_dist_chart_card"):
+    st.markdown(
+        '<h4 style="margin:4px 0 0 0;color:#696761;font-size:16px;'
+        'text-transform:uppercase;letter-spacing:1px;">Actual Year Distribution</h4>',
+        unsafe_allow_html=True
+    )
     st.plotly_chart(fig_single, use_container_width=True, theme=None)
 
 st.markdown("""
 <style>
-    .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { margin:0 auto 35px auto !important; padding:20px 20px 12px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
-    .st-key-year_dist_chart_card { max-width:1300px; }
+    .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { margin:0 auto 35px auto !important; padding:20px 20px 12px 20px; background:#fbfbf9; border:1px solid #e7e5dd; border-radius:18px; box-shadow:0 6px 22px rgba(0,0,0,0.07); box-sizing:border-box; }
     /* The four confusion matrix cards further down get the same card
-       treatment as this chart — light background, soft border/shadow —
-       plus a gentle hover "pop" of their own. */
-    .st-key-year_dist_chart_card, .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { transition:transform .15s ease, box-shadow .15s ease; }
-    .st-key-year_dist_chart_card:hover, .st-key-conf_matrix_michael_card:hover, .st-key-conf_matrix_sarah_card:hover, .st-key-conf_matrix_michael_year_card:hover, .st-key-conf_matrix_sarah_year_card:hover { transform:scale(1.01); box-shadow:0 10px 28px rgba(0,0,0,0.12); }
+       treatment — light background, soft border/shadow — plus a gentle
+       hover "pop" of their own. */
+    .st-key-conf_matrix_michael_card, .st-key-conf_matrix_sarah_card, .st-key-conf_matrix_michael_year_card, .st-key-conf_matrix_sarah_year_card { transition:transform .15s ease, box-shadow .15s ease; }
+    .st-key-conf_matrix_michael_card:hover, .st-key-conf_matrix_sarah_card:hover, .st-key-conf_matrix_michael_year_card:hover, .st-key-conf_matrix_sarah_year_card:hover { transform:scale(1.01); box-shadow:0 10px 28px rgba(0,0,0,0.12); }
+
+    /* Top chart card — matches the Comparison page's main chart box: flat
+       warm-beige card, thin border, no shadow/hover pop. */
+    .st-key-year_dist_chart_card { margin:0 auto 35px auto !important; max-width:1300px; padding:15px; background-color:#eae8dc; border-radius:12px; border:1px solid #d9d7cc; box-sizing:border-box; }
+    .st-key-year_dist_chart_card div[data-testid="stPlotlyChart"] { border:none !important; margin-top:0 !important; }
 </style>
 """, unsafe_allow_html=True)
 

@@ -419,13 +419,19 @@ with _legend_col:
     for _cat, _d0, _d1, _ic, _sl in _geo_segs:
         _dm = np.logspace(np.log10(_d0), np.log10(_d1), 80)
         _sc = np.clip(_ic - _dm * _sl, 12, 5000)
+        _miles = _dm / 1609.344
+        _imperial = [
+            f"{m * 5280:,.0f} ft" if m < 1 else f"{m:,.2f} mi"
+            for m in _miles
+        ]
         fig_geo.add_trace(go.Scatter(
             x=_dm / 1000,
             y=_sc,
             mode="lines",
             line=dict(color=_line_color[_cat], width=3),
             showlegend=False,
-            hovertemplate="<b>%{x:.2f} km</b><br>Score: %{y:.0f}<extra></extra>",
+            customdata=_imperial,
+            hovertemplate="<b>%{x:.2f} km</b> (%{customdata})<br>Score: %{y:.0f}<extra></extra>",
         ))
 
     fig_geo.update_layout(

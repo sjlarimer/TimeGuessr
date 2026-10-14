@@ -43,6 +43,15 @@ load_css()
 # --- Custom Styling ---
 CUSTOM_STYLES = """
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+
+        /* Main view title (Total/Time/Geography Scores, Win Margins, or
+           "<Player> Scores"), styled to match the Edition Date title on the
+           Daily page — same bold uppercase Poppins treatment and the double-
+           line underline, so both pages' top headers read as one family. */
+        .page-title { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 48px; color: #111; letter-spacing: -1px; margin: 0; text-transform: uppercase; text-align: center; }
+        .page-title-stack { width: max-content; max-width: 95%; margin: 0 auto 20px auto; padding-bottom: 10px; border-bottom: 4px double #ccc; }
+
         /* Slider labels and tooltips */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSelectSlider"] > label {
@@ -72,34 +81,51 @@ CUSTOM_STYLES = """
             background-color: #c0c0b0;
         }
         /* Toggle label styling */
-        div[data-testid="stSidebar"] div[data-testid="stToggle"] label p,
-        div[data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
+        [data-testid="stSidebar"] div[data-testid="stToggle"] label p,
+        [data-testid="stSidebar"] div[data-testid="stCheckbox"] label p {
             color: #696761 !important;
             font-size: 13px !important;
             font-weight: 500 !important;
         }
         /* View mode pill toggle buttons */
-        div[data-testid="stSidebar"] button[data-testid="baseButton-primary"],
-        div[data-testid="stSidebar"] button[kind="primary"] {
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"],
+        [data-testid="stSidebar"] button[kind="primary"] {
             background-color: #3a3935 !important;
             color: #eae8dc !important;
             border-color: #3a3935 !important;
             border-radius: 20px !important;
             font-weight: 600 !important;
         }
-        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
-        div[data-testid="stSidebar"] button[kind="secondary"] {
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
+        [data-testid="stSidebar"] button[kind="secondary"] {
             background-color: #d9d7cc !important;
             color: #696761 !important;
             border-color: #d9d7cc !important;
             border-radius: 20px !important;
             font-weight: 500 !important;
         }
-        div[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
-        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
+        [data-testid="stSidebar"] button[kind="secondary"]:hover {
             background-color: #c8c6bb !important;
             color: #3a3935 !important;
             border-color: #8f8d85 !important;
+        }
+        /* The sidebar's blanket `* { color: white }` rule (styles.css) targets
+           these buttons' inner label text directly, which beats the color set
+           on the <button> itself via inheritance — so it has to be re-asserted
+           on the descendants too, or secondary (light pill) labels render
+           invisible white-on-light. */
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *,
+        [data-testid="stSidebar"] button[kind="primary"] * {
+            color: #eae8dc !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] *,
+        [data-testid="stSidebar"] button[kind="secondary"] * {
+            color: #696761 !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover *,
+        [data-testid="stSidebar"] button[kind="secondary"]:hover * {
+            color: #3a3935 !important;
         }
         /* Plotly chart rounded container — same border/radius/spacing as the
            Momentum box and other HTML cards (COLORS['bg_plot'] = #d9d7cc) */
@@ -2672,10 +2698,7 @@ if comp_type == 'Cross':
         df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-07-27')].copy()
 
     view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")
-    if view_mode == "Scores":
-        st.markdown(f'<h2 style="text-align:center;color:{COLORS["text"]};">{view_label}</h2>', unsafe_allow_html=True)
-    else:
-        st.markdown(f"## {view_label}")
+    st.markdown(f'<div class="page-title-stack"><div class="page-title">{view_label}</div></div>', unsafe_allow_html=True)
 
     mask_filtered = mask[(mask["Date"] >= start_date) & (mask["Date"] <= end_date)].copy()
     df_daily_filtered = df_daily[(df_daily["Date"] >= start_date) & (df_daily["Date"] <= end_date)].copy()
@@ -3213,7 +3236,7 @@ else:
         solo_dates = set(solo_days)
 
     if view_mode == "Scores":
-        st.markdown(f'<h2 style="text-align:center;color:{COLORS["text"]};">{player} Scores</h2>', unsafe_allow_html=True)
+        st.markdown(f'<div class="page-title-stack"><div class="page-title">{player} Scores</div></div>', unsafe_allow_html=True)
         with st.container(key="main_chart_box"):
             _mc_title_col, _mc_score_col, _mc_slider_outer = st.columns([1.3, 1.6, 1.3])
             with _mc_title_col:
