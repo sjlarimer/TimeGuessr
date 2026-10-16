@@ -1310,6 +1310,93 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
+# --- Rolling appearance count (Count mode, region/continent views) ---
+if map_metric == "Count" and view_mode in ("UN Regions", "Continents") and not filtered_data.empty:
+    _roll_col = "Continent" if view_mode == "Continents" else "UN_Region"
+    _roll_df = map_data.dropna(subset=["Date", _roll_col, "UN_Region"])
+    if len(_roll_df) >= 100:
+        # Rolling window is over the last 100 rounds played (rows), sampled at the
+        # end of each game date; x is the sequential game index so unplayed days
+        # don't leave gaps (same approach as the Comparison scores chart).
+        _roll_df = _roll_df.sort_values("Date", kind="stable")
+        _onehot = pd.get_dummies(_roll_df[_roll_col]).astype(float)
+        _roll_rows = _onehot.rolling(window=100, min_periods=100).sum()
+        _reg_cont = _roll_df.drop_duplicates("UN_Region").set_index("UN_Region")["Continent"]
+        _date_key = _roll_df["Date"].dt.normalize().values
+        _roll_rows["Date"] = _date_key
+        # Start the plot only once a full 100-round window exists
+        _rolling = _roll_rows.groupby("Date").tail(1).set_index("Date").dropna()
+        _dates = _rolling.index
+        _x = list(range(len(_dates)))
+        _totals = _onehot.sum().sort_values(ascending=False)
+        if _roll_col == "UN_Region":
+            # Group regions by continent (biggest continent first), biggest region first within each
+            _cont_of = {c: _reg_cont.get(c, "Other") for c in _totals.index}
+            _cont_tot = pd.Series(_totals.values, index=[_cont_of[c] for c in _totals.index]).groupby(level=0).sum()
+            _cont_rank = {c: i for i, c in enumerate(_cont_tot.sort_values(ascending=False).index)}
+            _order = sorted(_totals.index, key=lambda c: (_cont_rank[_cont_of[c]], -_totals[c]))
+        else:
+            _cont_of = {c: c for c in _totals.index}
+            _order = list(_totals.index)
+        _ym = pd.Series(_dates.to_period("M"))
+        _tickvals = _ym.drop_duplicates().index.tolist()
+        _ticktext = [_dates[i].strftime('%b %Y') for i in _tickvals]
+        _vlines = []
+        for _vd, _vlabel in ((pd.Timestamp('2026-07-27'), "Summary Start"),):
+            if len(_dates) and _dates.min() < _vd <= _dates.max():
+                _pos = int(np.argmax(_dates >= _vd))
+                _vlines.append(_pos)
+                if _pos in _tickvals:
+                    _ticktext[_tickvals.index(_pos)] += "<br>" + _vlabel
+                else:
+                    _tickvals.append(_pos); _ticktext.append(_vlabel)
+        _tv = sorted(zip(_tickvals, _ticktext))
+        _tickvals, _ticktext = [t[0] for t in _tv], [t[1] for t in _tv]
+        # One hue per continent; regions within it are shades of that hue
+        import colorsys
+        _CONT_HUE = {"Africa": "#9e5400", "Asia": "#b3261e", "Europe": "#221e8f",
+                     "America": "#007006", "Oceania": "#0a7a8f", "Antarctica": "#4d4d4d"}
+        _FALLBACK = ["#8a005c", "#6b6b00", "#4d4d4d", "#0a7a8f", "#9e5400", "#221e8f"]
+        def _shade(hex_c, k, n):
+            r, g, b_ = (int(hex_c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+            h, l, sat = colorsys.rgb_to_hls(r, g, b_)
+            l = 0.30 + 0.45 * (k / max(n - 1, 1)) if n > 1 else l
+            return "#%02x%02x%02x" % tuple(int(round(v * 255)) for v in colorsys.hls_to_rgb(h, l, sat))
+        _txt, _grid, _line = '#696761', '#bdbbb1', '#8f8d85'
+        roll_fig = go.Figure()
+        _members = {}
+        for _n in _order:
+            _members.setdefault(_cont_of[_n], []).append(_n)
+        for _name in _order:
+            _cont = _cont_of[_name]
+            _base = _CONT_HUE.get(_cont, _FALLBACK[list(_members).index(_cont) % len(_FALLBACK)])
+            _col = _shade(_base, _members[_cont].index(_name), len(_members[_cont]))
+            roll_fig.add_trace(go.Scatter(
+                x=_x, y=_rolling[_name], mode="lines", name=str(_name),
+                stackgroup="one", line=dict(color=_col, width=0.5), fillcolor=_col,
+                legendgroup=_cont if _roll_col == "UN_Region" else str(_name),
+                customdata=_dates,
+                hovertemplate='<b>%{fullData.name}</b><br>Date: %{customdata|%b %d, %Y}<br>Appearances: %{y:.0f}<extra></extra>',
+            ))
+        for _pos in _vlines:
+            roll_fig.add_vline(x=_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+        _axis = dict(showgrid=True, gridcolor=_grid, zeroline=False, linecolor=_line,
+                     tickcolor=_line, tickfont=dict(color=_txt), title_font=dict(color=_txt))
+        roll_fig.update_layout(
+            xaxis_title="Date", yaxis_title="Appearances (last 100 rounds)",
+            height=600, hovermode="closest",
+            font=dict(family='Poppins, Arial, sans-serif', size=14, color='#000000'),
+            paper_bgcolor='#eae8dc', plot_bgcolor='#d9d7cc',
+            margin=dict(l=60, r=20, t=60, b=60),
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
+                        bgcolor='rgba(0,0,0,0)', bordercolor='rgba(0,0,0,0)',
+                        font=dict(color=_txt)),
+        )
+        roll_fig.update_xaxes(**_axis, tickmode='array', tickvals=_tickvals, ticktext=_ticktext,
+                              tickangle=-45, range=[-0.5, len(_x) - 0.5])
+        roll_fig.update_yaxes(**_axis)
+        st.plotly_chart(roll_fig, use_container_width=True)
+
 # --- Table ---
 st.divider()
 st.subheader(f"Statistics by {view_mode}")
