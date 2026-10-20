@@ -1,3 +1,4 @@
+import math
 import os
 import streamlit as st
 import pandas as pd
@@ -588,7 +589,18 @@ TIME_RANGES = {
     "O%X": (3400, 3900), "OXX": (2000, 2500), "%XX": (1000, 1000), "XXX": (0, 0)
 }
 
-def geography_score(x):
+# Scoring formulas changed on this date; days on/after it use the new ones.
+NEW_SCORING_START = datetime.date(2026, 10, 19)
+
+def _uses_new_scoring(date):
+    if date is None or pd.isna(date): return False
+    return pd.Timestamp(date).date() >= NEW_SCORING_START
+
+def geography_score(x, date=None):
+    """x = distance in metres. `date` selects the old/new formula."""
+    if _uses_new_scoring(date):
+        d = max(x / 1000 - 0.05, 0)
+        return round(5000 * math.exp(-(d / 6000) ** 0.62 - (d / 3000) ** 1.5))
     if x <= 50: return 5000
     elif x <= 1000: return 5000 - (x * 0.02)
     elif x <= 5000: return 4980 - (x * 0.016)
@@ -599,8 +611,11 @@ def geography_score(x):
     elif x <= 6000000: return 1500 - (x * 0.0002)
     else: return 12
 
-def calculate_time_score(year_guessed, actual_year):
+def calculate_time_score(year_guessed, actual_year, date=None):
     if actual_year is None: return None
+    if _uses_new_scoring(date):
+        years_off = abs(float(year_guessed) - actual_year)
+        return round(5000 / (1 + (years_off / 12) ** 2))
     years_off = abs(int(year_guessed) - actual_year)
     if years_off == 0: return 5000
     elif years_off == 1: return 4950
@@ -707,6 +722,7 @@ def generate_community_html(date_rows, pct_data=None):
 
     geo_sum_est, time_sum_est = 0, 0
     have_geo_est, have_time_est = False, False
+    day_date = row_0.get("Date")
     round_scores = []
 
     for r_num in range(1, 6):
@@ -716,14 +732,14 @@ def generate_community_html(date_rows, pct_data=None):
 
         time_off = row_r.get("Community Time Distance") if row_r is not None else None
         if pd.notna(time_off):
-            t_est = calculate_time_score(float(time_off), 0)
+            t_est = calculate_time_score(float(time_off), 0, day_date)
             if t_est is not None:
                 time_sum_est += t_est
                 have_time_est = True
 
         dist_m = row_r.get("Community Geography Distance") if row_r is not None else None
         if pd.notna(dist_m):
-            geo_sum_est += geography_score(float(dist_m))
+            geo_sum_est += geography_score(float(dist_m), day_date)
             have_geo_est = True
 
     community_color = "#495057"
@@ -783,6 +799,7 @@ def render_score_bars(date_rows):
     m_total_scores, s_total_scores, c_total_scores = [], [], []
     m_geo_scores, s_geo_scores, c_geo_scores = [], [], []
     m_time_scores, s_time_scores, c_time_scores = [], [], []
+    day_date = date_rows.iloc[0].get("Date") if len(date_rows) > 0 else None
 
     for r in range(1, 6):
         r_data = date_rows[date_rows["Timeguessr Round"] == r]
@@ -808,12 +825,12 @@ def render_score_bars(date_rows):
 
             c_time_off = row.get("Community Time Distance")
             if pd.notna(c_time_off):
-                est = calculate_time_score(float(c_time_off), 0)
+                est = calculate_time_score(float(c_time_off), 0, day_date)
                 if est is not None: c_time = est
 
             c_dist_m = row.get("Community Geography Distance")
             if pd.notna(c_dist_m):
-                c_geo = geography_score(float(c_dist_m))
+                c_geo = geography_score(float(c_dist_m), day_date)
 
         m_total_scores.append(mg + mt)
         s_total_scores.append(sg + s_time)
@@ -1636,8 +1653,8 @@ def generate_round_updates(df):
             c_yrs_off = float(c_yrs_off_raw) if pd.notna(c_yrs_off_raw) else None
             c_round_raw = r.get("Community Round Score")
             c_round = float(c_round_raw) if pd.notna(c_round_raw) else None
-            c_geo_est = geography_score(c_dist) if c_dist is not None else None
-            c_time_est = calculate_time_score(c_yrs_off, 0) if c_yrs_off is not None else None
+            c_geo_est = geography_score(c_dist, dt) if c_dist is not None else None
+            c_time_est = calculate_time_score(c_yrs_off, 0, dt) if c_yrs_off is not None else None
             m_round = m_geo + m_time if has else None
             s_round = s_geo + s_time if has else None
             estimated = has and bool(
@@ -2932,7 +2949,7 @@ if not raw_data_all.empty:
                         if has_dist_val and current_unit is not None:
                             if current_dist_num >= 0:
                                 d_meters_calc = distance_to_meters(current_dist_num, current_unit)
-                                g_score_disp = geography_score(d_meters_calc)
+                                g_score_disp = geography_score(d_meters_calc, selected_date)
                                 st_state['comp_tot'] += g_score_disp
 
                         t_score_disp = None
@@ -2950,7 +2967,7 @@ if not raw_data_all.empty:
                                     if r in actual_rounds_data and actual_rounds_data.get(r, {}).get('year_valid'):
                                         act_y = int(actual_rounds_data[r]['year'])
                                     if act_y:
-                                        t_score_disp = calculate_time_score(y_val, act_y)
+                                        t_score_disp = calculate_time_score(y_val, act_y, selected_date)
                                         st_state['comp_tot'] += t_score_disp
 
                         submitted = st_state['has_g'] and not st_state['edit']
@@ -3050,7 +3067,7 @@ if not raw_data_all.empty:
                         time_est_txt = "—"
                         if def_c_time:
                             try:
-                                time_est = calculate_time_score(float(def_c_time), 0)
+                                time_est = calculate_time_score(float(def_c_time), 0, selected_date)
                                 if time_est is not None:
                                     time_est_txt = f'"{time_est:,.0f}"'
                             except ValueError:
@@ -3059,7 +3076,7 @@ if not raw_data_all.empty:
                         geo_est_txt = "—"
                         dist_val_parsed, dist_unit_parsed = parse_distance_input(def_c_dist, default_unit="mi")
                         if dist_val_parsed is not None and dist_unit_parsed is not None:
-                            geo_est_txt = f'"{geography_score(distance_to_meters(dist_val_parsed, dist_unit_parsed)):,.0f}"'
+                            geo_est_txt = f'"{geography_score(distance_to_meters(dist_val_parsed, dist_unit_parsed), selected_date):,.0f}"'
 
                         st.markdown(f'''<div style="background:#eef0f2; border-radius:10px; padding:10px 14px; border-left:4px solid #6c757d; box-shadow:0 2px 6px rgba(0,0,0,0.08); margin-top:2px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -3268,7 +3285,7 @@ if not raw_data_all.empty:
 
                 if act_y:
                     t_dist = abs(d['year_int'] - int(act_y))
-                    t_score = calculate_time_score(d['year_int'], int(act_y))
+                    t_score = calculate_time_score(d['year_int'], int(act_y), selected_date)
 
                 if pd.notna(t_score) and pd.notna(d['g_score']):
                     r_score = t_score + d['g_score']

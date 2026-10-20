@@ -339,11 +339,47 @@ _legend_col.markdown(
         border: 1px solid #eee;
         box-sizing: border-box;
     }
+    /* Score-reference toggle labels: always black */
+    div[data-testid="stHorizontalBlock"]:has(.score-ref-header) label[data-baseweb="checkbox"] p,
+    div[data-testid="stHorizontalBlock"]:has(.score-ref-header) div[data-testid="stToggle"] p,
+    div[data-testid="stHorizontalBlock"]:has(.score-ref-header) div[data-testid="stToggle"] label {
+        color: #000000 !important;
+    }
     </style>
     <h2 class="score-ref-header" style="margin-top: 0; text-align: center;">Score Reference</h2>
     """,
     unsafe_allow_html=True
 )
+
+with _legend_col:
+    _tg_old, _tg_new = st.columns(2)
+    _show_old = _tg_old.toggle("Old Scoring", value=True, key="show_old_scores")
+    _show_new = _tg_new.toggle("New Scoring", value=True, key="show_new_scores")
+
+
+def _apply_score_toggles(fig, head):
+    """Hide old (boxes + coloured traces) and/or new (meta='new') scoring, and
+    build one combined hover (old + new score at the hovered x)."""
+    def _keep(t):
+        if t.meta == "hover":
+            return _show_old or _show_new
+        if t.meta == "new":
+            return _show_new
+        return _show_old
+    fig.data = tuple(t for t in fig.data if _keep(t))
+    for t in fig.data:
+        if t.meta == "hover":
+            _lines = []
+            if _show_old:
+                _lines.append("Old Scoring: %{customdata[0]:.0f}")
+            if _show_new:
+                _lines.append("New Scoring: %{customdata[1]:.0f}")
+            t.hovertemplate = head + "<br>" + "<br>".join(_lines) + "<extra></extra>"
+            _col = 1 if _show_new else 0
+            t.y = [float(r[_col]) for r in t.customdata]
+    fig.update_layout(hovermode="x")
+    if not _show_old:
+        fig.layout.shapes = ()
 
 # Colors matching the notebook's pattern_colors dict exactly
 # "yellow" is unusable on white, so goldenrod stands in for O%X line color
@@ -419,21 +455,59 @@ with _legend_col:
     for _cat, _d0, _d1, _ic, _sl in _geo_segs:
         _dm = np.logspace(np.log10(_d0), np.log10(_d1), 80)
         _sc = np.clip(_ic - _dm * _sl, 12, 5000)
-        _miles = _dm / 1609.344
-        _imperial = [
-            f"{m * 5280:,.0f} ft" if m < 1 else f"{m:,.2f} mi"
-            for m in _miles
-        ]
         fig_geo.add_trace(go.Scatter(
             x=_dm / 1000,
             y=_sc,
             mode="lines",
             line=dict(color=_line_color[_cat], width=3),
             showlegend=False,
-            customdata=_imperial,
-            hovertemplate="<b>%{x:.2f} km</b> (%{customdata})<br>Score: %{y:.0f}<extra></extra>",
+            hoverinfo="skip",
         ))
 
+    # New scoring formula (overlay): d = km - 0.05
+    #   geoScore = 5000 * e^(-(d/6000)^0.62 - (d/3000)^1.5)
+    # Squares-to-score mapping is not known yet, so the line is black.
+    def _new_geo(_km):
+        _d = np.maximum(np.asarray(_km, dtype=float) - 0.05, 0)
+        return 5000 * np.exp(-(_d / 6000) ** 0.62 - (_d / 3000) ** 1.5)
+
+    _gk = np.logspace(np.log10(0.02), np.log10(12000), 400)
+    fig_geo.add_trace(go.Scatter(
+        x=_gk, y=_new_geo(_gk),
+        mode="lines",
+        line=dict(color="rgba(0,0,0,0.25)", width=3),
+        meta="new",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+    # Combined hover (old + new) on whole kilometres (plus the 0.05 km point)
+    def _old_geo(_km):
+        _out = []
+        for _k in np.atleast_1d(_km):
+            _dm = _k * 1000
+            if _dm < _geo_segs[0][1]:
+                _out.append(5000.0)
+                continue
+            _ic, _sl = _geo_segs[-1][3], _geo_segs[-1][4]
+            for _c, _d0, _d1, _i, _s in _geo_segs:
+                if _d0 <= _dm < _d1:
+                    _ic, _sl = _i, _s
+                    break
+            _out.append(float(np.clip(_ic - _dm * _sl, 12, 5000)))
+        return np.array(_out)
+
+    _gki = np.concatenate([[0.05], np.arange(1, 12001)])
+    fig_geo.add_trace(go.Scatter(
+        x=_gki, y=_new_geo(_gki),
+        mode="markers",
+        marker=dict(color="black", size=1, opacity=0),
+        meta="hover",
+        showlegend=False,
+        customdata=[
+            [float(o), float(n), f"{k / 1.609344:,.2f} mi"]
+            for o, n, k in zip(_old_geo(_gki), _new_geo(_gki), _gki)
+        ],
+    ))
     fig_geo.update_layout(
         **_chart_layout,
         title=dict(text="Geography Score", x=0.5, xanchor="center",
@@ -449,23 +523,25 @@ with _legend_col:
         ),
         yaxis=_yaxis_cfg,
     )
+    _apply_score_toggles(fig_geo, "<b>%{x:g} km</b> (%{customdata[2]})")
     st.plotly_chart(fig_geo, use_container_width=True)
 
-_legend_col.markdown(
-    """
-    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
-                font-family:'Poppins',sans-serif; font-size:13px; margin-top:-10px; margin-bottom:16px;">
-      <span style="background:rgba(128,0,128,0.18); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x1F7E9;</span>
-      <span style="background:rgba(0,0,255,0.14);   padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x1F7E8;</span>
-      <span style="background:rgba(0,128,0,0.16);   padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x2B1B;</span>
-      <span style="background:rgba(200,160,0,0.22); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E8;&#x2B1B;</span>
-      <span style="background:rgba(255,140,0,0.20); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x2B1B;&#x2B1B;</span>
-      <span style="background:rgba(220,50,50,0.18); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E8;&#x2B1B;&#x2B1B;</span>
-      <span style="background:rgba(128,0,0,0.16);   padding:3px 10px; border-radius:4px; color:#333;">&#x2B1B;&#x2B1B;&#x2B1B;</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+if _show_old:
+    _legend_col.markdown(
+        """
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+                    font-family:'Poppins',sans-serif; font-size:13px; margin-top:-10px; margin-bottom:16px;">
+          <span style="background:rgba(128,0,128,0.18); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x1F7E9;</span>
+          <span style="background:rgba(0,0,255,0.14);   padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x1F7E8;</span>
+          <span style="background:rgba(0,128,0,0.16);   padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E9;&#x2B1B;</span>
+          <span style="background:rgba(200,160,0,0.22); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x1F7E8;&#x2B1B;</span>
+          <span style="background:rgba(255,140,0,0.20); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E9;&#x2B1B;&#x2B1B;</span>
+          <span style="background:rgba(220,50,50,0.18); padding:3px 10px; border-radius:4px; color:#333;">&#x1F7E8;&#x2B1B;&#x2B1B;</span>
+          <span style="background:rgba(128,0,0,0.16);   padding:3px 10px; border-radius:4px; color:#333;">&#x2B1B;&#x2B1B;&#x2B1B;</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 with _legend_col:
     fig_time = go.Figure()
@@ -477,7 +553,7 @@ with _legend_col:
         ("O%X", 4.5,  7.5),
         ("OXX", 7.5,  15.5),
         ("%XX", 15.5, 20.5),
-        ("XXX", 20.5, 25.5),
+        ("XXX", 20.5, 50.5),
     ]:
         fig_time.add_shape(type="rect", x0=x0, x1=x1, y0=0, y1=1,
                            xref="x", yref="paper",
@@ -491,6 +567,9 @@ with _legend_col:
                  "OXX", "OXX", "OXX", "OXX", "OXX", "OXX", "OXX", "OXX",
                  "%XX", "%XX", "%XX", "%XX", "%XX",
                  "XXX", "XXX", "XXX", "XXX", "XXX"]
+    # Maroon (XXX, 0 pts) continues to the end of the chart
+    _yr_score += [0] * 25
+    _yr_cat   += ["XXX"] * 25
 
     # One disconnected segment per (cat, score) run.
     # Endpoints are the first and last year (both inclusive) so lines never
@@ -512,7 +591,7 @@ with _legend_col:
                 mode="markers",
                 marker=dict(color=_line_color[cat], size=8, symbol="circle"),
                 showlegend=False,
-                hovertemplate="<b>Year %{x:.0f}</b><br>Score: %{y}<extra></extra>",
+                hoverinfo="skip",
             ))
         else:
             fig_time.add_trace(go.Scatter(
@@ -520,21 +599,47 @@ with _legend_col:
                 mode="lines",
                 line=dict(color=_line_color[cat], width=3),
                 showlegend=False,
-                hovertemplate="<b>%{x:.0f} years off</b><br>Score: %{y}<extra></extra>",
+                hoverinfo="skip",
             ))
 
+    # New scoring formula (overlay): timeScore = 5000 / (1 + (yearsOff / 12)^2)
+    # Squares-to-score mapping is not known yet, so the line is black.
+    _yo = np.linspace(0, 50, 501)
+    _ts = 5000 / (1 + (_yo / 12) ** 2)
+    fig_time.add_trace(go.Scatter(
+        x=_yo, y=_ts,
+        mode="lines",
+        line=dict(color="rgba(0,0,0,0.25)", width=3),
+        meta="new",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+    # Combined hover (old + new) on whole years
+    _yi = np.arange(0, 51)
+    fig_time.add_trace(go.Scatter(
+        x=_yi, y=5000 / (1 + (_yi / 12) ** 2),
+        mode="markers",
+        marker=dict(color="black", size=1, opacity=0),
+        meta="hover",
+        showlegend=False,
+        customdata=[
+            [float(o), float(n)]
+            for o, n in zip(_yr_score, 5000 / (1 + (_yi / 12) ** 2))
+        ],
+    ))
     fig_time.update_layout(
         **_chart_layout,
         title=dict(text="Time Score", x=0.5, xanchor="center",
                    font=dict(family="Poppins", size=14, color="#db5049")),
         xaxis=dict(
-            title="Years Off", tickvals=list(range(0, 26, 2)),
-            range=[-0.5, 25.5], gridcolor="#ddd", showline=True, linecolor="#888",
+            title="Years Off", tickvals=list(range(0, 51, 5)),
+            range=[-0.5, 50.5], gridcolor="#ddd", showline=True, linecolor="#888",
             tickcolor="#888", tickfont=dict(color="#111"),
             title_font=dict(color="#111"),
         ),
         yaxis=_yaxis_cfg,
     )
+    _apply_score_toggles(fig_time, "<b>%{x:.0f} years off</b>")
     st.plotly_chart(fig_time, use_container_width=True)
 
 

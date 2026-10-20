@@ -618,6 +618,25 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
             tickvals = list(tickvals)
             ticktext = list(ticktext)
 
+    # Scoring Update vertical line (October 19, 2026)
+    scoring_update_date = pd.Timestamp('2026-10-19')
+    if not mask_filtered.empty and mask_filtered['Date'].min() < scoring_update_date <= mask_filtered['Date'].max():
+        dates_ge = mask_filtered[mask_filtered['Date'] >= scoring_update_date]
+        if not dates_ge.empty:
+            target_idx = dates_ge.index[0]
+            scoring_pos = mask_filtered.index.get_loc(target_idx)
+            fig.add_vline(x=scoring_pos, line=dict(color="#696761", width=1.5, dash="dash"))
+            if scoring_pos in tickvals:
+                idx_pos = tickvals.index(scoring_pos)
+                ticktext[idx_pos] += "<br>Scoring Update"
+            else:
+                tickvals.append(scoring_pos)
+                ticktext.append("Scoring Update")
+            combined = sorted(zip(tickvals, ticktext))
+            tickvals, ticktext = zip(*combined)
+            tickvals = list(tickvals)
+            ticktext = list(ticktext)
+
     # Add shaded rectangles for single-player days if toggle is on
     if show_single_player_days:
         for i in range(len(mask_filtered)):
@@ -2595,6 +2614,7 @@ with st.sidebar:
     _ptr = st.session_state.get('cc_pre_tracking', False)
     _psr = st.session_state.get('cc_pre_survey', False)
     _psm = st.session_state.get('cc_pre_summary', False)
+    _pup = st.session_state.get('cc_pre_update', False)
     _tg1, _tg2 = st.columns(2)
     with _tg1:
         if st.button("Post-Track", key="cc_btn_pretracking", use_container_width=True,
@@ -2606,13 +2626,21 @@ with st.sidebar:
                      type="primary" if _psr else "secondary"):
             st.session_state['cc_pre_survey'] = not _psr
             st.rerun()
-    if st.button("Post-Summary", key="cc_btn_presummary", use_container_width=True,
-                 type="primary" if _psm else "secondary"):
-        st.session_state['cc_pre_summary'] = not _psm
-        st.rerun()
+    _tg3, _tg4 = st.columns(2)
+    with _tg3:
+        if st.button("Post-Summary", key="cc_btn_presummary", use_container_width=True,
+                     type="primary" if _psm else "secondary"):
+            st.session_state['cc_pre_summary'] = not _psm
+            st.rerun()
+    with _tg4:
+        if st.button("Post-Update", key="cc_btn_preupdate", use_container_width=True,
+                     type="primary" if _pup else "secondary"):
+            st.session_state['cc_pre_update'] = not _pup
+            st.rerun()
     remove_pre_tracking = _ptr
     remove_pre_survey = _psr
     remove_pre_summary = _psm
+    remove_pre_update = _pup
 
     _d_min = data["Date"].min().to_pydatetime()
     if remove_pre_tracking:
@@ -2621,13 +2649,15 @@ with st.sidebar:
         _d_min = max(_d_min, pd.Timestamp('2026-05-18').to_pydatetime())
     if remove_pre_summary:
         _d_min = max(_d_min, pd.Timestamp('2026-07-27').to_pydatetime())
+    if remove_pre_update:
+        _d_min = max(_d_min, pd.Timestamp('2026-10-19').to_pydatetime())
     _d_max = data["Date"].max().to_pydatetime()
     start_date, end_date = st.slider(
         "Date Range",
         min_value=_d_min, max_value=_d_max,
         value=(_d_min, _d_max),
         format="MMM DD, YYYY",
-        key=f"cc_date_range_{_ptr}_{_psr}_{_psm}",
+        key=f"cc_date_range_{_ptr}_{_psr}_{_psm}_{_pup}",
         label_visibility="collapsed"
     )
 
@@ -2666,6 +2696,8 @@ with st.sidebar:
             player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-05-18')].copy()
         if remove_pre_summary:
             player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-07-27')].copy()
+        if remove_pre_update:
+            player_data = player_data[player_data['Date'] >= pd.Timestamp('2026-10-19')].copy()
         if player_data.empty:
             st.warning("No data available for selected options.")
             st.stop()
@@ -2696,6 +2728,9 @@ if comp_type == 'Cross':
     if remove_pre_summary:
         mask = mask[mask['Date'] >= pd.Timestamp('2026-07-27')].copy()
         df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-07-27')].copy()
+    if remove_pre_update:
+        mask = mask[mask['Date'] >= pd.Timestamp('2026-10-19')].copy()
+        df_daily = df_daily[df_daily['Date'] >= pd.Timestamp('2026-10-19')].copy()
 
     view_label = page_type if view_mode == "Scores" else page_type.replace("Scores", "Win Margins")
     st.markdown(f'<div class="page-title-stack"><div class="page-title">{view_label}</div></div>', unsafe_allow_html=True)
