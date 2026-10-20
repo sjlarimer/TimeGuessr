@@ -100,12 +100,14 @@ def _bar_color(diff):
     a glance."""
     if diff is None or pd.isna(diff) or diff == 0:
         return "#c9c7bc"
+    # Diverging scale with a neutral gray midpoint: an even matchup is gray,
+    # sliding smoothly to full Michael blue / Sarah magenta at the cap.
     leader_rgb = _M_RGB if diff > 0 else _S_RGB
-    intensity = min(abs(diff) / _LEAD_CAP, 1.0)
-    blend = 0.45 + intensity * 0.55
-    r = round(255 * (1 - blend) + leader_rgb[0] * blend)
-    g = round(255 * (1 - blend) + leader_rgb[1] * blend)
-    b = round(255 * (1 - blend) + leader_rgb[2] * blend)
+    blend = min(abs(diff) / _LEAD_CAP, 1.0)
+    gray = (201, 199, 188)
+    r = round(gray[0] * (1 - blend) + leader_rgb[0] * blend)
+    g = round(gray[1] * (1 - blend) + leader_rgb[1] * blend)
+    b = round(gray[2] * (1 - blend) + leader_rgb[2] * blend)
     return f"rgb({r},{g},{b})"
 
 _yr_df = data[[col_year, "Michael Time Score", "Sarah Time Score"]].copy()
@@ -126,20 +128,9 @@ _yr_df = _yr_df.dropna(subset=[col_year])
 _yr_df[col_year] = _yr_df[col_year].astype(int)
 
 # ==========================================
-# ACTUAL YEAR DISTRIBUTION — two signals, one chart, one x-axis of years
-# shown only once instead of on two separate plots:
-#   - bottom: the "who guessed closer" split, a full-width 0-100% stacked
-#     bar per year (Michael / Tie / Sarah).
-#   - literally resting on top of that, starting exactly at the 100% line
-#     and growing upward from there (not overlaid in front of it) — a bar
-#     the same width as the stack beneath it, whose height is that year's
-#     appearance count and whose shade leans toward whoever's ahead there
-#     on average Time Score, the same lead-margin color language the grid
-#     below uses, more vividly the bigger the lead.
-# Both live on the same y-axis: the percentage stack reads off the left
-# 0-100% scale, and the count bars above the 100% line read off a second
-# scale (right-hand axis) whose zero is pinned to line up with that same
-# 100% mark, so the seam between the two is exact.
+# ACTUAL YEAR DISTRIBUTION — a bar per year whose height is that year's
+# appearance count and whose shade leans toward whoever's ahead there on
+# average Time Score, more vividly the bigger the lead.
 # ==========================================
 _out_df = data[[col_year, col_michael, col_sarah]].copy()
 _out_df[col_year]    = pd.to_numeric(_out_df[col_year],    errors="coerce")
@@ -152,9 +143,54 @@ _out_df["_se"]  = (_out_df[col_sarah]   - _out_df[col_year]).abs()
 _out_df["_out"] = np.where(_out_df["_me"] < _out_df["_se"], "michael",
                   np.where(_out_df["_se"] < _out_df["_me"], "sarah", "tie"))
 
+st.markdown("""
+<style>
+    /* Sidebar pill controls (same look as the Locations page) */
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"],
+    [data-testid="stSidebar"] button[kind="primary"] {
+        background-color: #3a3935 !important; color: #eae8dc !important;
+        border-color: #3a3935 !important; border-radius: 20px !important; font-weight: 600 !important;
+    }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] button[kind="secondary"] {
+        background-color: #d9d7cc !important; color: #696761 !important;
+        border-color: #d9d7cc !important; border-radius: 20px !important; font-weight: 500 !important;
+    }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background-color: #c8c6bb !important; color: #3a3935 !important; border-color: #8f8d85 !important;
+    }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *,
+    [data-testid="stSidebar"] button[kind="primary"] * { color: #eae8dc !important; }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] *,
+    [data-testid="stSidebar"] button[kind="secondary"] * { color: #696761 !important; }
+    [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover *,
+    [data-testid="stSidebar"] button[kind="secondary"]:hover * { color: #3a3935 !important; }
+</style>
+""", unsafe_allow_html=True)
+
+def _pill_group(state_key, default, options, key_prefix, per_row=2):
+    """Segmented pill-button control (same helper as the Locations page).
+    `options` is a list of (button_label, stored_value); returns the selected value."""
+    cur = st.session_state.get(state_key, default)
+    cols = []
+    for _ in range(0, len(options), per_row):
+        cols.extend(st.columns(per_row))
+    for col, (label, value) in zip(cols, options):
+        with col:
+            st.button(label, key=f"{key_prefix}_{value}", use_container_width=True,
+                      type="primary" if cur == value else "secondary",
+                      on_click=lambda v=value: st.session_state.__setitem__(state_key, v))
+    return cur
+
 with st.sidebar:
     st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
-    _bucket = st.slider("Year Bucket Size", min_value=1, max_value=10, value=1, step=1, key="outcome_bucket")
+    # For now every mode shows the same chart.
+    map_metric = _pill_group(
+        'tl_metric', 'Count',
+        [("Count", "Count"), ("Compare", "Comparison"), ("Michael", "Michael"), ("Sarah", "Sarah")],
+        'tl_mm')
+    _bucket = st.select_slider("Year Bucket Size", options=[1, 2, 5, 10, 20, 25, 50], value=1, key="outcome_bucket_size")
 _out_df["_bin"] = (_out_df["_yr"] // _bucket) * _bucket
 
 _by = _out_df.groupby("_bin")["_out"].value_counts().unstack(fill_value=0)
@@ -183,7 +219,13 @@ _lead_stats = _yr_df.groupby("_bin").agg(
     michael_avg=("Michael Time Score", "mean"),
     sarah_avg=("Sarah Time Score", "mean"),
 )
-_bin_counts, _bin_colors, _bin_hover = [], [], []
+def _outline_color(diff):
+    """Solid outline in the leader's color (neutral gray when tied / unknown)."""
+    if diff is None or pd.isna(diff) or diff == 0:
+        return "#8f8d85"
+    return COLOR_M if diff > 0 else COLOR_S
+
+_bin_counts, _bin_colors, _bin_hover, _bin_outlines = [], [], [], []
 for _b in _bins:
     if _b in _lead_stats.index:
         _r = _lead_stats.loc[_b]
@@ -199,76 +241,85 @@ for _b in _bins:
         _cnt, _diff, _hover = 0, None, "No rounds yet"
     _bin_counts.append(_cnt)
     _bin_colors.append(_bar_color(_diff))
+    _bin_outlines.append(_outline_color(_diff))
     _bin_hover.append(_hover)
 
-# Michael added first so his slice sits at the bottom of the percentage
-# stack, Sarah last so hers sits on top — same order the standalone
-# outcome-share chart used to use.
-fig_single = go.Figure()
-fig_single.add_trace(go.Bar(
-    x=_bins, y=(_by["michael"] / _by["_n"] * 100).round(1), customdata=_cd, name="Michael",
-    marker=dict(color=COLOR_M, line=dict(width=0.6, color="#ffffff")),
-    hoverlabel=dict(bgcolor="#ffffff", bordercolor=COLOR_M, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
-    hovertemplate=f"{_hover_x}<br>Michael closer: %{{y:.1f}}%<br>%{{customdata[1]}}<extra></extra>"
-))
-fig_single.add_trace(go.Bar(
-    x=_bins, y=(_by["tie"] / _by["_n"] * 100).round(1), customdata=_cd, name="Tie",
-    marker=dict(color="#a7a59a", line=dict(width=0.6, color="#ffffff")),
-    hoverlabel=dict(bgcolor="#ffffff", bordercolor="#a7a59a", font=dict(family="Inter, sans-serif", size=12, color="#222222")),
-    hovertemplate=f"{_hover_x}<br>Tie: %{{y:.1f}}%<br>%{{customdata[1]}}<extra></extra>"
-))
-fig_single.add_trace(go.Bar(
-    x=_bins, y=(_by["sarah"] / _by["_n"] * 100).round(1), customdata=_cd, name="Sarah",
-    marker=dict(color=COLOR_S, line=dict(width=0.6, color="#ffffff")),
-    hoverlabel=dict(bgcolor="#ffffff", bordercolor=COLOR_S, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
-    hovertemplate=f"{_hover_x}<br>Sarah closer: %{{y:.1f}}%<br>%{{customdata[1]}}<extra></extra>"
-))
-# The count region gets 200 units of headroom above the 100% line — twice
-# the 0-100 span of the percentage region below it — so the top (count)
-# region takes up 2/3 of the plot's height and the bottom (percentage)
-# region the other 1/3, regardless of how big the largest count happens to
-# be. This bar is bound to its own second y-axis (real "times appeared"
-# units, no rescaling needed) rather than sharing the primary one — besides
-# being the more honest axis to hover/read values off of, Plotly only
-# actually draws a y-axis that at least one trace is bound to, so this is
-# also what makes that second axis appear at all.
-_max_count = max(_bin_counts) if _bin_counts else 1
-_HEADROOM = 200
-# Where the second y-axis's own zero has to sit so that it lines up with
-# the primary axis's 100% mark, and _max_count lines up with the very top
-# of the chart — i.e. so a bar of height _max_count on this axis reaches
-# exactly as high as a bar of height 100 would on the primary one.
-_bottom_frac = 100 / (100 + _HEADROOM)
-_y2_min = _bottom_frac * _max_count / (_bottom_frac - 1)
+def _with_year(texts):
+    # Bold year (or year range, when bucketed) as the first line of each hover box.
+    return [f"<b>{b if _bucket == 1 else f'{b}–{b + _bucket - 1}'}</b><br>{t}" for b, t in zip(_bins, texts)]
 
-fig_single.add_trace(go.Bar(
-    x=_bins, y=_bin_counts, yaxis="y2", name="Times Appeared",
-    marker=dict(color=_bin_colors, line=dict(width=0.6, color="#ffffff")),
-    hovertext=_bin_hover, hoverinfo="text",
-    hoverlabel=dict(bgcolor="#ffffff", bordercolor=_bin_colors, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
-))
-# A solid line right at the seam makes the "resting on top of" boundary
-# explicit instead of leaving it to be inferred from the color change.
-fig_single.add_hline(y=100, line=dict(color="#333333", width=1.3))
-_count_ticks = sorted(set(round(v) for v in [0, _max_count / 2, _max_count]))
+fig_single = go.Figure()
+_max_count = max(_bin_counts) if _bin_counts else 1
+if map_metric in ("Michael", "Sarah"):
+    # Player modes: bar height is that player's average Time Score for the
+    # bin, shaded by how many rounds back it (lighter = fewer, darker = more).
+    _pc = COLOR_M if map_metric == "Michael" else COLOR_S
+    _avg_col = "michael_avg" if map_metric == "Michael" else "sarah_avg"
+    _avgs = [(_lead_stats.loc[b, _avg_col] if b in _lead_stats.index else np.nan) for b in _bins]
+    _avgs = [None if pd.isna(a) else float(a) for a in _avgs]
+    _pr, _pg, _pb = _hex_to_rgb(_pc)
+    _light = f"rgb({round(255 * .75 + _pr * .25)},{round(255 * .75 + _pg * .25)},{round(255 * .75 + _pb * .25)})"
+    _p_hover = [f"Appeared {c}&times;<br>{map_metric} avg: {a:,.0f}" if a is not None else "No rounds yet"
+                for c, a in zip(_bin_counts, _avgs)]
+    fig_single.add_trace(go.Bar(
+        x=_bins, y=_avgs, name=f"{map_metric} Avg Score",
+        marker=dict(color=_bin_counts, colorscale=[[0, _light], [1, _pc]], cmin=0, cmax=_max_count,
+                    line=dict(width=0.6, color="#ffffff"),
+                    colorbar=dict(title="Times Appeared", thickness=12, len=0.9)),
+        hovertext=_with_year(_p_hover), hoverinfo="text",
+        hoverlabel=dict(bgcolor="#ffffff", bordercolor=_pc, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
+    ))
+    _y_range, _y_title = [0, 5000], "Average Points"
+elif map_metric == "Comparison":
+    # Diverging: bar height is Michael's avg Time Score minus Sarah's for the
+    # bin (up = Michael ahead, down = Sarah ahead). Shade fades with fewer
+    # rounds so thinly sampled bins read as less certain.
+    _gaps, _g_colors, _g_hover, _g_outlines = [], [], [], []
+    for _b, _c in zip(_bins, _bin_counts):
+        _g = None
+        if _b in _lead_stats.index:
+            _mm, _ss = _lead_stats.loc[_b, "michael_avg"], _lead_stats.loc[_b, "sarah_avg"]
+            if pd.notna(_mm) and pd.notna(_ss):
+                _g = float(_mm - _ss)
+        _gaps.append(_g)
+        _g_outlines.append(_outline_color(_g))
+        if _g is None:
+            _g_colors.append("#c9c7bc")
+            _g_hover.append("No rounds yet")
+            continue
+        _lr, _lg, _lb = _M_RGB if _g >= 0 else _S_RGB
+        _t = 0.3 + 0.7 * (_c / _max_count if _max_count else 0)
+        _g_colors.append(f"rgb({round(217 * (1 - _t) + _lr * _t)},{round(215 * (1 - _t) + _lg * _t)},{round(204 * (1 - _t) + _lb * _t)})")
+        _who = "Michael" if _g > 0 else ("Sarah" if _g < 0 else "Tied")
+        _g_hover.append(f"Appeared {_c}&times;<br>Michael avg: {_mm:,.0f}<br>Sarah avg: {_ss:,.0f}<br>"
+                        f"<b>{_who}</b> ahead by {abs(_g):,.0f}")
+    _gmax = max([abs(g) for g in _gaps if g is not None] or [1]) * 1.1
+    fig_single.add_trace(go.Bar(
+        x=_bins, y=_gaps, name="Score Gap",
+        marker=dict(color=_g_colors, line=dict(width=1.2 if _bucket > 1 else 0.8, color=_g_outlines)),
+        hovertext=_with_year(_g_hover), hoverinfo="text",
+        hoverlabel=dict(bgcolor="#ffffff", bordercolor=_g_colors, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
+    ))
+    fig_single.add_hline(y=0, line=dict(color="#333333", width=1.3))
+    _y_range, _y_title = [-_gmax, _gmax], "Avg Points: Michael − Sarah"
+else:
+    fig_single.add_trace(go.Bar(
+        x=_bins, y=_bin_counts, name="Times Appeared",
+        marker=dict(color=_bin_colors, line=dict(width=1.2 if _bucket > 1 else 0.8, color=_bin_outlines)),
+        hovertext=_with_year(_bin_hover), hoverinfo="text",
+        hoverlabel=dict(bgcolor="#ffffff", bordercolor=_bin_colors, font=dict(family="Inter, sans-serif", size=12, color="#222222")),
+    ))
+    _y_range, _y_title = [0, _max_count * 1.05], "Times Appeared"
 fig_single.update_layout(**PLOT_THEME)
 fig_single.update_layout(
     xaxis_title=_x_label,
-    # Standard Plotly axis titles, each with automargin so the reserved
-    # margin always grows to fit the title text rather than relying on a
-    # fixed guess that can end up too tight and get the label clipped.
-    yaxis=dict(range=[0, 100 + _HEADROOM], title="% of Rounds", automargin=True,
-               showgrid=True, gridcolor="#f0f0ec",
-               tickvals=[0, 20, 40, 60, 80, 100], ticktext=["0%", "20%", "40%", "60%", "80%", "100%"]),
-    yaxis2=dict(overlaying="y", side="right", range=[_y2_min, _max_count], title="Times Appeared",
-                automargin=True, showgrid=False, zeroline=False,
-                tickvals=_count_ticks, ticktext=[str(v) for v in _count_ticks]),
+    yaxis=dict(range=_y_range, title=_y_title, automargin=True,
+               showgrid=True, gridcolor="#f0f0ec"),
     xaxis=dict(tickmode='linear', dtick=10 if _bucket == 1 else max(_bucket, 5), showgrid=False),
-    barmode="stack",
     showlegend=False,
     bargap=0.15 if _bucket > 1 else 0.05,
     height=420,
-    margin=dict(l=70, r=70, t=20, b=50),
+    margin=dict(l=70, r=30, t=20, b=50),
 )
 # Recolor to match the Comparison page's chart-card convention (warm-beige
 # paper/plot background, Poppins font, muted grid/axis colors) instead of
@@ -304,8 +355,8 @@ st.markdown("""
 
     /* Top chart card — matches the Comparison page's main chart box: flat
        warm-beige card, thin border, no shadow/hover pop. */
-    .st-key-year_dist_chart_card { margin:0 auto 35px auto !important; max-width:1300px; padding:15px; background-color:#eae8dc; border-radius:12px; border:1px solid #d9d7cc; box-sizing:border-box; }
-    .st-key-year_dist_chart_card div[data-testid="stPlotlyChart"] { border:none !important; margin-top:0 !important; }
+    .st-key-year_dist_chart_card, .st-key-confusion_chart_card { margin:0 auto 35px auto !important; max-width:1300px; padding:15px; background-color:#eae8dc; border-radius:12px; border:1px solid #d9d7cc; box-sizing:border-box; }
+    .st-key-year_dist_chart_card div[data-testid="stPlotlyChart"], .st-key-confusion_chart_card div[data-testid="stPlotlyChart"] { border:none !important; margin-top:0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -328,7 +379,7 @@ _conf_df = _conf_df.dropna()
 
 _DIAGONAL_GOLD = "#c9a227"
 
-def _gamma_colorscale(hex_color, gamma=0.45, steps=12):
+def _gamma_colorscale(hex_color, gamma=0.45, steps=12, base=(234, 232, 220)):
     """White -> hex_color, but ramped by z**gamma (gamma<1) instead of a
     straight line. The year-level grid is sparse enough that most nonzero
     cells sit far below the single brightest outlier cell, so a plain linear
@@ -340,90 +391,178 @@ def _gamma_colorscale(hex_color, gamma=0.45, steps=12):
     for i in range(steps + 1):
         frac = i / steps
         blend = frac ** gamma
-        cr = round(255 * (1 - blend) + r * blend)
-        cg = round(255 * (1 - blend) + g * blend)
-        cb = round(255 * (1 - blend) + b * blend)
+        cr = round(base[0] * (1 - blend) + r * blend)
+        cg = round(base[1] * (1 - blend) + g * blend)
+        cb = round(base[2] * (1 - blend) + b * blend)
         stops.append([frac, f"rgb({cr},{cg},{cb})"])
     return stops
 
-def _confusion_heatmap(table, title, leader_color, axis_suffix="", show_text=True, darken=False):
+_CONF_YEAR_MAX = int(_conf_df[col_year].max())
+_CONF_MAX_LABELS_DETAIL = 14  # up to this many rows/cols: show cell counts + gold outlines
+
+def _bucket_label(v, bucket, short=False):
+    """Readable name for the bucket starting at year v: '1994' (size 1),
+    '1990s' (size 10), else '1975–1999'. `short` is the axis-tick form, which
+    for the narrow 2/5-year buckets is just the start year to keep ticks legible
+    (hover always shows the full range). The last bucket stops at the newest
+    year in the data rather than claiming years that don't exist."""
+    end = min(v + bucket - 1, _CONF_YEAR_MAX)
+    if bucket == 1 or end == v:
+        return str(v)
+    if short and bucket < 10:
+        return str(v)
+    if bucket == 10:
+        return f"{v}s"
+    return f"{v}–{end}"
+
+def _lead_colorscale(gamma, steps=20, mid=(201, 199, 188)):
+    """Sarah magenta <- gray -> Michael blue (same gray-midpoint lead scale as
+    the Actual Year Distribution bars), ramped by |x|**gamma."""
+    stops = []
+    for i in range(steps + 1):
+        pos = i / steps
+        f = (pos - 0.5) * 2
+        blend = abs(f) ** gamma
+        rgb = _M_RGB if f > 0 else _S_RGB
+        stops.append([pos, "rgb(" + ",".join(str(round(mid[k] * (1 - blend) + rgb[k] * blend)) for k in range(3)) + ")"])
+    return stops
+
+def _confusion_heatmap(table, title, leader_color, bucket=1, height=460, lead=None):
+    """One matrix for every Year Bucket Size, adapting to how big the grid is:
+      - small grids (<=14 buckets): big cells, so show the counts in them and
+        outline each correct (diagonal) bucket in gold.
+      - large grids: cells are too small for text, so shade with a gamma ramp
+        (so sparse low counts still read) and draw a thin gold diagonal line
+        marking 'guess == actual' instead.
+    Axis ticks are thinned to round years for the narrow buckets.
+    With `lead` (a Michael-minus-Sarah table on the same grid), `table` is the
+    pooled count and each cell is colored by who guessed it more instead."""
     labels = list(table.index)
-    _scale = _gamma_colorscale(leader_color) if darken else [[0, "#ffffff"], [1, leader_color]]
-    fig = go.Figure(data=go.Heatmap(
-        z=table.values, x=labels, y=labels,
-        colorscale=_scale, showscale=False,
-        xgap=0, ygap=0,
-        hovertemplate=f"<b>Actual:</b> %{{x}}{axis_suffix}<br><b>Guessed:</b> %{{y}}{axis_suffix}<br><b>Count:</b> %{{z}}<extra></extra>",
+    n = len(labels)
+    detail = n <= _CONF_MAX_LABELS_DETAIL
+    z = table.values
+    zmax = z.max() if z.size else 1
+    _scale = [[0, "#eae8dc"], [1, leader_color]] if detail else _gamma_colorscale(leader_color)
+    def _cell_hover(i, j):
+        if lead is None:
+            return f"<b>Count:</b> {z[i][j]}"
+        d = lead.values[i][j]
+        return (f"<b>Count:</b> {z[i][j]}<br>Michael: {(z[i][j] + d) // 2} · Sarah: {(z[i][j] - d) // 2}")
+    hover = [[f"<b>Actual:</b> {_bucket_label(x, bucket)}<br><b>Guessed:</b> {_bucket_label(y, bucket)}"
+              f"<br>{_cell_hover(i, j)}" for j, x in enumerate(labels)] for i, y in enumerate(labels)]
+    fig = go.Figure()
+    if lead is not None:
+        # Empty cells stay the card's beige; only cells with rounds get lead color.
+        fig.add_trace(go.Heatmap(z=[[0] * n] * n, x=labels, y=labels, showscale=False, hoverinfo="skip",
+                                 colorscale=[[0, "#eae8dc"], [1, "#eae8dc"]], xgap=0, ygap=0))
+        dz = np.where(z > 0, lead.values, np.nan)
+        dmax = np.nanmax(np.abs(dz)) if np.isfinite(dz).any() else 1
+        dmax = dmax or 1
+        _scale = _lead_colorscale(1.0 if detail else 0.5)
+        _z_args = dict(z=dz, zmin=-dmax, zmax=dmax)
+    else:
+        _z_args = dict(z=z)
+    fig.add_trace(go.Heatmap(
+        **_z_args, x=labels, y=labels, colorscale=_scale, showscale=False, xgap=0, ygap=0,
+        hovertext=hover, hoverinfo="text",
         hoverlabel=dict(bgcolor="#ffffff", bordercolor=leader_color,
                         font=dict(family="Inter, sans-serif", size=12, color="#222222")),
-        **({"text": table.values, "texttemplate": "%{text}",
-            "textfont": dict(color="#000000", size=10, family="Inter, sans-serif")} if show_text else {}),
     ))
-    span = (max(labels) - min(labels)) * 0.04 + 1
+    half = bucket / 2
+    span = max((max(labels) - min(labels)) * 0.04 + 1, half)
     min_l, max_l = min(labels) - span, max(labels) + span
-    tick_step = 10 if len(labels) > 40 else 1
-    tickvals = [l for l in labels if l % tick_step == 0] if tick_step > 1 else labels
+    tickvals = [l for l in labels if l % 10 == 0] if bucket < 10 else labels
+    _ticktext = [_bucket_label(v, bucket, short=True) for v in tickvals]
+    _unit = "Year" if bucket == 1 else ("Year (bucket start)" if bucket < 10 else "Year Bucket")
     fig.update_layout(**PLOT_THEME)
     fig.update_layout(
         title=dict(text=title, font=dict(family="Poppins, sans-serif", size=17, color="#000000")),
-        xaxis_title=f"Actual{' Decade' if axis_suffix else ' Year'}",
-        yaxis_title=f"Guessed{' Decade' if axis_suffix else ' Year'}",
+        xaxis_title=f"Actual {_unit}",
+        yaxis_title=f"Guessed {_unit}",
         # No forced 1:1 aspect ratio: these heatmaps sit side by side in a
         # fairly narrow column, and locking the cells square shrank the
         # whole grid down to a tiny fraction of the available width, leaving
         # the tick labels and cell counts too cramped to read. Letting it
         # fill the column's actual width makes cells rectangular but
         # legible instead of square but tiny.
-        height=460,
-        margin=dict(l=60, r=20, t=55, b=60),
-        xaxis=dict(tickmode='array', tickvals=tickvals, ticktext=[f"{v}{axis_suffix}" for v in tickvals],
+        height=height,
+        # Left margin grows with the longest tick label so ranges like
+        # '2000–2026' are never clipped.
+        margin=dict(l=max(60, 30 + 7 * max(len(t) for t in _ticktext)), r=20, t=55, b=60 + (30 if max(len(t) for t in _ticktext) > 6 else 0)),
+        xaxis=dict(tickmode='array', tickvals=tickvals, ticktext=_ticktext,
                    range=[min_l, max_l], showgrid=False),
-        yaxis=dict(tickmode='array', tickvals=tickvals, ticktext=[f"{v}{axis_suffix}" for v in tickvals],
+        yaxis=dict(tickmode='array', tickvals=tickvals, ticktext=_ticktext,
                    range=[min_l, max_l], showgrid=False),
     )
-    if axis_suffix:
-        # Coarse decade grid: outline each correct-decade cell individually.
+    # Same warm-beige chart-card look as the Actual Year Distribution plot.
+    fig.update_layout(paper_bgcolor="#eae8dc", plot_bgcolor="#d9d7cc",
+                      font=dict(family="Poppins, Arial, sans-serif", color="#696761"),
+                      title_font=dict(family="Poppins, Arial, sans-serif", size=15, color="#696761"))
+    fig.update_xaxes(linecolor="#8f8d85", tickcolor="#8f8d85",
+                     tickfont=dict(color="#696761"), title_font=dict(color="#696761"))
+    fig.update_yaxes(linecolor="#8f8d85", tickcolor="#8f8d85",
+                     tickfont=dict(color="#696761"), title_font=dict(color="#696761"))
+    if detail:
         for _l in labels:
-            fig.add_shape(type="rect", x0=_l - 5, x1=_l + 5, y0=_l - 5, y1=_l + 5,
+            fig.add_shape(type="rect", x0=_l - half, x1=_l + half, y0=_l - half, y1=_l + half,
                           line=dict(color=_DIAGONAL_GOLD, width=2.5), fillcolor="rgba(0,0,0,0)")
+        # Counts as annotations (not heatmap text) so the text can flip to
+        # white on dark cells; empty cells stay blank instead of a wall of 0s.
+        for i, y in enumerate(labels):
+            for j, x in enumerate(labels):
+                if z[i][j]:
+                    fig.add_annotation(x=x, y=y, text=str(z[i][j]), showarrow=False,
+                                       font=dict(size=11, family="Inter, sans-serif",
+                                                 color="#ffffff" if ((abs(lead.values[i][j]) / dmax) if lead is not None else (z[i][j] / zmax)) > 0.55 else "#000000"))
+    else:
+        fig.add_shape(type="line", x0=min(labels) - half, y0=min(labels) - half,
+                      x1=max(labels) + half, y1=max(labels) + half,
+                      line=dict(color=_DIAGONAL_GOLD, width=1.5, dash="dot"))
     return fig
 
-def _confusion_table(guess_col, actual_col, decade=False):
+def _confusion_table(guess_col, actual_col, bucket=1):
     _t = _conf_df.copy()
-    if decade:
-        _t["_g"] = (_t[guess_col] // 10 * 10).astype(int)
-        _t["_a"] = (_t[actual_col] // 10 * 10).astype(int)
+    if bucket > 1:
+        _t["_g"] = (_t[guess_col] // bucket * bucket).astype(int)
+        _t["_a"] = (_t[actual_col] // bucket * bucket).astype(int)
     else:
         _t["_g"] = _t[guess_col].round().astype(int)
         _t["_a"] = _t[actual_col].astype(int)
-    labels = sorted(_t["_a"].unique())
+    # Every bucket from the earliest to the latest year seen on either axis,
+    # so the grid has no gaps and no guess gets dropped for landing outside
+    # the set of actual-year buckets.
+    lo = min(_t["_g"].min(), _t["_a"].min())
+    hi = max(_t["_g"].max(), _t["_a"].max())
+    labels = list(range(int(lo), int(hi) + 1, bucket))
     table = pd.crosstab(_t["_g"], _t["_a"])
     return table.reindex(index=labels, columns=labels, fill_value=0)
 
-st.markdown('<div class="section-heading">Year Confusion Matrices</div>', unsafe_allow_html=True)
-_michael_yr_conf = _confusion_table(col_michael, col_year, decade=False)
-_sarah_yr_conf = _confusion_table(col_sarah, col_year, decade=False)
-_yr_conf_col1, _yr_conf_col2 = st.columns(2)
-with _yr_conf_col1:
-    with st.container(key="conf_matrix_michael_year_card"):
-        st.plotly_chart(_confusion_heatmap(_michael_yr_conf, "Michael's Guesses", COLOR_M, show_text=False, darken=True),
+_michael_conf = _confusion_table(col_michael, col_year, _bucket)
+_sarah_conf = _confusion_table(col_sarah, col_year, _bucket)
+# Same flat warm-beige card as the Actual Year Distribution chart: small
+# uppercase title inside, both matrices side by side beneath it.
+with st.container(key="confusion_chart_card"):
+    st.markdown(
+        '<h4 style="margin:4px 0 0 0;color:#696761;font-size:16px;'
+        'text-transform:uppercase;letter-spacing:1px;">Confusion Matrices</h4>',
+        unsafe_allow_html=True
+    )
+    # Count: both players pooled in neutral gray. Michael / Sarah: that player's
+    # matrix alone, drawn larger. Comparison: pooled, colored by who guessed it more.
+    if map_metric == "Count":
+        _pooled = _michael_conf.add(_sarah_conf, fill_value=0).astype(int)
+        st.plotly_chart(_confusion_heatmap(_pooled, "Both Players' Guesses", "#2f2e2b", _bucket, height=620),
                         use_container_width=True, theme=None)
-with _yr_conf_col2:
-    with st.container(key="conf_matrix_sarah_year_card"):
-        st.plotly_chart(_confusion_heatmap(_sarah_yr_conf, "Sarah's Guesses", COLOR_S, show_text=False, darken=True),
+    elif map_metric in ("Michael", "Sarah"):
+        _solo, _solo_color = (_michael_conf, COLOR_M) if map_metric == "Michael" else (_sarah_conf, COLOR_S)
+        st.plotly_chart(_confusion_heatmap(_solo, f"{map_metric}'s Guesses", _solo_color, _bucket, height=620),
                         use_container_width=True, theme=None)
-
-st.markdown('<div class="section-heading">Decade Confusion Matrices</div>', unsafe_allow_html=True)
-_michael_conf = _confusion_table(col_michael, col_year, decade=True)
-_sarah_conf = _confusion_table(col_sarah, col_year, decade=True)
-_conf_col1, _conf_col2 = st.columns(2)
-with _conf_col1:
-    with st.container(key="conf_matrix_michael_card"):
-        st.plotly_chart(_confusion_heatmap(_michael_conf, "Michael's Guesses", COLOR_M, axis_suffix="s"),
-                        use_container_width=True, theme=None)
-with _conf_col2:
-    with st.container(key="conf_matrix_sarah_card"):
-        st.plotly_chart(_confusion_heatmap(_sarah_conf, "Sarah's Guesses", COLOR_S, axis_suffix="s"),
+    else:
+        # Comparison: same pooled counts as Count, but each cell is colored by
+        # who guessed it more (blue Michael, gray even, magenta Sarah).
+        _pooled = _michael_conf.add(_sarah_conf, fill_value=0).astype(int)
+        _lead = _michael_conf.sub(_sarah_conf, fill_value=0).astype(int).reindex(index=_pooled.index, columns=_pooled.columns, fill_value=0)
+        st.plotly_chart(_confusion_heatmap(_pooled, "Both Players' Guesses", COLOR_M, _bucket, height=620, lead=_lead),
                         use_container_width=True, theme=None)
 
 # --- Bin edges: 10-year bins from 1900 to 2025 ---
