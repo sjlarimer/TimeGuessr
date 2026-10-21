@@ -592,7 +592,13 @@ TIME_RANGES = {
 # Scoring formulas changed on this date; days on/after it use the new ones.
 NEW_SCORING_START = datetime.date(2026, 10, 19)
 
+# Set (per script run) when the sidebar Old/New toggle shows a day under the
+# system it wasn't played in; forces the formula used by the community
+# estimates regardless of the date passed in.
+_SCORING_OVERRIDE = None
+
 def _uses_new_scoring(date):
+    if _SCORING_OVERRIDE is not None: return _SCORING_OVERRIDE == "New"
     if date is None or pd.isna(date): return False
     return pd.Timestamp(date).date() >= NEW_SCORING_START
 
@@ -896,6 +902,33 @@ def mini_pct_bar_html(value, color):
     val_txt = "&mdash;" if value is None else f"{pct:.0f}%"
     return (f'<span class="tg-pct-wrap"><span class="tg-pct-bar"><span class="tg-pct-fill" style="width:{pct:.1f}%; background:{color};"></span></span>'
             f'<span class="tg-pct-val" style="color:{color};">{val_txt}</span></span>')
+
+_SYSTEM_SWAP_STEMS = ["Geography Score", "Geography Score (Min)", "Geography Score (Max)",
+                      "Time Score", "Time Score (Min)", "Time Score (Max)",
+                      "Round Score", "Total Score"]
+
+def alt_scores_available(date_rows, system, players):
+    """True when every given player has a fully populated Total Score under
+    `system` ("Old"/"New") for this day (needs all 5 rounds with exact
+    year/distance data)."""
+    if date_rows.empty or not players: return False
+    row_0 = date_rows.iloc[0]
+    return all(pd.notna(row_0.get(f"{p} Total Score ({system})")) for p in players)
+
+def rows_in_system(date_rows, system, players):
+    """Copy of date_rows with each player's score columns replaced by their
+    `system` versions. Community round/total scores were recorded under the
+    day's own system and can't be converted, so they're blanked."""
+    out = date_rows.copy()
+    for p in players:
+        for stem in _SYSTEM_SWAP_STEMS:
+            alt = f"{p} {stem} ({system})"
+            if alt in out.columns:
+                out[f"{p} {stem}"] = out[alt]
+    for c in ("Community Round Score", "Community Average"):
+        if c in out.columns:
+            out[c] = np.nan
+    return out
 
 def _ordinal(n):
     suf = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
@@ -2639,13 +2672,26 @@ if not raw_data_all.empty:
         # only meaningful once both have actually played. (Percentile now
         # lives in the Michael/Sarah/Community boxes instead, next to each
         # score line.)
-        if not date_rows.empty and both_played:
-            bars_by_cat = render_score_bars(date_rows)
-
         # --- Single shared Edit toggle for the whole page (Actuals + Michael +
         # Sarah + Community), rendered at the top of the sidebar Settings panel
         # as a View/Edit segmented button pair, matching the Comparison page's
         # settings style (Cross/Self, Scores/Win Margins, etc.). ---
+        # Old/New scoring toggle: defaults to the system the day was actually
+        # scored under; only offered in View mode, and only when the other
+        # system can be computed for every player who played.
+        _SCORING_OVERRIDE = None
+        actual_sys = "New" if _uses_new_scoring(sel_ts) else "Old"
+        alt_sys = "Old" if actual_sys == "New" else "New"
+        played = [p for p in ("Michael", "Sarah") if p_state[p]['has_g']]
+        score_sys_key = f"score_sys_{selected_date}"
+        show_sys_toggle = (not st.session_state.get(f"edit_page_{selected_date}", False)
+                           and alt_scores_available(date_rows, alt_sys, played))
+        score_sys = st.session_state.get(score_sys_key, actual_sys) if show_sys_toggle else actual_sys
+        if score_sys != actual_sys:
+            date_rows = rows_in_system(date_rows, score_sys, played)
+            _SCORING_OVERRIDE = score_sys
+            row_for_stats = date_rows.iloc[0]
+
         any_submitted = act_exists or p_state["Michael"]['has_g'] or p_state["Sarah"]['has_g'] or has_community
         edit_page = True
         if any_submitted:
@@ -2662,6 +2708,16 @@ if not raw_data_all.empty:
                                  type="primary" if edit_page else "secondary"):
                         st.session_state[f"edit_page_{selected_date}"] = True
                         st.rerun()
+                if show_sys_toggle:
+                    _sc1, _sc2 = st.columns(2)
+                    for _col, _sys in ((_sc1, "Old"), (_sc2, "New")):
+                        with _col:
+                            if st.button(_sys, key=f"score_sys_btn_{_sys}_{selected_date}", use_container_width=True,
+                                         type="primary" if score_sys == _sys else "secondary"):
+                                st.session_state[score_sys_key] = _sys
+                                st.rerun()
+        if not date_rows.empty and both_played:
+            bars_by_cat = render_score_bars(date_rows)
         edit_act = True if not act_exists else edit_page
         p_state["Michael"]['edit'] = edit_page
         p_state["Sarah"]['edit'] = edit_page
