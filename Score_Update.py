@@ -46,6 +46,10 @@ PLAYER_STEMS = ["Geography Score", "Geography Score (Min)", "Geography Score (Ma
                 "Time Score", "Time Score (Min)", "Time Score (Max)", "Round Score", "Total Score"]
 COMMUNITY_STEMS = ["Geography Score", "Time Score"]
 SYSTEMS = ["Old", "New"]
+NEW_SCORING_START = pd.Timestamp("2026-10-19")
+# Community geo/time estimates in each day's own scoring system, scaled so
+# geo + time equals the recorded Community Round Score.
+COMMUNITY_REAL_COLUMNS = ["Community Geography Score", "Community Time Score"]
 KEY_COLS = ["Timeguessr Day", "Timeguessr Round"]
 
 def player_system_columns(player):
@@ -79,6 +83,30 @@ def add_community_system_columns(df_avg):
             tim[m] = df_avg.loc[m, "Community Time Distance"].map(time_fn)
             _set_keeping_existing(df_avg, f"Community Time Score ({label})", tim)
     return df_avg
+
+def add_community_real_estimate_columns(df_all):
+    """"Community Geography Score" / "Community Time Score": per round, score
+    the community's average distance and years-off under that day's own system
+    (old before 2026-10-19, new from then on), then scale both by the same
+    factor so geo + time equals the recorded Community Round Score (keeping the
+    geo:time ratio). Left unscaled when the round score is unknown."""
+    needed = ["Community Geography Distance", "Community Time Distance", "Community Round Score", "Date"]
+    if not all(c in df_all.columns for c in needed):
+        return df_all
+    is_new = df_all["Date"] >= NEW_SCORING_START
+    geo = pd.Series(np.nan, index=df_all.index)
+    tim = pd.Series(np.nan, index=df_all.index)
+    for flag, geo_fn, time_fn in ((False, old_geo_score, old_time_score), (True, new_geo_score, new_time_score)):
+        gm = (is_new == flag) & df_all["Community Geography Distance"].notna()
+        tm = (is_new == flag) & df_all["Community Time Distance"].notna()
+        geo[gm] = df_all.loc[gm, "Community Geography Distance"].map(geo_fn)
+        tim[tm] = df_all.loc[tm, "Community Time Distance"].map(time_fn)
+    total = df_all["Community Round Score"]
+    scalable = geo.notna() & tim.notna() & total.notna() & ((geo + tim) > 0)
+    k = (total / (geo + tim)).where(scalable, 1.0)
+    _set_keeping_existing(df_all, "Community Geography Score", (geo * k).round(2))
+    _set_keeping_existing(df_all, "Community Time Score", (tim * k).round(2))
+    return df_all
 
 def persist_columns(path, source_df, cols):
     """Write `cols` from source_df back into the CSV at `path`, matched on
@@ -155,7 +183,8 @@ def score_update():
             # Also rebuild if Stats lacks the Old/New columns (e.g. a data
             # update from a machine without them overwrote the file).
             have = set(pd.read_csv(stats_csv, nrows=0).columns)
-            needed = set(community_system_columns() + player_system_columns("Michael") + player_system_columns("Sarah"))
+            needed = set(community_system_columns() + COMMUNITY_REAL_COLUMNS
+                         + player_system_columns("Michael") + player_system_columns("Sarah"))
             if needed <= have:
                 return
 
@@ -327,12 +356,13 @@ def score_update():
             df_all.loc[mask, round_col] = df_all.loc[mask, time_col] + df_all.loc[mask, geo_col]
 
     df_all = add_system_score_columns(df_all)
+    df_all = add_community_real_estimate_columns(df_all)
 
     # Persist the Old/New columns into every source datasheet. Stats is
     # written last so its mtime stays newer than all of them (otherwise the
     # skip check at the top would rebuild on every run).
     persist_columns(michael_csv, df_all, player_system_columns("Michael"))
     persist_columns(sarah_csv, df_all, player_system_columns("Sarah"))
-    persist_columns(AVERAGES_PARSED_CSV, df_all, community_system_columns())
+    persist_columns(AVERAGES_PARSED_CSV, df_all, community_system_columns() + COMMUNITY_REAL_COLUMNS)
 
     df_all.to_csv("Data/Timeguessr_Stats.csv", index=False)

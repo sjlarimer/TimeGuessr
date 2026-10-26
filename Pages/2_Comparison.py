@@ -274,12 +274,37 @@ set_random_sarah_background(__file__, lightness_level=0.7)
 
 # --- Helper Functions ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0) -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0, system: str = "Real") -> pd.DataFrame:
     """Load and preprocess data with caching."""
     try:
         data = pd.read_csv(filepath)
         data["Date"] = pd.to_datetime(data["Date"])
         data = data.sort_values("Date").reset_index(drop=True)
+        if system in ("Old", "New"):
+            # Re-score the whole history under one system (same as the Daily
+            # page): every score column becomes its "(Old)"/"(New)" version,
+            # blank where it can't be computed. Community values can't be
+            # converted, so they are kept only for days from that system.
+            for p in ["Michael", "Sarah"]:
+                for stem in ["Geography Score", "Geography Score (Min)", "Geography Score (Max)",
+                             "Time Score", "Time Score (Min)", "Time Score (Max)",
+                             "Round Score", "Total Score"]:
+                    alt = f"{p} {stem} ({system})"
+                    base = data[f"{p} {stem}"]
+                    rescored = data[alt] if alt in data.columns else pd.Series(np.nan, index=data.index)
+                    if system == "Old":
+                        # Everything before tracking began was already scored
+                        # under the Old system, so the recorded values stand.
+                        rescored = rescored.where(rescored.notna() | (data["Date"] >= pd.Timestamp('2025-10-20')), base)
+                    data[f"{p} {stem}"] = rescored
+            # Community values can't be converted between systems, so they're
+            # kept only for days that were actually scored under the selected
+            # one: Old = before the scoring update, New = from it onward.
+            _in_system = (data["Date"] < pd.Timestamp("2026-10-19")) if system == "Old" else (data["Date"] >= pd.Timestamp("2026-10-19"))
+            for c in ("Community Round Score", "Community Average",
+                      "Community Geography Score", "Community Time Score"):
+                if c in data.columns:
+                    data[c] = data[c].where(_in_system)
         return data
     except FileNotFoundError:
         st.error(f"Data file not found at {filepath}")
@@ -349,6 +374,17 @@ def prepare_total_scores_data(data: pd.DataFrame, include_single: bool = False) 
     mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
 
+def add_community_daily_estimate(data: pd.DataFrame, df_daily: pd.DataFrame, stem: str, out_col: str) -> pd.DataFrame:
+    """Add the community's estimated daily Geography/Time score (sum of the
+    stored per-round estimates, only for days with all five rounds) to
+    df_daily as `out_col`."""
+    src = f"Community {stem} Score"
+    if src not in data.columns:
+        return df_daily
+    g = data.groupby("Date")[src]
+    daily = g.sum(min_count=1).where(g.count() == 5).rename(out_col).reset_index()
+    return df_daily.merge(daily, on="Date", how="left")
+
 def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False, include_single: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prepare data for Time Scores view."""
     data = data.copy()
@@ -376,18 +412,20 @@ def prepare_time_scores_data(data: pd.DataFrame, remove_estimated: bool = False,
         .reset_index()
     )
     
+    df_daily = add_community_daily_estimate(data, df_daily, "Time", "Community Time Midpoint")
     df_daily = df_daily.sort_values("Date").reset_index(drop=True)
+    community_col = ["Community Time Midpoint"] if "Community Time Midpoint" in df_daily.columns else []
     
     if include_single:
         # Include all days with at least one score
         mask = df_daily[
             df_daily["Michael Time Midpoint"].notna() | df_daily["Sarah Time Midpoint"].notna()
-        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"]].copy()
+        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"] + community_col].copy()
     else:
         # Only include days where BOTH players have data
         mask = df_daily[
             df_daily["Michael Time Midpoint"].notna() & df_daily["Sarah Time Midpoint"].notna()
-        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"]].copy()
+        ][["Date", "Michael Time Midpoint", "Sarah Time Midpoint"] + community_col].copy()
     
     mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
@@ -419,18 +457,20 @@ def prepare_geography_scores_data(data: pd.DataFrame, remove_estimated: bool = F
         .reset_index()
     )
     
+    df_daily = add_community_daily_estimate(data, df_daily, "Geography", "Community Geography Midpoint")
     df_daily = df_daily.sort_values("Date").reset_index(drop=True)
+    community_col = ["Community Geography Midpoint"] if "Community Geography Midpoint" in df_daily.columns else []
     
     if include_single:
         # Include all days with at least one score
         mask = df_daily[
             df_daily["Michael Geography Midpoint"].notna() | df_daily["Sarah Geography Midpoint"].notna()
-        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"]].copy()
+        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"] + community_col].copy()
     else:
         # Only include days where BOTH players have data
         mask = df_daily[
             df_daily["Michael Geography Midpoint"].notna() & df_daily["Sarah Geography Midpoint"].notna()
-        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"]].copy()
+        ][["Date", "Michael Geography Midpoint", "Sarah Geography Midpoint"] + community_col].copy()
     
     mask = mask.sort_values("Date").reset_index(drop=True)
     return df_daily, mask
@@ -454,12 +494,14 @@ def calculate_rolling_averages(df: pd.DataFrame, window_length: int, score_type:
     elif score_type == "time":
         columns = {
             "Michael": "Michael Time Midpoint",
-            "Sarah": "Sarah Time Midpoint"
+            "Sarah": "Sarah Time Midpoint",
+            "Community": "Community Time Midpoint"
         }
     else:  # geography
         columns = {
             "Michael": "Michael Geography Midpoint",
-            "Sarah": "Sarah Geography Midpoint"
+            "Sarah": "Sarah Geography Midpoint",
+            "Community": "Community Geography Midpoint"
         }
     
     for player, col in columns.items():
@@ -538,6 +580,37 @@ def compute_modal_bucket(scores: pd.Series, ceiling: int, bin_size: int) -> str:
             best_label = format_bucket_label(lower, upper, bin_size, is_top)
     return best_label.replace("Scores ", "", 1) if best_count > 0 else "-"
 
+EVENT_LINES = [
+    (pd.Timestamp('2025-10-20'), "Tracking Start"),
+    (pd.Timestamp('2026-05-18'), "TimeGuessr Survey"),
+    (pd.Timestamp('2026-07-27'), "Summary Start"),
+    (pd.Timestamp('2026-10-19'), "Scoring Update"),
+]
+
+def add_event_lines(fig: go.Figure, pos_dates, tickvals, ticktext, **vline_kwargs):
+    """Draw the standard dashed event lines on every over-time chart and add
+    their labels to the x tick labels. `pos_dates` is a list of (x position,
+    Timestamp) pairs for the plotted days. Returns updated (tickvals, ticktext)."""
+    tickvals, ticktext = list(tickvals), list(ticktext)
+    if not pos_dates:
+        return tickvals, ticktext
+    dates = [d for _, d in pos_dates]
+    d_min, d_max = min(dates), max(dates)
+    for event_date, label in EVENT_LINES:
+        if not d_min < event_date <= d_max:
+            continue
+        pos = min((p for p, d in pos_dates if d >= event_date), default=None)
+        if pos is None:
+            continue
+        fig.add_vline(x=pos, line=dict(color="#696761", width=1.5, dash="dash"), **vline_kwargs)
+        if pos in tickvals:
+            ticktext[tickvals.index(pos)] += f"<br>{label}"
+        else:
+            tickvals.append(pos)
+            ticktext.append(label)
+        tickvals, ticktext = [list(x) for x in zip(*sorted(zip(tickvals, ticktext)))]
+    return tickvals, ticktext
+
 def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
                         window_length: int, score_type: str = "total",
                         show_single_player_days: bool = False) -> go.Figure:
@@ -554,6 +627,9 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         michael_col = "Michael Geography Midpoint"
         sarah_col = "Sarah Geography Midpoint"
 
+    community_col = {"total": "Community Average", "time": "Community Time Midpoint",
+                     "geography": "Community Geography Midpoint"}[score_type]
+
     # Always use sequential integers for equal spacing
     x_values = list(range(len(mask_filtered)))
     
@@ -565,77 +641,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     tickvals = [i for i, idx in enumerate(mask_filtered.index) if idx in first_of_month_indices]
     ticktext = [mask_filtered.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
 
-    # Add vertical line for Score Tracking Start (October 20, 2025)
-    score_tracking_date = pd.Timestamp('2025-10-20')
-    
-    # Only show if tracking date is within the visible range (and dataset is not empty)
-    if not mask_filtered.empty and mask_filtered['Date'].min() < score_tracking_date <= mask_filtered['Date'].max():
-        # Find the first date >= tracking date
-        dates_ge = mask_filtered[mask_filtered['Date'] >= score_tracking_date]
-        if not dates_ge.empty:
-            # Get the index label
-            target_idx = dates_ge.index[0]
-            # Get integer position (0..N)
-            score_tracking_pos = mask_filtered.index.get_loc(target_idx)
-            
-            # Add vertical line
-            fig.add_vline(
-                x=score_tracking_pos,
-                line=dict(color="#696761", width=1.5, dash="dash"),
-            )
-            
-            # Add to tick labels to format similarly to months and prevent overlap
-            if score_tracking_pos in tickvals:
-                # Append to existing label if it overlaps exactly
-                idx_pos = tickvals.index(score_tracking_pos)
-                ticktext[idx_pos] += "<br>Tracking Start"
-            else:
-                tickvals.append(score_tracking_pos)
-                ticktext.append("Tracking Start")
-            
-            # Sort ticks by position
-            combined = sorted(zip(tickvals, ticktext))
-            tickvals, ticktext = zip(*combined)
-            tickvals = list(tickvals)
-            ticktext = list(ticktext)
-
-    # TimeGuessr Survey vertical line (May 18, 2026)
-    survey_date = pd.Timestamp('2026-05-18')
-    if not mask_filtered.empty and mask_filtered['Date'].min() < survey_date <= mask_filtered['Date'].max():
-        dates_ge = mask_filtered[mask_filtered['Date'] >= survey_date]
-        if not dates_ge.empty:
-            target_idx = dates_ge.index[0]
-            survey_pos = mask_filtered.index.get_loc(target_idx)
-            fig.add_vline(x=survey_pos, line=dict(color="#696761", width=1.5, dash="dash"))
-            if survey_pos in tickvals:
-                idx_pos = tickvals.index(survey_pos)
-                ticktext[idx_pos] += "<br>TimeGuessr Survey"
-            else:
-                tickvals.append(survey_pos)
-                ticktext.append("TimeGuessr Survey")
-            combined = sorted(zip(tickvals, ticktext))
-            tickvals, ticktext = zip(*combined)
-            tickvals = list(tickvals)
-            ticktext = list(ticktext)
-
-    # Scoring Update vertical line (October 19, 2026)
-    scoring_update_date = pd.Timestamp('2026-10-19')
-    if not mask_filtered.empty and mask_filtered['Date'].min() < scoring_update_date <= mask_filtered['Date'].max():
-        dates_ge = mask_filtered[mask_filtered['Date'] >= scoring_update_date]
-        if not dates_ge.empty:
-            target_idx = dates_ge.index[0]
-            scoring_pos = mask_filtered.index.get_loc(target_idx)
-            fig.add_vline(x=scoring_pos, line=dict(color="#696761", width=1.5, dash="dash"))
-            if scoring_pos in tickvals:
-                idx_pos = tickvals.index(scoring_pos)
-                ticktext[idx_pos] += "<br>Scoring Update"
-            else:
-                tickvals.append(scoring_pos)
-                ticktext.append("Scoring Update")
-            combined = sorted(zip(tickvals, ticktext))
-            tickvals, ticktext = zip(*combined)
-            tickvals = list(tickvals)
-            ticktext = list(ticktext)
+    tickvals, ticktext = add_event_lines(fig, list(enumerate(mask_filtered['Date'])), tickvals, ticktext)
 
     # Add shaded rectangles for single-player days if toggle is on
     if show_single_player_days:
@@ -690,10 +696,10 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Score: %{y}<extra></extra>'
     ))
 
-    if score_type == "total" and "Community Average" in mask_filtered.columns:
+    if community_col in mask_filtered.columns:
         fig.add_trace(go.Scatter(
-            x=x_values, y=mask_filtered["Community Average"],
-            mode='markers', name='Community Average Score',
+            x=x_values, y=mask_filtered[community_col],
+            mode='markers', name='Community Average Score' if score_type == "total" else f'Community Est. {score_type.title()} Score',
             marker=dict(color="#4d4d4d", size=7, opacity=0.85),
             customdata=mask_filtered["Date"],
             hovertemplate='Date: %{customdata|%b %d, %Y}<br>Community Avg: %{y}<extra></extra>'
@@ -716,7 +722,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Rolling Avg: %{y:.0f}<extra></extra>'
     ))
 
-    if score_type == "total" and "Community Rolling Avg" in mask_filtered.columns:
+    if community_col in mask_filtered.columns and "Community Rolling Avg" in mask_filtered.columns:
         fig.add_trace(go.Scatter(
             x=x_values, y=mask_filtered["Community Rolling Avg"],
             mode='lines', name=f'Community {window_length}-game Avg',
@@ -742,7 +748,7 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
         customdata=mask_filtered["Date"],
         hovertemplate='Date: %{customdata|%b %d, %Y}<br>Cumulative Avg: %{y:.0f}<extra></extra>'
     ))
-    if score_type == "total" and "Community Cumulative Avg" in mask_filtered.columns:
+    if community_col in mask_filtered.columns and "Community Cumulative Avg" in mask_filtered.columns:
         fig.add_trace(go.Scatter(
             x=x_values, y=mask_filtered["Community Cumulative Avg"],
             mode='lines', name='Community Cumulative Avg',
@@ -760,8 +766,8 @@ def create_plotly_figure(df_daily: pd.DataFrame, mask_filtered: pd.DataFrame,
     if not s_vals.empty:
         fig.add_hline(y=s_vals.max(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
         fig.add_hline(y=s_vals.min(), line=dict(color=COLORS['sarah'], width=1, dash='dash'), opacity=0.45)
-    if score_type == "total" and "Community Average" in mask_filtered.columns:
-        c_vals = mask_filtered["Community Average"].dropna()
+    if community_col in mask_filtered.columns:
+        c_vals = mask_filtered[community_col].dropna()
         if not c_vals.empty:
             fig.add_hline(y=c_vals.max(), line=dict(color="black", width=1, dash='dash'), opacity=0.45)
             fig.add_hline(y=c_vals.min(), line=dict(color="black", width=1, dash='dash'), opacity=0.45)
@@ -2141,22 +2147,9 @@ def create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: int) -
     tick_indices = [mask_filtered.loc[idx, 'x_index'] for idx in first_of_month_indices]
     tick_labels = [mask_filtered.loc[idx, 'Date'].strftime('%b %Y') for idx in first_of_month_indices]
 
-    for vline_date, vline_label in [
-        (pd.Timestamp('2025-10-20'), "Tracking Start"),
-        (pd.Timestamp('2026-05-18'), "TimeGuessr Survey"),
-    ]:
-        if not midnight_df.empty and midnight_df['Date'].min() < vline_date <= midnight_df['Date'].max():
-            ge = midnight_df[midnight_df['Date'] >= vline_date]
-            if not ge.empty:
-                pos = mask_filtered.loc[ge.index[0], 'x_index']
-                fig.add_vline(x=pos, line=dict(color="#696761", width=1.5, dash="dash"))
-                if pos in tick_indices:
-                    tick_labels[tick_indices.index(pos)] += f"<br>{vline_label}"
-                else:
-                    tick_indices.append(pos)
-                    tick_labels.append(vline_label)
-                combined = sorted(zip(tick_indices, tick_labels))
-                tick_indices, tick_labels = [list(x) for x in zip(*combined)]
+    tick_indices, tick_labels = add_event_lines(
+        fig, list(zip(mask_filtered.loc[midnight_df.index, 'x_index'], midnight_df['Date'])),
+        tick_indices, tick_labels)
 
     fig.update_layout(
         xaxis_title="Date", yaxis_title="Score Difference (Michael − Sarah)",
@@ -2315,18 +2308,7 @@ def self_create_plotly_figure(df: pd.DataFrame, window_length: int, player: str,
     tickvals = [i for i, idx in enumerate(df.index) if idx in first_of_month_indices]
     ticktext = [df.iloc[i]['Date'].strftime('%b %Y') for i in tickvals]
 
-    for vline_date, vline_label in [(pd.Timestamp('2025-10-20'), "Tracking Start"), (pd.Timestamp('2026-05-18'), "TimeGuessr Survey")]:
-        if not df.empty and df['Date'].min() < vline_date <= df['Date'].max():
-            dates_ge = df[df['Date'] >= vline_date]
-            if not dates_ge.empty:
-                pos = df.index.get_loc(dates_ge.index[0])
-                fig.add_vline(x=pos, line=dict(color="#696761", width=1.5, dash="dash"))
-                if pos in tickvals:
-                    ticktext[tickvals.index(pos)] += f"<br>{vline_label}"
-                else:
-                    tickvals.append(pos); ticktext.append(vline_label)
-                combined = sorted(zip(tickvals, ticktext))
-                tickvals, ticktext = [list(x) for x in zip(*combined)]
+    tickvals, ticktext = add_event_lines(fig, list(enumerate(df['Date'])), tickvals, ticktext)
 
     if solo_dates:
         solo_tint = "#c5c9d4" if player == "Michael" else "#d4c5cf"
@@ -2418,18 +2400,7 @@ def self_create_win_margins_figure(mask_filtered: pd.DataFrame, window_length: i
                 x = row['x_index']
                 fig.add_shape(type="rect", x0=x - 0.5, x1=x + 0.5, y0=0, y1=1, yref="paper",
                               fillcolor=solo_tint, opacity=0.4, layer="below", line_width=0)
-    for vline_date, vline_label in [(pd.Timestamp('2025-10-20'), "Tracking Start"), (pd.Timestamp('2026-05-18'), "TimeGuessr Survey")]:
-        if not mask_filtered.empty and mask_filtered['Date'].min() < vline_date <= mask_filtered['Date'].max():
-            dates_ge = mask_filtered[mask_filtered['Date'] >= vline_date]
-            if not dates_ge.empty:
-                pos = mask_filtered.loc[dates_ge.index[0], 'x_index']
-                fig.add_vline(x=pos, line=dict(color="#696761", width=1.5, dash="dash"))
-                if pos in tickvals:
-                    ticktext[tickvals.index(pos)] += f"<br>{vline_label}"
-                else:
-                    tickvals.append(pos); ticktext.append(vline_label)
-                combined = sorted(zip(tickvals, ticktext))
-                tickvals, ticktext = [list(x) for x in zip(*combined)]
+    tickvals, ticktext = add_event_lines(fig, list(zip(mask_filtered['x_index'], mask_filtered['Date'])), tickvals, ticktext)
     fig.update_layout(xaxis_title="Date", yaxis_title="Score Difference (Time − Geography)",
                       width=1400, height=600, hovermode="closest",
                       font=FONT_CONFIG, paper_bgcolor=COLORS['bg_paper'], plot_bgcolor=COLORS['bg_plot'],
@@ -2530,11 +2501,22 @@ def self_create_scores_momentum_html(data: pd.DataFrame, player: str, n_days: in
 
 # Load data
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
-data = load_data(mtime=stats_mtime)
+score_system = st.session_state.get("score_system", "Real")
+data = load_data(mtime=stats_mtime, system=score_system)
 
 # Render Sidebar Controls
 with st.sidebar:
     st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
+
+    _sc1, _sc2, _sc3 = st.columns(3)
+    for _col, _sys in ((_sc1, "Real"), (_sc2, "Old"), (_sc3, "New")):
+        with _col:
+            if st.button(_sys, key=f"cc_score_sys_{_sys}", use_container_width=True,
+                         type="primary" if score_system == _sys else "secondary"):
+                st.session_state["score_system"] = _sys
+                st.rerun()
+
+    st.markdown('<hr style="border:none;border-top:1px solid #d9d7cc;margin:1px 24px 12px 24px;">', unsafe_allow_html=True)
 
     _ct = st.session_state.get('cc_comp_type', 'Cross')
     _ctc1, _ctc2 = st.columns(2)

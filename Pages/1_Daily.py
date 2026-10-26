@@ -357,6 +357,42 @@ NEWS_STYLES = """
         @media (max-width: 900px) {
             .forecast-row { grid-template-columns: 1fr; }
         }
+
+        /* Sidebar settings pill buttons — same as the Comparison page */
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"],
+        [data-testid="stSidebar"] button[kind="primary"] {
+            background-color: #3a3935 !important;
+            color: #eae8dc !important;
+            border-color: #3a3935 !important;
+            border-radius: 20px !important;
+            font-weight: 600 !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
+        [data-testid="stSidebar"] button[kind="secondary"] {
+            background-color: #d9d7cc !important;
+            color: #696761 !important;
+            border-color: #d9d7cc !important;
+            border-radius: 20px !important;
+            font-weight: 500 !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
+        [data-testid="stSidebar"] button[kind="secondary"]:hover {
+            background-color: #c8c6bb !important;
+            color: #3a3935 !important;
+            border-color: #8f8d85 !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] *,
+        [data-testid="stSidebar"] button[kind="primary"] * {
+            color: #eae8dc !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] *,
+        [data-testid="stSidebar"] button[kind="secondary"] * {
+            color: #696761 !important;
+        }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover *,
+        [data-testid="stSidebar"] button[kind="secondary"]:hover * {
+            color: #3a3935 !important;
+        }
     </style>
 """
 st.markdown(NEWS_STYLES, unsafe_allow_html=True)
@@ -423,18 +459,23 @@ def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0, r
         if system in ("Old", "New"):
             # Re-score the whole history under one system: every score column
             # becomes its "(Old)"/"(New)" version (blank where that system
-            # can't be computed, e.g. squares-only rounds). Community round
-            # score/average were recorded in each day's own system and can't
-            # be converted, so they're dropped.
+            # can't be computed, e.g. squares-only rounds). Community values
+            # were recorded in each day's own system and can't be converted, so
+            # they are kept only for days from that system (see below).
             for p in ["Michael", "Sarah"]:
                 for stem in ["Geography Score", "Geography Score (Min)", "Geography Score (Max)",
                              "Time Score", "Time Score (Min)", "Time Score (Max)",
                              "Round Score", "Total Score"]:
                     alt = f"{p} {stem} ({system})"
                     data[f"{p} {stem}"] = data[alt] if alt in data.columns else np.nan
-            for c in ("Community Round Score", "Community Average"):
+            # Community values can't be converted between systems, so they're
+            # kept only for days that were actually scored under the selected
+            # one: Old = before the scoring update, New = from it onward.
+            _in_system = (data["Date"] < pd.Timestamp("2026-10-19")) if system == "Old" else (data["Date"] >= pd.Timestamp("2026-10-19"))
+            for c in ("Community Round Score", "Community Average",
+                      "Community Geography Score", "Community Time Score"):
                 if c in data.columns:
-                    data[c] = np.nan
+                    data[c] = data[c].where(_in_system)
         for p in ["Michael", "Sarah"]:
             t_col = f"{p} Total Score"
             if t_col in data.columns and data[t_col].dtype == object:
@@ -735,6 +776,22 @@ def generate_player_html(player_name, date_rows, players, highlight=False, pct_d
     html.append('</div></div>')
     return "\n".join(html)
 
+def community_geo_time_est(dist_m, time_off, round_score, date=None, recorded=None):
+    """Estimated (geo, time) scores for a community round. Uses the values
+    recorded in the datasheet (`recorded` = (geo, time), written by
+    Score_Update) when present; otherwise computes them: each is first
+    scored from the averaged distance / years-off, then both are scaled by the
+    same factor so geo + time equals the known round score — keeping the
+    geo:time ratio. Either may be None; unscaled if the round score is unknown."""
+    if recorded is not None and pd.notna(recorded[0]) and pd.notna(recorded[1]):
+        return float(recorded[0]), float(recorded[1])
+    geo = geography_score(float(dist_m), date) if pd.notna(dist_m) else None
+    time = calculate_time_score(float(time_off), 0, date) if pd.notna(time_off) else None
+    if geo is not None and time is not None and pd.notna(round_score) and geo + time > 0:
+        k = float(round_score) / (geo + time)
+        geo, time = geo * k, time * k
+    return geo, time
+
 def generate_community_html(date_rows, pct_data=None):
     if len(date_rows) == 0: return ""
     row_0 = date_rows.iloc[0]
@@ -751,17 +808,22 @@ def generate_community_html(date_rows, pct_data=None):
         row_r = r_data.iloc[0] if len(r_data) > 0 else None
         round_scores.append(row_r.get("Community Round Score") if row_r is not None else None)
 
-        time_off = row_r.get("Community Time Distance") if row_r is not None else None
-        if pd.notna(time_off):
-            t_est = calculate_time_score(float(time_off), 0, day_date)
+        if row_r is not None:
+            g_est, t_est = community_geo_time_est(row_r.get("Community Geography Distance"),
+                                                  row_r.get("Community Time Distance"),
+                                                  row_r.get("Community Round Score"), day_date,
+                                                  (row_r.get("Community Geography Score"), row_r.get("Community Time Score")))
             if t_est is not None:
                 time_sum_est += t_est
                 have_time_est = True
+            if g_est is not None:
+                geo_sum_est += g_est
+                have_geo_est = True
 
-        dist_m = row_r.get("Community Geography Distance") if row_r is not None else None
-        if pd.notna(dist_m):
-            geo_sum_est += geography_score(float(dist_m), day_date)
-            have_geo_est = True
+    # Final nudge so the day's geo + time matches the known total exactly.
+    if have_geo_est and have_time_est and pd.notna(total_score) and geo_sum_est + time_sum_est > 0:
+        k = float(total_score) / (geo_sum_est + time_sum_est)
+        geo_sum_est, time_sum_est = geo_sum_est * k, time_sum_est * k
 
     community_color = "#495057"
     pct_data = pct_data or {}
@@ -844,14 +906,12 @@ def render_score_bars(date_rows):
             c_round_val = row.get("Community Round Score")
             if pd.notna(c_round_val): c_total = c_round_val
 
-            c_time_off = row.get("Community Time Distance")
-            if pd.notna(c_time_off):
-                est = calculate_time_score(float(c_time_off), 0, day_date)
-                if est is not None: c_time = est
-
-            c_dist_m = row.get("Community Geography Distance")
-            if pd.notna(c_dist_m):
-                c_geo = geography_score(float(c_dist_m), day_date)
+            g_est, t_est = community_geo_time_est(row.get("Community Geography Distance"),
+                                                  row.get("Community Time Distance"),
+                                                  c_round_val, day_date,
+                                                  (row.get("Community Geography Score"), row.get("Community Time Score")))
+            if t_est is not None: c_time = t_est
+            if g_est is not None: c_geo = g_est
 
         m_total_scores.append(mg + mt)
         s_total_scores.append(sg + s_time)
@@ -1678,8 +1738,8 @@ def generate_round_updates(df):
             c_yrs_off = float(c_yrs_off_raw) if pd.notna(c_yrs_off_raw) else None
             c_round_raw = r.get("Community Round Score")
             c_round = float(c_round_raw) if pd.notna(c_round_raw) else None
-            c_geo_est = geography_score(c_dist, dt) if c_dist is not None else None
-            c_time_est = calculate_time_score(c_yrs_off, 0, dt) if c_yrs_off is not None else None
+            c_geo_est, c_time_est = community_geo_time_est(c_dist, c_yrs_off, c_round, dt,
+                                                                (r.get("Community Geography Score"), r.get("Community Time Score")))
             m_round = m_geo + m_time if has else None
             s_round = s_geo + s_time if has else None
             estimated = has and bool(
@@ -3112,19 +3172,15 @@ if not raw_data_all.empty:
                         # display — NOT the true community average (that would require averaging
                         # individual scores, not scoring the averaged inputs), so shown in quotes
                         # and never saved anywhere.
-                        time_est_txt = "—"
-                        if def_c_time:
-                            try:
-                                time_est = calculate_time_score(float(def_c_time), 0, selected_date)
-                                if time_est is not None:
-                                    time_est_txt = f'"{time_est:,.0f}"'
-                            except ValueError:
-                                pass
-
-                        geo_est_txt = "—"
-                        dist_val_parsed, dist_unit_parsed = parse_distance_input(def_c_dist, default_unit="mi")
-                        if dist_val_parsed is not None and dist_unit_parsed is not None:
-                            geo_est_txt = f'"{geography_score(distance_to_meters(dist_val_parsed, dist_unit_parsed), selected_date):,.0f}"'
+                        # Both are scaled so geo + time equals the round score.
+                        time_est_txt, geo_est_txt = "—", "—"
+                        if row_r is not None:
+                            g_est, t_est = community_geo_time_est(row_r.get("Community Geography Distance"),
+                                                                  row_r.get("Community Time Distance"),
+                                                                  row_r.get("Community Round Score"), selected_date,
+                                                                  (row_r.get("Community Geography Score"), row_r.get("Community Time Score")))
+                            if t_est is not None: time_est_txt = f'"{t_est:,.0f}"'
+                            if g_est is not None: geo_est_txt = f'"{g_est:,.0f}"'
 
                         st.markdown(f'''<div style="background:#eef0f2; border-radius:10px; padding:10px 14px; border-left:4px solid #6c757d; box-shadow:0 2px 6px rgba(0,0,0,0.08); margin-top:2px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
