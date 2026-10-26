@@ -406,7 +406,11 @@ def _load_averages_csv():
         for c in _AVERAGES_CSV_COLS:
             if c not in df.columns:
                 df[c] = np.nan
-        return df[_AVERAGES_CSV_COLS]
+        # Keep any extra columns (e.g. the Old/New community score estimates
+        # added by Score_Update) after the standard ones, so re-saving never
+        # drops them.
+        extras = [c for c in df.columns if c not in _AVERAGES_CSV_COLS]
+        return df[_AVERAGES_CSV_COLS + extras]
     return pd.DataFrame(columns=_AVERAGES_CSV_COLS)
 
 
@@ -423,7 +427,7 @@ def _ensure_averages_day_rows(df, day):
     missing = [r for r in range(1, 6) if r not in existing_rounds]
     if missing:
         new_rows = pd.DataFrame([
-            {**{c: np.nan for c in _AVERAGES_CSV_COLS}, "Timeguessr Day": day, "Timeguessr Round": r}
+            {**{c: np.nan for c in df.columns}, "Timeguessr Day": day, "Timeguessr Round": r}
             for r in missing
         ])
         df = pd.concat([df, new_rows], ignore_index=True)

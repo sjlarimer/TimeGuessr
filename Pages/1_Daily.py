@@ -415,11 +415,26 @@ st.markdown(SUBMISSION_STYLES, unsafe_allow_html=True)
 
 # --- Data Loading ---
 @st.cache_data
-def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0, require_both: bool = True) -> pd.DataFrame:
+def load_data(filepath: str = "./Data/Timeguessr_Stats.csv", mtime: float = 0, require_both: bool = True, system: str = "Real") -> pd.DataFrame:
     try:
         data = pd.read_csv(filepath)
         data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
         data = data.sort_values("Date").reset_index(drop=True)
+        if system in ("Old", "New"):
+            # Re-score the whole history under one system: every score column
+            # becomes its "(Old)"/"(New)" version (blank where that system
+            # can't be computed, e.g. squares-only rounds). Community round
+            # score/average were recorded in each day's own system and can't
+            # be converted, so they're dropped.
+            for p in ["Michael", "Sarah"]:
+                for stem in ["Geography Score", "Geography Score (Min)", "Geography Score (Max)",
+                             "Time Score", "Time Score (Min)", "Time Score (Max)",
+                             "Round Score", "Total Score"]:
+                    alt = f"{p} {stem} ({system})"
+                    data[f"{p} {stem}"] = data[alt] if alt in data.columns else np.nan
+            for c in ("Community Round Score", "Community Average"):
+                if c in data.columns:
+                    data[c] = np.nan
         for p in ["Michael", "Sarah"]:
             t_col = f"{p} Total Score"
             if t_col in data.columns and data[t_col].dtype == object:
@@ -592,9 +607,9 @@ TIME_RANGES = {
 # Scoring formulas changed on this date; days on/after it use the new ones.
 NEW_SCORING_START = datetime.date(2026, 10, 19)
 
-# Set (per script run) when the sidebar Old/New toggle shows a day under the
-# system it wasn't played in; forces the formula used by the community
-# estimates regardless of the date passed in.
+# Set (per script run) by the sidebar Real/Old/New selector; when "Old" or
+# "New", forces that scoring formula (used by the community estimates)
+# regardless of the date passed in. None = Real (formula chosen by date).
 _SCORING_OVERRIDE = None
 
 def _uses_new_scoring(date):
@@ -907,29 +922,6 @@ _SYSTEM_SWAP_STEMS = ["Geography Score", "Geography Score (Min)", "Geography Sco
                       "Time Score", "Time Score (Min)", "Time Score (Max)",
                       "Round Score", "Total Score"]
 
-def alt_scores_available(date_rows, system, players):
-    """True when every given player has a fully populated Total Score under
-    `system` ("Old"/"New") for this day (needs all 5 rounds with exact
-    year/distance data)."""
-    if date_rows.empty or not players: return False
-    row_0 = date_rows.iloc[0]
-    return all(pd.notna(row_0.get(f"{p} Total Score ({system})")) for p in players)
-
-def rows_in_system(date_rows, system, players):
-    """Copy of date_rows with each player's score columns replaced by their
-    `system` versions. Community round/total scores were recorded under the
-    day's own system and can't be converted, so they're blanked."""
-    out = date_rows.copy()
-    for p in players:
-        for stem in _SYSTEM_SWAP_STEMS:
-            alt = f"{p} {stem} ({system})"
-            if alt in out.columns:
-                out[f"{p} {stem}"] = out[alt]
-    for c in ("Community Round Score", "Community Average"):
-        if c in out.columns:
-            out[c] = np.nan
-    return out
-
 def _ordinal(n):
     suf = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suf}"
@@ -1103,7 +1095,7 @@ def render_score_headline(stats):
         return ""
     return f'<div class="wm-win-size">{" &middot; ".join(parts)}</div>'
 
-def render_score_percentile_block(stats):
+def render_score_percentile_block(stats, title="Score Percentile", noun="score"):
     if not stats:
         return ""
     rows = ""
@@ -1119,17 +1111,17 @@ def render_score_percentile_block(stats):
             vals += f'<span style="color:{color};">{info["pct"]:.1f}%</span>'
             direction = "best" if info["pct"] >= 90 else ("worst" if info["pct"] <= 10 else None)
             if direction:
-                notes += _rank_record_note(info.get("record"), direction, "score", color=color)
+                notes += _rank_record_note(info.get("record"), direction, noun, color=color)
         rows += (f'<div class="hbar-row"><span class="hbar-lbl" style="color:#767676;">All</span>'
                  f'<div class="pct-bar-track">{markers}</div>'
                  f'<span class="hbar-lbl wm-all-vals">{vals}</span></div>{notes}')
     for p, color in [("Michael", "#221e8f"), ("Sarah", "#8a005c")]:
         s = stats.get(p)
         if not s: continue
-        rows += _pct_bar_row(p[0], color, s["pct"], s.get("record"), "best", "worst", "score")
+        rows += _pct_bar_row(p[0], color, s["pct"], s.get("record"), "best", "worst", noun)
     if not rows:
         return ""
-    return f'<div class="hbar-group wm-group"><div class="bar-section-title">Score Percentile</div>{rows}</div>'
+    return f'<div class="hbar-group wm-group"><div class="bar-section-title">{title}</div>{rows}</div>'
 
 DAILY_SNAPSHOT_CSS = """
 <style>
@@ -1882,45 +1874,22 @@ def new_pb_badge_html(cur, prev_block):
         sub = f'<div class="ws-badge-sub">Old record was <b>{prev_best}</b>{span} &middot; beaten by <b>+{cur - prev_best}</b></div>'
     return f'<div class="ws-badge-row"><span class="ws-badge ws-badge-record">\U0001f3c5 New Personal Best</span>{sub}</div>'
 
-def render_momentum_box(df, window, label):
-    """A rolling-average momentum box: yesterday's reading, today's shift,
-    and where that leaves the average — front and center — then how many
-    days running the same player has held that average, and the swing still
-    needed to flip it."""
-    if len(df) < window:
-        return f'<div class="fc-mom-box"><div class="fc-section-title-row"><span class="fc-mom-label">{label}</span></div><div class="fc-mom-empty">Not enough data</div></div>'
-
+def render_rolling_headline(df, window=5):
+    """The rolling average's lead, front and center at the top of the Rolling
+    Avg card (same spot/style as the Wins card's win headline), with a small
+    note below it: yesterday -> today and the swing, plus the exact next-game
+    margin that would flip it. Returns (headline_html, flip_badge_html) — the
+    badge flags a lead change today and sits next to the streak title, like
+    the Win Streak's streak-ended badge."""
+    if len(df) < window: return "", ""
     roll = df["Score Diff"].rolling(window=window).mean()
     r = roll.iloc[-1]
-    if pd.isna(r):
-        return f'<div class="fc-mom-box"><div class="fc-section-title-row"><span class="fc-mom-label">{label}</span></div><div class="fc-mom-empty">Not enough data</div></div>'
+    if pd.isna(r): return "", ""
 
     leader = get_leader_state(r)
     color = leader_color(leader)
-    leader_label = "Tied" if leader == "Tie" else leader
-
-    # Yesterday's reading, today's shift, and where that leaves it — the full
-    # before/shift/after picture instead of just today's resulting value.
     prev_r = roll.iloc[-2] if len(roll) >= 2 else float("nan")
-    if pd.notna(prev_r):
-        prev_color = leader_color(get_leader_state(prev_r))
-        shift = r - prev_r
-        shift_dir = "Michael" if shift > 0 else ("Sarah" if shift < 0 else None)
-        shift_color = leader_color(shift_dir) if shift_dir else "#999"
-        shift_sign = "+" if shift > 0 else ("-" if shift < 0 else "")
-        shift_html = (f'<div class="mom-trend">'
-                      f'<span class="mom-trend-val" style="color:{prev_color};">{abs(prev_r):,.0f}</span>'
-                      f'<span class="mom-trend-arrow">&rarr;</span>'
-                      f'<span class="mom-trend-val" style="color:{color};">{abs(r):,.0f}</span></div>'
-                      f'<div class="mom-avg-val" style="color:{shift_color}; font-size:16px;">{shift_sign}{abs(shift):,.0f}</div>'
-                      f'<div class="mom-avg-unit">swing today</div>')
-    else:
-        shift_html = f'<div class="mom-avg-val" style="color:{color};">{abs(r):,.0f}</div><div class="mom-avg-unit">avg lead (first reading)</div>'
 
-    # If the leader changed today, flag it and say how long the run that
-    # just ended lasted — same story the Momentum feed tells, surfaced here
-    # as a badge next to the window label (not a bubble in the body) so it
-    # never adds height and knocks the Total/Geo/Time cards out of alignment.
     flip_badge_html = ""
     if pd.notna(prev_r):
         prev_leader = get_leader_state(prev_r)
@@ -1936,40 +1905,27 @@ def render_momentum_box(df, window, label):
                 flip_text = f"ended {prev_leader}&#39;s {run_len}-{unit} run — now tied"
             else:
                 flip_text = f"ended {prev_leader}&#39;s {run_len}-{unit} run"
-            flip_badge_html = f'<span class="fc-section-badge fc-badge-emoji" title="Flipped · {flip_text}">\U0001f504</span>'
-    label_row = f'<div class="fc-section-title-row"><span class="fc-mom-label">{label}</span>{flip_badge_html}</div>'
+            flip_badge_html = f'<span class="fc-section-badge fc-badge-emoji" title="Flipped · {flip_text}">🔄</span>'
 
     if leader == "Tie":
-        return (f'<div class="fc-mom-box">{label_row}'
-                f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>{shift_html}</div>')
+        return '<div class="wm-win-size" style="color:#999;">Tied</div>', flip_badge_html
 
-    # How many consecutive most-recent days this same player has led the
-    # rolling average — walk backward from today until the leader changes.
-    days_controlled = 0
-    for v in roll.iloc[::-1]:
-        if pd.isna(v) or get_leader_state(v) != leader: break
-        days_controlled += 1
+    headline = f'<div class="wm-win-size"><span style="color:{color};">{leader}</span> leads by <b>{abs(r):,.0f}</b></div>'
 
-    # The exact next-single-game margin that would flip the rolling average.
-    # Usually the trailing player needs an outright win of this size — but if
-    # the games left in the window are lopsided enough, even a smaller loss
-    # for today's leader is enough to flip it, so state whichever is true.
+    notes = []
+    if pd.notna(prev_r):
+        shift = r - prev_r
+        sign = "+" if shift > 0 else ("-" if shift < 0 else "")
+        notes.append(f'{abs(prev_r):,.0f} &rarr; {abs(r):,.0f} ({sign}{abs(shift):,.0f} today)')
+    # The exact next-single-game margin that would flip the average — usually
+    # an outright win by the trailing player, but if the games left in the
+    # window are lopsided enough, even a smaller loss for the leader does it.
     b = -df.tail(window - 1)["Score Diff"].sum()
     opponent = "Sarah" if leader == "Michael" else "Michael"
-    opp_color = leader_color(opponent)
     needs_win = (leader == "Michael" and b < 0) or (leader == "Sarah" and b > 0)
-    if needs_win:
-        swing_val, swing_lbl = f"{abs(b):,.0f}+", f"{opponent} win flips it"
-    else:
-        swing_val, swing_lbl = f"&lt;{abs(b):,.0f}", f"{opponent} loss flips it"
-
-    return (f'<div class="fc-mom-box">{label_row}'
-            f'<div class="mom-leader-name" style="color:{color};">{leader_label}</div>'
-            f'{shift_html}'
-            f'<div class="mom-stats-row">'
-            f'<div class="mom-stat"><div class="mom-stat-val">{days_controlled}d</div><div class="mom-stat-lbl">Controlled</div></div>'
-            f'<div class="mom-stat"><div class="mom-stat-val" style="color:{opp_color};">{swing_val}</div><div class="mom-stat-lbl">{swing_lbl}</div></div>'
-            f'</div></div>')
+    notes.append(f'{opponent} win of {abs(b):,.0f}+ flips it' if needs_win else f'{opponent} loss of under {abs(b):,.0f} flips it')
+    note_html = f'<div class="wm-record-note" style="text-align:center; margin:-8px 12px 8px 12px;">{" &middot; ".join(notes)}</div>'
+    return headline + note_html, flip_badge_html
 
 def render_rolling_avg_run_block(df, window, label):
     """The Win Streak block's exact treatment (flame + big count + player,
@@ -2046,12 +2002,54 @@ def render_rolling_avg_run_block(df, window, label):
 
     return f'<div class="fc-run-block"><div class="ws-block">{head}{body}</div></div>'
 
+def compute_rolling_margin_stats(df, window):
+    """Win-percentile-style stats for the rolling average's lead: today's
+    |rolling avg of Score Diff| ranked against every earlier reading of that
+    same window (All), and against only the readings led by the same player.
+    Reuses compute_win_margin_stats on a frame whose "Score Diff" is the
+    rolling average itself."""
+    roll = df.sort_values("Date")["Score Diff"].rolling(window=window).mean()
+    pop = pd.DataFrame({"Date": df.sort_values("Date")["Date"].values, "Score Diff": roll.values}).dropna(subset=["Score Diff"])
+    if pop.empty: return None
+    return compute_win_margin_stats(pop, pop["Date"].iloc[-1])
+
+def render_rolling_margin_block(stats):
+    """Rolling Avg Margin Percentile block (All + leader bar), mirroring the
+    Wins card's Win Percentile block."""
+    if not stats: return ""
+    leader = stats["winner"]
+    lbl = "M" if leader == "Michael" else ("S" if leader == "Sarah" else None)
+    color = "#221e8f" if leader == "Michael" else ("#8a005c" if leader == "Sarah" else "#999")
+    rows = _pct_bar_row("All", "#6c757d", stats["pct_all"], stats["record_all"], "largest", "tightest", "lead")
+    if lbl:
+        rows += _pct_bar_row(lbl, color, stats["pct_winner"], stats["record_winner"], "largest", "tightest", "lead")
+    if not rows: return ""
+    return f'<div class="hbar-group wm-group"><div class="bar-section-title">Margin Percentile</div>{rows}</div>'
+
+def compute_rolling_score_stats(df, cat, window=5):
+    """Each player's rolling-average score (over `window` games) as of the
+    last row of df, with the same percentile treatment as the Score card —
+    ranked against every earlier reading of their own rolling average, and
+    against both players' readings combined. Returns None until a full
+    window exists."""
+    d = df.sort_values("Date").reset_index(drop=True)
+    cols = [f"Michael {cat}", f"Sarah {cat}"]
+    if any(c not in d.columns for c in cols): return None
+    rolled = d[["Date"]].copy()
+    for c in cols:
+        rolled[c] = d[c].rolling(window=window).mean()
+    rolled = rolled.dropna(subset=cols, how="all")
+    rolled = rolled[rolled[cols].notna().any(axis=1)]
+    if rolled.empty: return None
+    return compute_score_percentile_stats(rolled, rolled["Date"].iloc[-1], cat)
+
 def get_full_category_forecast(df, cat):
     if len(df) < 5: return None
-    mom5_html = render_momentum_box(df, 5, "5-Game Avg")
-    mom10_html = render_momentum_box(df, 10, "10-Game Avg")
-    mom5_run_html = render_rolling_avg_run_block(df, 5, "5-Game")
-    mom10_run_html = render_rolling_avg_run_block(df, 10, "10-Game")
+    rs_stats = compute_rolling_score_stats(df, cat, 5)
+    rs_html = render_score_headline(rs_stats) + render_score_percentile_block(rs_stats, "Rolling Score Percentile", "avg") if rs_stats else ""
+    mom_headline_html, mom_flip_badge_html = render_rolling_headline(df, 5)
+    mom_run_html = render_rolling_avg_run_block(df, 5, "Rolling Win Margin")
+    rm_html = render_rolling_margin_block(compute_rolling_margin_stats(df, 5))
 
     n_rows = len(df)
     ms, sw, cs = {"Michael": 0, "Sarah": 0}, None, 0
@@ -2250,8 +2248,8 @@ def get_full_category_forecast(df, cat):
     else:
         self_sh = ""
         self_broken_badges_html = ""
-    return {"category": cat, "mom5_html": mom5_html, "mom10_html": mom10_html,
-            "mom5_run_html": mom5_run_html, "mom10_run_html": mom10_run_html,
+    return {"category": cat, "rm_html": rm_html, "rs_html": rs_html, "mom_headline_html": mom_headline_html,
+            "mom_flip_badge_html": mom_flip_badge_html, "mom_run_html": mom_run_html,
             "vs_streak_html": vs_sh, "self_streak_html": self_sh,
             "vs_broken_badge_html": vs_broken_badge_html, "self_broken_badges_html": self_broken_badges_html}
 
@@ -2267,7 +2265,7 @@ def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=No
     bars_by_cat = bars_by_cat or {}
 
     by_cat = {f['category']: f for f in fs_list if f}
-    wins_cards, momentum_cards, score_cards = [], [], []
+    wins_cards, momentum_cards, score_cards, rolling_score_cards = [], [], [], []
     for cat in FORECAST_ORDER:
         f = by_cat.get(cat)
         if not f: continue
@@ -2283,28 +2281,26 @@ def render_forecast_section(fs_list, win_margin_by_cat=None, score_pct_by_cat=No
         vs_badges = f'<div class="fc-section-badges">{f["vs_broken_badge_html"]}</div>' if f["vs_broken_badge_html"] else ""
         vs_title_row = f'<div class="fc-section-title-row"><span class="fc-streaks-title">Win Streak</span>{vs_badges}</div>'
         wins_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Wins</span></div>{wm_headline_html}{wm_html}<div class="fc-streaks">{vs_title_row}{f['vs_streak_html'] or empty.format('No active streak.')}</div></div>""")
-        # Rolling Average: the 5-/10-game momentum boxes, then how many days
-        # running each window's lead has held — the same "Controlled" figure
-        # shown in the momentum box, but given the Win Streak block's full
-        # treatment (PB, Nth time reached, last hit, extended vs ended).
-        mom_runs_html = f['mom5_run_html'] + f['mom10_run_html']
-        mom_title_row = '<div class="fc-section-title-row"><span class="fc-streaks-title">Rolling Avg Streak</span></div>'
-        momentum_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Rolling Avg</span></div><div class="fc-momentum-grid">{f['mom5_html']}{f['mom10_html']}</div><div class="fc-streaks">{mom_title_row}{mom_runs_html or empty.format('No active streak.')}</div></div>""")
+        # Rolling Win Margin (5-game): laid out like the Wins card — the lead
+        # front and center, its margin percentile, then the lead's streak
+        # with a lead-flip badge next to the streak title.
+        mom_badges = f'<div class="fc-section-badges">{f["mom_flip_badge_html"]}</div>' if f["mom_flip_badge_html"] else ""
+        mom_title_row = f'<div class="fc-section-title-row"><span class="fc-streaks-title">Rolling Win Margin Streak</span>{mom_badges}</div>'
+        rolling_score_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Rolling Score</span></div>{f['rs_html']}</div>""")
+        momentum_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Rolling Win Margin</span></div>{f['mom_headline_html']}{f['rm_html']}<div class="fc-streaks">{mom_title_row}{f['mom_run_html'] or empty.format('No active streak.')}</div></div>""")
         # Score: Michael's/Sarah's actual scores front and center (same spot
         # as the Wins card's win headline), then the per-round M/S/C
         # comparison bars, then each player's own score percentile against
-        # their own history, then their active run against a fixed score
-        # threshold — all in one card now, no separate "leader" outline on
-        # any of it.
+        # their own history — all in one card now, no separate "leader"
+        # outline on any of it.
         sh_html = render_score_headline(score_pct_by_cat.get(cat))
         rs_html = bars_by_cat.get(cat, "")
         sp_html = render_score_percentile_block(score_pct_by_cat.get(cat))
-        self_badges = f'<div class="fc-section-badges">{f["self_broken_badges_html"]}</div>' if f["self_broken_badges_html"] else ""
-        self_title_row = f'<div class="fc-section-title-row"><span class="fc-streaks-title">Active Score Runs</span>{self_badges}</div>'
-        score_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Score</span></div>{sh_html}{rs_html}{sp_html}<div class="fc-streaks">{self_title_row}{f['self_streak_html'] or empty.format('No active runs.')}</div></div>""")
+        score_cards.append(f"""<div class="forecast-card score-card {bc}"><div class="fc-header score-card-header"><span class="fc-icon">{ic}</span><span class="fc-title">{px} Score</span></div>{sh_html}{rs_html}{sp_html}</div>""")
 
     html = ('<div class="forecast-container">'
             f'<div class="forecast-row">{"".join(score_cards)}</div>'
+            f'<div class="forecast-row">{"".join(rolling_score_cards)}</div>'
             f'<div class="forecast-row">{"".join(momentum_cards)}</div>'
             f'<div class="forecast-row">{"".join(wins_cards)}</div>'
             '</div>')
@@ -2485,7 +2481,7 @@ def render_daily_news(dt, round_list=None):
     return render_round_strip(round_list or [], dom_id=day_id)
 
 @st.cache_data
-def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
+def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float, system: str = "Real"):
     """The momentum/streak/record "news" feed is derived entirely
     from Timeguessr_Stats.csv (via `_raw_data`) — it doesn't depend on any
     widget state — but computing it means ~20 full-history passes (one
@@ -2507,14 +2503,21 @@ def _compute_daily_feed_data(_raw_data: pd.DataFrame, mtime: float):
     return df_t, df_tm, df_g, round_updates
 
 stats_mtime = os.path.getmtime("./Data/Timeguessr_Stats.csv") if os.path.exists("./Data/Timeguessr_Stats.csv") else 0
-raw_data = load_data(mtime=stats_mtime)
+# Real / Old / New scoring selector (sidebar). "Real" = scores as the game
+# actually awarded them; "Old"/"New" re-score every day under that one system.
+score_system = st.session_state.get("score_system", "Real")
+_SCORING_OVERRIDE = score_system if score_system in ("Old", "New") else None
+raw_data = load_data(mtime=stats_mtime, system=score_system)
 # Momentum/streak/record tracking (df_t/df_tm/df_g below) needs both players'
 # data to mean anything, so it keeps using the both-required `raw_data`.
 # Per-day rendering (score boxes, Actuals, bars) needs to work even when only
 # one player has submitted, so it uses this unfiltered version instead.
-raw_data_all = load_data(mtime=stats_mtime, require_both=False)
+raw_data_all = load_data(mtime=stats_mtime, require_both=False, system=score_system)
+# Always-real copy: Edit mode and "has the community submitted" checks must
+# see the recorded data, never a re-scored version.
+raw_data_all_real = load_data(mtime=stats_mtime, require_both=False) if score_system != "Real" else raw_data_all
 if not raw_data_all.empty:
-    df_t, df_tm, df_g, round_updates = _compute_daily_feed_data(raw_data, stats_mtime)
+    df_t, df_tm, df_g, round_updates = _compute_daily_feed_data(raw_data, stats_mtime, score_system)
 
     with st.sidebar:
         st.markdown("<h2 style='text-align:center;'>Settings</h2>", unsafe_allow_html=True)
@@ -2547,6 +2550,7 @@ if not raw_data_all.empty:
 
     sel_ts = pd.Timestamp(selected_date)
     date_rows = raw_data_all[raw_data_all["Date"] == sel_ts]
+    date_rows_real = raw_data_all_real[raw_data_all_real["Date"] == sel_ts]
 
     # Momentum/win-margin stats reflect the state as of the selected date — if
     # that date hasn't been completed (no row for it yet, since df_t/df_tm/df_g
@@ -2598,8 +2602,13 @@ if not raw_data_all.empty:
             st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
         st.session_state["last_viewed_timeguessr_day"] = timeguessr_day
 
+        # Edit mode always works on the recorded (Real) data.
+        if is_page_edit:
+            date_rows = date_rows_real
+            _SCORING_OVERRIDE = None
         row_for_stats = date_rows.iloc[0] if not date_rows.empty else None
-        has_community = row_for_stats is not None and pd.notna(row_for_stats.get("Community Average"))
+        _real_row = date_rows_real.iloc[0] if not date_rows_real.empty else None
+        has_community = _real_row is not None and pd.notna(_real_row.get("Community Average"))
         if has_community and not is_page_edit:
             for r_idx in range(1, 6):
                 for k in [f"cs_{r_idx}_{selected_date}", f"ct_{r_idx}_{selected_date}", f"cd_{r_idx}_{selected_date}", f"cu_{r_idx}_{selected_date}"]:
@@ -2676,22 +2685,6 @@ if not raw_data_all.empty:
         # Sarah + Community), rendered at the top of the sidebar Settings panel
         # as a View/Edit segmented button pair, matching the Comparison page's
         # settings style (Cross/Self, Scores/Win Margins, etc.). ---
-        # Old/New scoring toggle: defaults to the system the day was actually
-        # scored under; only offered in View mode, and only when the other
-        # system can be computed for every player who played.
-        _SCORING_OVERRIDE = None
-        actual_sys = "New" if _uses_new_scoring(sel_ts) else "Old"
-        alt_sys = "Old" if actual_sys == "New" else "New"
-        played = [p for p in ("Michael", "Sarah") if p_state[p]['has_g']]
-        score_sys_key = f"score_sys_{selected_date}"
-        show_sys_toggle = (not st.session_state.get(f"edit_page_{selected_date}", False)
-                           and alt_scores_available(date_rows, alt_sys, played))
-        score_sys = st.session_state.get(score_sys_key, actual_sys) if show_sys_toggle else actual_sys
-        if score_sys != actual_sys:
-            date_rows = rows_in_system(date_rows, score_sys, played)
-            _SCORING_OVERRIDE = score_sys
-            row_for_stats = date_rows.iloc[0]
-
         any_submitted = act_exists or p_state["Michael"]['has_g'] or p_state["Sarah"]['has_g'] or has_community
         edit_page = True
         if any_submitted:
@@ -2708,14 +2701,13 @@ if not raw_data_all.empty:
                                  type="primary" if edit_page else "secondary"):
                         st.session_state[f"edit_page_{selected_date}"] = True
                         st.rerun()
-                if show_sys_toggle:
-                    _sc1, _sc2 = st.columns(2)
-                    for _col, _sys in ((_sc1, "Old"), (_sc2, "New")):
-                        with _col:
-                            if st.button(_sys, key=f"score_sys_btn_{_sys}_{selected_date}", use_container_width=True,
-                                         type="primary" if score_sys == _sys else "secondary"):
-                                st.session_state[score_sys_key] = _sys
-                                st.rerun()
+                _sc1, _sc2, _sc3 = st.columns(3)
+                for _col, _sys in ((_sc1, "Real"), (_sc2, "Old"), (_sc3, "New")):
+                    with _col:
+                        if st.button(_sys, key=f"score_sys_btn_{_sys}_{selected_date}", use_container_width=True,
+                                     type="primary" if score_system == _sys else "secondary"):
+                            st.session_state["score_system"] = _sys
+                            st.rerun()
         if not date_rows.empty and both_played:
             bars_by_cat = render_score_bars(date_rows)
         edit_act = True if not act_exists else edit_page

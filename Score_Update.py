@@ -26,7 +26,7 @@ def new_geo_score(dist_m):
     return round(5000 * np.exp(-(d / 6000) ** 0.62 - (d / 3000) ** 1.5))
 
 def old_time_score(years_off):
-    y = int(round(abs(float(years_off))))
+    y = int(abs(float(years_off)))
     if y == 0: return 5000
     elif y == 1: return 4950
     elif y == 2: return 4800
@@ -41,6 +41,65 @@ def old_time_score(years_off):
 
 def new_time_score(years_off):
     return round(5000 / (1 + (abs(float(years_off)) / 12) ** 2))
+
+PLAYER_STEMS = ["Geography Score", "Geography Score (Min)", "Geography Score (Max)",
+                "Time Score", "Time Score (Min)", "Time Score (Max)", "Round Score", "Total Score"]
+COMMUNITY_STEMS = ["Geography Score", "Time Score"]
+SYSTEMS = ["Old", "New"]
+KEY_COLS = ["Timeguessr Day", "Timeguessr Round"]
+
+def player_system_columns(player):
+    return [f"{player} {stem} ({sys})" for sys in SYSTEMS for stem in PLAYER_STEMS]
+
+def community_system_columns():
+    return [f"Community {stem} ({sys})" for sys in SYSTEMS for stem in COMMUNITY_STEMS]
+
+def _set_keeping_existing(df, col, values):
+    """Assign freshly computed values, but never blank a value that is already
+    stored (so previously recorded days survive if a later run can't recompute
+    them)."""
+    if col in df.columns:
+        values = values.combine_first(df[col])
+    df[col] = values
+
+def add_community_system_columns(df_avg):
+    """Estimated community Geography/Time scores under each system, derived
+    from the community's average distance / average years off (the same
+    estimate the Daily page shows). The recorded Community Round Score itself
+    cannot be converted between systems."""
+    for label, (geo_fn, time_fn) in {"Old": (old_geo_score, old_time_score), "New": (new_geo_score, new_time_score)}.items():
+        if "Community Geography Distance" in df_avg.columns:
+            geo = pd.Series(np.nan, index=df_avg.index)
+            m = df_avg["Community Geography Distance"].notna()
+            geo[m] = df_avg.loc[m, "Community Geography Distance"].map(geo_fn)
+            _set_keeping_existing(df_avg, f"Community Geography Score ({label})", geo)
+        if "Community Time Distance" in df_avg.columns:
+            tim = pd.Series(np.nan, index=df_avg.index)
+            m = df_avg["Community Time Distance"].notna()
+            tim[m] = df_avg.loc[m, "Community Time Distance"].map(time_fn)
+            _set_keeping_existing(df_avg, f"Community Time Score ({label})", tim)
+    return df_avg
+
+def persist_columns(path, source_df, cols):
+    """Write `cols` from source_df back into the CSV at `path`, matched on
+    Timeguessr Day + Round. Existing rows/columns are untouched apart from
+    these columns, and a stored value is kept when no fresh value exists, so
+    adding new days never overwrites old ones. Skips the write if nothing
+    changed (avoids bumping the file's mtime)."""
+    if not os.path.exists(path):
+        return
+    cols = [c for c in cols if c in source_df.columns]
+    cur = pd.read_csv(path)
+    if not cols or not all(k in cur.columns for k in KEY_COLS):
+        return
+    fresh = source_df[KEY_COLS + cols].drop_duplicates(KEY_COLS).set_index(KEY_COLS)
+    out = cur.copy().set_index(KEY_COLS)
+    for c in cols:
+        new = fresh[c].reindex(out.index)
+        out[c] = new.combine_first(out[c]) if c in out.columns else new
+    out = out.reset_index()
+    if not out.equals(cur):
+        out.to_csv(path, index=False)
 
 def add_system_score_columns(df_all):
     """Add "<Player> {Geography,Time,Round,Total} Score ... (Old)/(New)"
@@ -67,14 +126,10 @@ def add_system_score_columns(df_all):
             rnd = geo + tim
             total = rnd.groupby(df_all["Timeguessr Day"]).transform(
                 lambda s: s.sum() if (len(s) == 5 and s.notna().all()) else np.nan)
-            df_all[f"{player} Geography Score ({label})"] = geo
-            df_all[f"{player} Geography Score (Min) ({label})"] = geo
-            df_all[f"{player} Geography Score (Max) ({label})"] = geo
-            df_all[f"{player} Time Score ({label})"] = tim
-            df_all[f"{player} Time Score (Min) ({label})"] = tim
-            df_all[f"{player} Time Score (Max) ({label})"] = tim
-            df_all[f"{player} Round Score ({label})"] = rnd
-            df_all[f"{player} Total Score ({label})"] = total
+            for stem, vals in (("Geography Score", geo), ("Geography Score (Min)", geo), ("Geography Score (Max)", geo),
+                               ("Time Score", tim), ("Time Score (Min)", tim), ("Time Score (Max)", tim),
+                               ("Round Score", rnd), ("Total Score", total)):
+                _set_keeping_existing(df_all, f"{player} {stem} ({label})", vals)
     return df_all
 
 def score_update():
@@ -97,7 +152,12 @@ def score_update():
     if os.path.exists(stats_csv):
         source_mtimes = [os.path.getmtime(p) for p in source_csvs if os.path.exists(p)]
         if source_mtimes and os.path.getmtime(stats_csv) >= max(source_mtimes):
-            return
+            # Also rebuild if Stats lacks the Old/New columns (e.g. a data
+            # update from a machine without them overwrote the file).
+            have = set(pd.read_csv(stats_csv, nrows=0).columns)
+            needed = set(community_system_columns() + player_system_columns("Michael") + player_system_columns("Sarah"))
+            if needed <= have:
+                return
 
     df_michael = pd.read_csv(michael_csv)
     df_sarah   = pd.read_csv(sarah_csv)
@@ -114,6 +174,7 @@ def score_update():
         df_avg = pd.read_csv(AVERAGES_PARSED_CSV)
     else:
         df_avg = pd.DataFrame(columns=["Timeguessr Day", "Timeguessr Round"])
+    df_avg = add_community_system_columns(df_avg)
     df_all = pd.merge(df_all, df_avg, on=["Timeguessr Day", "Timeguessr Round"], how="left")
 
     if "Michael Time Distance" in df_all.columns and "Michael Time Guessed" in df_all.columns:
@@ -266,5 +327,12 @@ def score_update():
             df_all.loc[mask, round_col] = df_all.loc[mask, time_col] + df_all.loc[mask, geo_col]
 
     df_all = add_system_score_columns(df_all)
+
+    # Persist the Old/New columns into every source datasheet. Stats is
+    # written last so its mtime stays newer than all of them (otherwise the
+    # skip check at the top would rebuild on every run).
+    persist_columns(michael_csv, df_all, player_system_columns("Michael"))
+    persist_columns(sarah_csv, df_all, player_system_columns("Sarah"))
+    persist_columns(AVERAGES_PARSED_CSV, df_all, community_system_columns())
 
     df_all.to_csv("Data/Timeguessr_Stats.csv", index=False)
